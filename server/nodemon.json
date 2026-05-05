@@ -1,0 +1,6 @@
+{
+  "watch": ["index.js", "db/**/*", "game/**/*", "socket/**/*", ".env"],
+  "ext": "js,json,sql,env",
+  "ignore": ["node_modules", "data"],
+  "delay": 250
+}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Env / secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+
+# Old SQLite artifacts (in case they come back via better-sqlite3)
+server/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
