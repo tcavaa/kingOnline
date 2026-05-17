@@ -110,27 +110,21 @@ export function GameProvider({ children }) {
     trickTimers.current = []
   }
 
-  // ── Audio: preload + unlock on first user gesture ────────────────────────
-  // Browsers only allow audio playback when triggered by a user interaction.
-  // A fresh `new Audio()` created inside a socket-event handler is treated as
-  // un-primed, so playback is rejected with NotAllowedError — that's why
-  // sounds went silent for the leader once they started clicking modal
-  // buttons (each new Audio() needs its own gesture). Workaround: at provider
-  // mount, build one HTMLAudioElement per sound, and on the first real user
-  // pointerdown anywhere on the page, prime each one (play+pause) so the
-  // browser whitelists them. After that we just call .play() on the cached
-  // element from any source — it's already approved.
+  const SOUND_IDS = [
+    'yeehaw', 'gunshot', 'whistle',
+    'babi', 'giv', 'janmrteloba', 'ojaxi',
+    'sheilage', 'shemetxara', 'tsava',
+  ]
   const audioElsRef = useRef(null)
   if (!audioElsRef.current && typeof window !== 'undefined') {
-    audioElsRef.current = {
-      yeehaw:  new Audio('/sounds/yeehaw.mp3'),
-      gunshot: new Audio('/sounds/gunshot.mp3'),
-      whistle: new Audio('/sounds/whistle.mp3'),
-    }
-    Object.values(audioElsRef.current).forEach(a => {
+    const map = {}
+    for (const id of SOUND_IDS) {
+      const a = new Audio(`/sounds/${id}.mp3`)
       a.preload = 'auto'
       a.volume = 0.7
-    })
+      map[id] = a
+    }
+    audioElsRef.current = map
   }
 
   useEffect(() => {
@@ -139,11 +133,27 @@ export function GameProvider({ children }) {
     const unlock = () => {
       if (unlocked) return
       unlocked = true
+      // We need to call .play() on each element to convince the browser this
+      // gesture covers them, but .play() is async — there's a window between
+      // it starting and the .then(pause) firing where audio is audibly playing.
+      // Mute the element across that window so the user hears nothing during
+      // the priming pass, then restore the volume once it's safely paused.
       Object.values(audioElsRef.current || {}).forEach(a => {
-        // Prime each clip — play immediately then pause + reset.
-        a.play().then(() => { a.pause(); a.currentTime = 0 }).catch(() => {
-          /* not fatal, the next gesture will retry */ unlocked = false
-        })
+        const restore = () => {
+          a.pause()
+          a.currentTime = 0
+          a.muted = false
+        }
+        a.muted = true
+        const p = a.play()
+        if (p && typeof p.then === 'function') {
+          p.then(restore).catch(() => {
+            a.muted = false
+            unlocked = false
+          })
+        } else {
+          setTimeout(restore, 0)
+        }
       })
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown',     unlock)
@@ -270,11 +280,6 @@ export function GameProvider({ children }) {
       setLastTrickResult(null)
       setLastCenterCards([])
       setTrickAnimation(null)
-      // Defensive: a brand-new hand has just been dealt, so any leftover
-      // play-in-flight lock from the previous round is meaningless. Without
-      // this reset, the player who closed the previous round (whose stuck
-      // playPending the round-complete handler also clears, but only as a
-      // belt-and-suspenders measure) would never be able to play.
       setPlayPendingBoth(false)
       clearTrickTimers()
     })
@@ -405,14 +410,6 @@ export function GameProvider({ children }) {
       setCumulativeScores(cs)
       if (cc) setCardCounts(cc)
 
-      // BUG FIX: when a player plays the card that closes a round, the
-      // server emits *only* `round-complete` — not `card-played` and not
-      // `trick-complete`. Previously that meant the closer's `playPending`
-      // lock was never released, so on the next round their cards would be
-      // greyed out (isPlayableCard returns false while playPending is true)
-      // and they had to refresh to recover. Releasing the lock here closes
-      // that gap; the per-round `hand-dealt` reset is a belt-and-braces
-      // safety net for any other path that might land in the same state.
       setPlayPendingBoth(false)
 
       clearTrickTimers()
@@ -436,9 +433,19 @@ export function GameProvider({ children }) {
       setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 200)
       addToast(`${winner.name} wins!`, 'success')
 
-      // Persist this finished game to the local leaderboard — dedupe so a
-      // re-fired game-over event (HMR / strict mode / reconnect) doesn't
-      // create a duplicate row.
+      // Persist this finished game to the leaderboard. Two layers of dedupe:
+      //
+      //   1. `savedGameRef` blocks a re-fired event inside *this* browser
+      //      (HMR, React-strict-mode double-mount, socket reconnect → the
+      //      server can re-send `game-over` on a fresh `game-state` flush).
+      //
+      //   2. The `id` field below is computed deterministically from data
+      //      every player in the room sees identically (room code + winner
+      //      seat + final cumulative scores). All 3 browsers therefore POST
+      //      the same id, and the server's `INSERT IGNORE` on
+      //      `finished_games.id` silently drops the cross-browser duplicates.
+      //      Without this, a 3-player game produced up to 3 rows because
+      //      each browser independently calls POST /api/games.
       const dedupeKey = [
         winner?.name,
         ...(p || []).map(pl => `${pl.name}:${finalScores?.[pl.seat] ?? 0}`),
@@ -450,12 +457,18 @@ export function GameProvider({ children }) {
           seat: pl.seat, name: pl.name, avatar: pl.avatar || null,
           score: finalScores?.[pl.seat] ?? 0,
         }))
+        const scorePart = [0, 1, 2]
+          .map(s => finalScores?.[s] ?? 0)
+          .join('.')
+          .replace(/-/g, 'n') // keep the id matching VARCHAR(64) + safe charset
+        const sharedId = `g_${roomCodeRef.current || 'noroom'}_${winner?.seat ?? 0}_${scorePart}`
         saveGame({
+          id: sharedId,
           players: playerRecords,
           winner: { seat: winner?.seat, name: winner?.name, score: winner?.score },
           roundDetails: rd || [],
         })
-      } catch { /* ignore quota errors */ }
+      } catch { /* ignore network/quota errors */ }
     })
 
     // ── Sounds: a player triggered a saloon reaction ───────────────────
@@ -472,9 +485,17 @@ export function GameProvider({ children }) {
           a.play().catch(() => { /* still blocked — needs a fresh gesture */ })
         } catch { /* ignore */ }
       }
-      // Also flash a chat-bubble-style indicator above the targeted player
+      // Also flash a chat-bubble-style indicator above the targeted player.
+      // Built-in clips get an evocative label; user-added clips fall back to
+      // an upper-cased version of the id (e.g. "BABI", "JANMRTELOBA"), which
+      // is good enough until you want to customise each one.
       const target = typeof targetSeat === 'number' ? targetSeat : bySeat
-      const label = soundId === 'yeehaw' ? 'YEE-HAW!' : soundId === 'gunshot' ? '*BANG*' : '~ whistle ~'
+      const LABELS = {
+        yeehaw:  'YEE-HAW!',
+        gunshot: '*BANG*',
+        whistle: '~ whistle ~',
+      }
+      const label = LABELS[soundId] || soundId.toUpperCase()
       setChatBubbles(prev => ({ ...prev, [target]: { message: label, name: '', avatar: null } }))
       if (bubbleTimers.current[target]) clearTimeout(bubbleTimers.current[target])
       bubbleTimers.current[target] = setTimeout(() => {
@@ -607,10 +628,6 @@ export function GameProvider({ children }) {
   }, [])
 
   const playCard = useCallback((card) => {
-    // Ignore double-clicks / rapid-fire clicks while a play is in flight.
-    // Without this guard, every extra click optimistically removed *another*
-    // card from the hand — the server would only accept the first and reject
-    // the rest, leaving the local hand short until a refresh.
     if (playPendingRef.current) return
     setPlayPendingBoth(true)
     setHand(prev => sortHand(prev.filter(c => !(c.rank === card.rank && c.suit === card.suit))))

@@ -90,7 +90,7 @@ export default function GameLayout() {
   }, [])
 
   return (
-    <div className="relative w-screen h-screen h-screen-dvh overflow-hidden bg-black">
+    <div className="relative w-screen h-screen h-screen-dvh overflow-hidden bg-black safe-area-pad">
       <PhaserGame gameState={gameState} onCardPlay={handleCardPlay} />
 
       <TopBar

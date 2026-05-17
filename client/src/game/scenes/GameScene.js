@@ -466,31 +466,55 @@ export class GameScene extends Phaser.Scene {
    * the 3 saloon reactions for everyone in the room.
    */
   _addSoundButtons(container, seat, radius, isOwn) {
+    // Each button is a single character so 10 of them fit in a compact 2×5
+    // grid next to the avatar. `id` is the filename (matches the server
+    // ALLOWED_SOUNDS list). `glyph` is the on-button character.
     const SOUNDS = [
-      { id: 'yeehaw',  glyph: 'Y', color: 0xdaa520, bg: 0x4a2e1a },
-      { id: 'gunshot', glyph: '!', color: 0xd4574d, bg: 0x4a2e1a },
-      { id: 'whistle', glyph: '~', color: 0x6dbc4f, bg: 0x4a2e1a },
+      // built-in clips
+      { id: 'yeehaw',      glyph: 'Y', color: 0xdaa520 },
+      { id: 'gunshot',     glyph: '!', color: 0xd4574d },
+      { id: 'whistle',     glyph: '~', color: 0x6dbc4f },
+      // user-added reaction clips
+      { id: 'babi',        glyph: 'B', color: 0xf0a500 },
+      { id: 'giv',         glyph: 'G', color: 0x7fa7d6 },
+      { id: 'janmrteloba', glyph: 'J', color: 0xc084fc },
+      { id: 'ojaxi',       glyph: 'O', color: 0xfb923c },
+      { id: 'sheilage',    glyph: 'S', color: 0xa78bfa },
+      { id: 'shemetxara',  glyph: 'X', color: 0xf472b6 },
+      { id: 'tsava',       glyph: 'T', color: 0xfde047 },
     ]
-    // Stack vertically next to the avatar (own: to the right; opps: away from edge)
-    const side = isOwn ? 1 : (seat % 2 === 0 ? -1 : 1)
-    const baseX = (radius + 18) * side
-    SOUNDS.forEach((s, i) => {
-      const by = -18 + i * 18 // -18, 0, 18
-      const r = 11
 
-      const btn = this.add.container(baseX, by)
+    // 2-column grid: column 0 sits closest to the avatar, column 1 further out.
+    // Own (bottom) avatar: grid grows to the right. Opponents: grid grows
+    // outward toward the screen edge to keep cards/hand area unobscured.
+    const side = isOwn ? 1 : (seat % 2 === 0 ? -1 : 1)
+    const r = 10
+    const colGap = 24
+    const rowGap = 22
+    const baseX = (radius + 14) * side
+    // Centre the grid vertically on the avatar — 5 rows, midpoint between rows 2 and 3.
+    const rows = Math.ceil(SOUNDS.length / 2)
+    const yStart = -((rows - 1) * rowGap) / 2
+
+    SOUNDS.forEach((s, i) => {
+      const row = i % rows
+      const col = Math.floor(i / rows)
+      const bx = baseX + side * col * colGap
+      const by = yStart + row * rowGap
+
+      const btn = this.add.container(bx, by)
       const bg = this.add.graphics()
-      bg.fillStyle(s.bg, 1); bg.fillCircle(0, 0, r)
+      bg.fillStyle(0x4a2e1a, 1); bg.fillCircle(0, 0, r)
       bg.lineStyle(1.5, s.color, 0.95); bg.strokeCircle(0, 0, r)
       btn.add(bg)
       btn.add(this.add.text(0, 0, s.glyph, {
-        fontSize: '13px', color: '#fde9b8',
+        fontSize: '11px', color: '#fde9b8',
         fontFamily: 'Roboto Slab, Georgia, serif', fontStyle: 'bold',
       }).setOrigin(0.5))
       btn.setSize(r * 2, r * 2)
       btn.setInteractive({ useHandCursor: true })
       btn.on('pointerover', () => {
-        this.tweens.add({ targets: btn, scale: 1.18, duration: 90 })
+        this.tweens.add({ targets: btn, scale: 1.22, duration: 90 })
       })
       btn.on('pointerout', () => {
         this.tweens.add({ targets: btn, scale: 1, duration: 110 })

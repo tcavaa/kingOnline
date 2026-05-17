@@ -12,13 +12,21 @@ html, body, #root {
   /* Mobile browsers (Safari/Chrome) report `100vh` as the viewport size
      *including* the address bar — even when the bar is shown. That extra
      ~80–100px causes the bottom of the layout (last-trick button, hand,
-     status bar) to fall below the fold and the page looks "cropped". On
-     anything that supports `100dvh` we use the dynamic viewport, which
-     correctly excludes browser chrome and resizes as the user scrolls. The
-     plain `100vh` fallback keeps older browsers happy. */
+     status bar) to fall below the fold and the page looks "cropped".
+     Fallback ladder, last value wins where supported:
+       1. 100vh                      — every browser; ~~broken~~ on iOS
+       2. -webkit-fill-available     — iOS Safari < 15.4 (correct visible height)
+       3. 100dvh                     — iOS 15.4+, Chrome 108+, Firefox 108+
+     Note we use `min-height` on the body/root so flex columns can still
+     grow when content overflows. The in-game layout uses `height` (fixed)
+     via .h-screen-dvh because the table must never scroll. */
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   min-height: 100dvh;
 }
+
+/* Same chain for any descendants of #root that want fullscreen height. */
+html { height: -webkit-fill-available; }
 
 body {
   background: #1c100a;
@@ -35,7 +43,19 @@ body {
    working. */
 .h-screen-dvh {
   height: 100vh;
+  height: -webkit-fill-available;
   height: 100dvh;
+}
+
+/* Add safe-area insets so bottom-anchored HUD elements (Score Board pill,
+   Last Trick button, hand fan) sit above the iPhone home indicator and
+   the floating URL bar in Safari. Top inset covers the notch /
+   status bar. Values are 0 on devices without insets. */
+.safe-area-pad {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top:    env(safe-area-inset-top);
+  padding-left:   env(safe-area-inset-left);
+  padding-right:  env(safe-area-inset-right);
 }
 
 /* ── Western font families ─────────────────────────────────────────────────── */
