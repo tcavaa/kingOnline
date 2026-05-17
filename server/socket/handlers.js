@@ -314,7 +314,13 @@ function registerHandlers(io, socket, gameManager) {
   // play the audio file matching `soundId`. Server only validates the IDs.
   socket.on('play-sound', ({ soundId, targetSeat } = {}) => {
     try {
-      const ALLOWED_SOUNDS = new Set(['yeehaw', 'gunshot', 'whistle']);
+      const ALLOWED_SOUNDS = new Set([
+        // built-in saloon clips
+        'yeehaw', 'gunshot', 'whistle',
+        // user-added reaction clips (files in client/public/sounds/<id>.mp3)
+        'babi', 'giv', 'janmrteloba', 'ojaxi',
+        'sheilage', 'shemetxara', 'tsava',
+      ]);
       if (!ALLOWED_SOUNDS.has(soundId)) return;
       const mapping = gameManager.getMappingBySocketId(socketId);
       if (!mapping) return;
