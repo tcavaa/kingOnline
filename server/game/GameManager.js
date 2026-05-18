@@ -157,15 +157,25 @@ class GameManager {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error(`Room ${roomCode} not found.`);
 
-    // Reconnection by name when the game has already started.
-    if (room.status === 'playing' || room.status === 'finished') {
-      const existingPlayer = room.players.find(
-        (p) => p.name.toLowerCase() === playerName.toLowerCase()
-      );
-      if (!existingPlayer) {
-        throw new Error('Game has already started. Use the same name to reconnect.');
+    // Reconnection by name, in *every* phase including the `waiting` lobby.
+    // Switching tabs / a brief wifi blip makes socket.io reconnect with a
+    // fresh id and the client re-emits `join-room` (see GameContext). If
+    // we only matched names in `playing`/`finished`, a same-name rejoin
+    // during the lobby would fall through to the "create a new seat"
+    // branch below and the same human would be seated twice. The name
+    // check also has to ignore the `connected` flag, because under a race
+    // (new socket's `connect` is processed before the old socket's
+    // `disconnect`) the old row may still be marked connected.
+    const existingPlayer = room.players.find(
+      (p) => p.name.toLowerCase() === playerName.toLowerCase()
+    );
+
+    if (existingPlayer) {
+      // Cut the old socket's mapping loose so its eventual disconnect
+      // event (which we may not even get) can't mutate this player's row.
+      if (existingPlayer.id && existingPlayer.id !== socketId) {
+        this.socketRoomMap.delete(existingPlayer.id);
       }
-      this.socketRoomMap.delete(existingPlayer.id);
       existingPlayer.id = socketId;
       existingPlayer.connected = true;
       if (avatar && !existingPlayer.avatar) existingPlayer.avatar = avatar;
@@ -178,7 +188,14 @@ class GameManager {
       this.cancelRoomGrace(roomCode);
       console.log(`[GameManager] ${playerName} reconnected to room ${roomCode} as seat ${existingPlayer.seat}`);
       this._persist(roomCode);
-      return { seat: existingPlayer.seat, reconnected: true };
+      return { seat: existingPlayer.seat, reconnected: true, status: room.status };
+    }
+
+    // No existing seat for this name — must be a genuinely new sit-down.
+    // Reject if the game has already started; only the original 3 names
+    // can come back to a running table.
+    if (room.status === 'playing' || room.status === 'finished') {
+      throw new Error('Game has already started. Use the same name to reconnect.');
     }
 
     if (room.players.length >= 3) throw new Error('Room is full.');
@@ -189,7 +206,7 @@ class GameManager {
     this.socketRoomMap.set(socketId, { roomCode, seat });
     console.log(`[GameManager] ${playerName} joined room ${roomCode} as seat ${seat}`);
     this._persist(roomCode);
-    return { seat };
+    return { seat, status: room.status };
   }
 
   leaveRoom(socketId) {

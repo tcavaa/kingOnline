@@ -230,17 +230,20 @@ export function GameProvider({ children }) {
       setAppPhase('waiting')
     })
 
-    socket.on('room-joined', ({ roomCode: code, seat, reconnected }) => {
+    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(seat === 0)
       if (reconnected) {
-        setAppPhase('game')
-        // Server has re-bound this socket to the existing seat — clear the
-        // banner. The follow-up `game-state` event will rehydrate the
-        // table from the server's authoritative snapshot.
+        // Server re-bound this socket to the existing seat. Pick the
+        // right screen based on whether the room had already started —
+        // a tab-switch during the lobby should drop us back onto
+        // WaitingRoom, not flash the empty game UI. For an in-game
+        // reconnect, the follow-up `game-state` event will rehydrate
+        // the table from the server's authoritative snapshot.
+        setAppPhase(status === 'waiting' ? 'waiting' : 'game')
         hadDisconnectRef.current = false
         setReconnecting(false)
       } else {

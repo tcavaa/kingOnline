@@ -40,11 +40,14 @@ function registerHandlers(io, socket, gameManager) {
       if (!gameManager.getRoom(rc)) {
         await gameManager.tryLoadFromDB(rc);
       }
-      const { seat, reconnected } = gameManager.joinRoom(rc, socketId, playerName.trim(), avatar || null);
+      const { seat, reconnected, status } = gameManager.joinRoom(rc, socketId, playerName.trim(), avatar || null);
       socket.join(rc);
 
       if (reconnected) {
-        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true });
+        // `status` tells the client which screen to land on — a lobby
+        // reconnect should stay on WaitingRoom, an in-game reconnect
+        // should rehydrate the table.
+        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status });
         const room = gameManager.getRoom(rc);
         const state = gameManager.getStateForPlayer(rc, seat);
         if (state) {
@@ -60,7 +63,7 @@ function registerHandlers(io, socket, gameManager) {
         return;
       }
 
-      socket.emit('room-joined', { roomCode: rc, seat });
+      socket.emit('room-joined', { roomCode: rc, seat, status });
       const room = gameManager.getRoom(rc);
       io.to(rc).emit('player-joined', {
         players: playersView(room.players),
