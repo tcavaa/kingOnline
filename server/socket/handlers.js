@@ -323,6 +323,8 @@ function registerHandlers(io, socket, gameManager) {
         // user-added reaction clips (files in client/public/sounds/<id>.mp3)
         'babi', 'giv', 'janmrteloba', 'ojaxi',
         'sheilage', 'shemetxara', 'tsava',
+        // newer Georgian reaction clips
+        'Dedofali', 'Male!', 'Revia', 'Tazik',
       ]);
       if (!ALLOWED_SOUNDS.has(soundId)) return;
       const mapping = gameManager.getMappingBySocketId(socketId);

@@ -275,13 +275,47 @@ async function listLiveGames() {
   return out;
 }
 
+/**
+ * Aggregate every finished game into a per-player leaderboard. Same shape
+ * the client computes locally for the Hall of Fame view (wins, games
+ * played, total cumulative score, best/worst single-game score), exposed
+ * server-side so external API consumers don't have to fetch every game.
+ *
+ * Returned rows are sorted by wins desc, then total score desc.
+ */
+async function getPublicLeaderboard() {
+  const games = await listGames(200);
+  const tally = new Map();
+  for (const g of games) {
+    for (const p of g.players || []) {
+      const k = p.name;
+      const t = tally.get(k) || {
+        name: p.name,
+        gamesPlayed: 0,
+        wins: 0,
+        totalScore: 0,
+        bestScore: null,
+        worstScore: null,
+      };
+      t.gamesPlayed++;
+      if (g.winner && g.winner.name === p.name) t.wins++;
+      t.totalScore += p.score || 0;
+      if (t.bestScore  === null || (p.score || 0) > t.bestScore)  t.bestScore  = p.score || 0;
+      if (t.worstScore === null || (p.score || 0) < t.worstScore) t.worstScore = p.score || 0;
+      tally.set(k, t);
+    }
+  }
+  return Array.from(tally.values())
+    .sort((a, b) => (b.wins - a.wins) || (b.totalScore - a.totalScore));
+}
+
 module.exports = {
   // profiles
   listProfiles, getProfile, upsertProfile, deleteProfile, verifyProfilePin,
   // finished games
   listGames, getGame, saveFinishedGame,
   // stats
-  getLifetimeStats,
+  getLifetimeStats, getPublicLeaderboard,
   // live games (mid-flight rooms persisted for crash/rejoin recovery)
   saveLiveGame, loadLiveGame, deleteLiveGame, listLiveGames,
 };

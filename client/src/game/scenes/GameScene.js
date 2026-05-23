@@ -462,13 +462,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * 3 small clickable circles to the side of the avatar, each playing one of
-   * the 3 saloon reactions for everyone in the room.
+   * Small clickable circles to the side of the local player's avatar, each
+   * playing one of the saloon reactions for everyone in the room. Opponents
+   * (left/right) intentionally get no buttons — three full grids on screen
+   * was visually noisy and the broadcast still reaches both opponents when
+   * we play a sound from our own avatar.
    */
   _addSoundButtons(container, seat, radius, isOwn) {
-    // Each button is a single character so 10 of them fit in a compact 2×5
-    // grid next to the avatar. `id` is the filename (matches the server
-    // ALLOWED_SOUNDS list). `glyph` is the on-button character.
+    if (!isOwn) return
+    // Each button is a single character. `id` is the filename (matches the
+    // server ALLOWED_SOUNDS list); `glyph` is what's drawn on the button.
     const SOUNDS = [
       // built-in clips
       { id: 'yeehaw',      glyph: 'Y', color: 0xdaa520 },
@@ -482,18 +485,23 @@ export class GameScene extends Phaser.Scene {
       { id: 'sheilage',    glyph: 'S', color: 0xa78bfa },
       { id: 'shemetxara',  glyph: 'X', color: 0xf472b6 },
       { id: 'tsava',       glyph: 'T', color: 0xfde047 },
+      // newer Georgian reaction clips
+      { id: 'Dedofali',    glyph: 'D', color: 0xff6b9d },
+      { id: 'Male!',       glyph: 'M', color: 0x60a5fa },
+      { id: 'Revia',       glyph: 'R', color: 0x34d399 },
+      { id: 'Tazik',       glyph: 'Z', color: 0xfacc15 },
     ]
 
-    // 2-column grid: column 0 sits closest to the avatar, column 1 further out.
-    // Own (bottom) avatar: grid grows to the right. Opponents: grid grows
-    // outward toward the screen edge to keep cards/hand area unobscured.
-    const side = isOwn ? 1 : (seat % 2 === 0 ? -1 : 1)
+    // 3-row grid that grows out to the right of the own avatar. Column-major
+    // fill, so every column holds exactly 3 sounds (the last one tails off
+    // if the count isn't a multiple of 3). Three short rows is a lot less
+    // vertical footprint than the previous five-row column.
+    const side = 1
     const r = 10
     const colGap = 24
     const rowGap = 22
     const baseX = (radius + 14) * side
-    // Centre the grid vertically on the avatar — 5 rows, midpoint between rows 2 and 3.
-    const rows = Math.ceil(SOUNDS.length / 2)
+    const rows = 3
     const yStart = -((rows - 1) * rowGap) / 2
 
     SOUNDS.forEach((s, i) => {

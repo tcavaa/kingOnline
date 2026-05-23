@@ -114,12 +114,16 @@ export function GameProvider({ children }) {
     'yeehaw', 'gunshot', 'whistle',
     'babi', 'giv', 'janmrteloba', 'ojaxi',
     'sheilage', 'shemetxara', 'tsava',
+    'Dedofali', 'Male!', 'Revia', 'Tazik',
   ]
   const audioElsRef = useRef(null)
   if (!audioElsRef.current && typeof window !== 'undefined') {
     const map = {}
     for (const id of SOUND_IDS) {
-      const a = new Audio(`/sounds/${id}.mp3`)
+      // `Male!` has a reserved URL character; encodeURIComponent keeps the
+      // socket-layer id unchanged while still resolving the correct file
+      // path here (and is a no-op for the plain lowercase ids).
+      const a = new Audio(`/sounds/${encodeURIComponent(id)}.mp3`)
       a.preload = 'auto'
       a.volume = 0.7
       map[id] = a

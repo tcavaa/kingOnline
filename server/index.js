@@ -180,6 +180,68 @@ app.post('/api/games', async (req, res) => {
   } catch (err) { sendErr(res, err); }
 });
 
+// ─── Public, read-only API ──────────────────────────────────────────────────
+// Mounted under /api/public/*. Designed for third-party sites / scripts /
+// dashboards to consume finished-game data. Differences from the internal
+// /api/* endpoints:
+//   • Always allows any origin (Access-Control-Allow-Origin: *).
+//   • No custom headers (no X-Device-Key etc.) → no CORS preflight.
+//   • Read-only — only GET endpoints exposed here.
+//   • Stripped down payload: removes base64 avatars so the response stays
+//     small enough to be useful (avatars can be 30–40 KB each × 3 players ×
+//     50 games = ~6 MB otherwise).
+//
+// Endpoints:
+//   GET /api/public/games[?limit=N]      list of recent games (most recent first)
+//   GET /api/public/games/:id            full record for one game
+//   GET /api/public/stats/:name          lifetime counters for a player
+//   GET /api/public/leaderboard          aggregate per-player win/score table
+{
+  const publicRouter = express.Router();
+  publicRouter.use(cors({
+    origin: '*',
+    methods: ['GET', 'OPTIONS'],
+    maxAge: 600,
+  }));
+
+  // Strip the base64 avatar data URL — the average finished-game payload
+  // shrinks ~100× without it, and external consumers usually don't need
+  // photos. Pass `?include=avatar` to opt back in.
+  const stripAvatars = (game) => ({
+    ...game,
+    players: (game.players || []).map(({ avatar, ...rest }) => rest),
+  });
+
+  publicRouter.get('/games', async (req, res) => {
+    try {
+      const games = await store.listGames(req.query.limit);
+      const keepAvatars = String(req.query.include || '').includes('avatar');
+      res.json(keepAvatars ? games : games.map(stripAvatars));
+    } catch (err) { sendErr(res, err); }
+  });
+
+  publicRouter.get('/games/:id', async (req, res) => {
+    try {
+      const game = await store.getGame(req.params.id);
+      if (!game) return res.status(404).json({ error: 'Game not found' });
+      const keepAvatars = String(req.query.include || '').includes('avatar');
+      res.json(keepAvatars ? game : stripAvatars(game));
+    } catch (err) { sendErr(res, err); }
+  });
+
+  publicRouter.get('/stats/:name', async (req, res) => {
+    try { res.json(await store.getLifetimeStats(req.params.name)); }
+    catch (err) { sendErr(res, err); }
+  });
+
+  publicRouter.get('/leaderboard', async (_req, res) => {
+    try { res.json(await store.getPublicLeaderboard()); }
+    catch (err) { sendErr(res, err); }
+  });
+
+  app.use('/api/public', publicRouter);
+}
+
 // ─── Lifetime stats per player name ─────────────────────────────────────────
 app.get('/api/stats/:name', async (req, res) => {
   try {
