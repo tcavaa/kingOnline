@@ -63,8 +63,58 @@ class GameManager {
         connected: false,
       })),
       gameState: snap.gameState ? GameState.fromSnapshot(snap.gameState) : null,
+      // Voice state is never persisted; rehydrated rooms always start with
+      // an empty mesh and players manually rejoin voice.
+      voice: { participants: new Set(), mutedSeats: new Set() },
     };
     return room;
+  }
+
+  // ── voice chat (transient, in-memory only) ──────────────────────────────
+
+  voiceJoin(roomCode, seat) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return null;
+    if (!room.voice) room.voice = { participants: new Set(), mutedSeats: new Set() };
+    room.voice.participants.add(seat);
+    return this.voiceRoster(roomCode);
+  }
+
+  voiceLeave(roomCode, seat) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.voice) return null;
+    room.voice.participants.delete(seat);
+    room.voice.mutedSeats.delete(seat);
+    return this.voiceRoster(roomCode);
+  }
+
+  voiceSetMuted(roomCode, seat, muted) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.voice) return null;
+    if (!room.voice.participants.has(seat)) return this.voiceRoster(roomCode);
+    if (muted) room.voice.mutedSeats.add(seat);
+    else       room.voice.mutedSeats.delete(seat);
+    return this.voiceRoster(roomCode);
+  }
+
+  voiceRoster(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.voice) return { participants: [], muted: [] };
+    return {
+      participants: [...room.voice.participants].sort((a, b) => a - b),
+      muted:        [...room.voice.mutedSeats].sort((a, b) => a - b),
+    };
+  }
+
+  /**
+   * Look up the live socket id of one specific seat in a room. Used when
+   * forwarding WebRTC offer/answer/ICE messages between two specific peers.
+   */
+  socketIdForSeat(roomCode, seat) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return null;
+    const player = room.players.find((p) => p.seat === seat);
+    return player?.id || null;
   }
 
   /**
@@ -147,6 +197,9 @@ class GameManager {
       creatorSeat: 0,
       gameState: null,
       status: 'waiting',
+      // Voice-chat membership is transient — kept in memory only. If the
+      // server restarts the voice mesh is torn down; players rejoin manually.
+      voice: { participants: new Set(), mutedSeats: new Set() },
     });
     this.socketRoomMap.set(socketId, { roomCode, seat: 0 });
     this._persist(roomCode);
@@ -217,9 +270,14 @@ class GameManager {
     if (!room) { this.socketRoomMap.delete(socketId); return null; }
     const playerIdx = room.players.findIndex((p) => p.id === socketId);
     if (playerIdx === -1) { this.socketRoomMap.delete(socketId); return null; }
-    const playerName = room.players[playerIdx].name;
+    const { name: playerName, seat: leftSeat } = room.players[playerIdx];
     room.players.splice(playerIdx, 1);
     this.socketRoomMap.delete(socketId);
+    // Voice membership doesn't survive leaving the room.
+    if (room.voice) {
+      room.voice.participants.delete(leftSeat);
+      room.voice.mutedSeats.delete(leftSeat);
+    }
     if (room.players.length === 0) {
       this.rooms.delete(roomCode);
       console.log(`[GameManager] Room ${roomCode} deleted (empty).`);
@@ -323,6 +381,12 @@ class GameManager {
     // which is all we need to re-attach a future socket via `joinRoom`'s
     // reconnection branch.
     this.socketRoomMap.delete(socketId);
+    // Yank them out of voice — their peer connections are dead anyway. They
+    // can rejoin voice manually after their socket comes back.
+    if (room.voice) {
+      room.voice.participants.delete(player.seat);
+      room.voice.mutedSeats.delete(player.seat);
+    }
     console.log(`[GameManager] Player ${player.name} (seat ${player.seat}) disconnected from room ${mapping.roomCode}`);
     this._persist(mapping.roomCode);
     return { roomCode: mapping.roomCode, seat: player.seat, playerName: player.name };

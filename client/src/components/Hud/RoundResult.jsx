@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import confetti from 'canvas-confetti'
-import { Layers, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
 import { getGameType } from '../../constants/gameTypes'
 
@@ -38,8 +38,15 @@ export default function RoundResult() {
     }
   }, [lastRound, myDelta])
 
+  const sortedPlayers = [...players].sort((a, b) => a.seat - b.seat)
+
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-40 p-4 pointer-events-auto western-backdrop">
+    // Compact modal designed to fit a landscape phone (≈430 px tall, less
+    // ~80 px for the Safari URL bar). The Layers icon and verbose paddings
+    // from the original design are gone; the two score panels are tight
+    // single-row grids. On lg+ viewports the modal breathes out a bit via
+    // the `lg:` paddings/fonts.
+    <div className="absolute inset-0 z-40 flex items-center justify-center p-2 lg:p-4 pointer-events-auto western-backdrop overflow-y-auto">
       {/* Tumbleweed reaches in from the left when this player scored negative. */}
       {myDelta < 0 && (
         <svg viewBox="0 0 64 64" className="tumbleweed" aria-hidden="true">
@@ -53,37 +60,34 @@ export default function RoundResult() {
         </svg>
       )}
 
-      <div className="w-full max-w-sm rounded-2xl p-6 text-center western-panel">
-        <div className="flex justify-center mb-2">
-          <Layers size={36} className="text-amber" />
-        </div>
-        <h2 className="text-xl font-western uppercase tracking-wider mb-1 text-cream"
+      <div className="w-full max-w-sm rounded-2xl p-3 lg:p-6 text-center western-panel my-auto">
+        <h2 className="text-sm lg:text-xl font-western uppercase tracking-wider text-cream"
             style={{ textShadow: '0 1px 0 rgba(0,0,0,0.5)' }}>
           Round {round} Settled
         </h2>
 
         {gt && (
-          <div className="inline-flex items-center gap-2 mb-5 rounded-full px-3 py-1 text-xs font-typewriter"
+          <div className="inline-flex items-center gap-1.5 mt-1 mb-2 lg:mt-2 lg:mb-4 rounded-full px-2.5 py-0.5 text-[10px] lg:text-xs font-typewriter"
                style={{
                  background: `linear-gradient(180deg, ${gt.color}33, ${gt.color}11)`,
                  color: '#fff8e6',
                  border: `1px solid ${gt.color}80`,
                }}>
-            {TypeIcon && <TypeIcon size={13} style={{ color: gt.color }} />}
+            {TypeIcon && <TypeIcon size={11} style={{ color: gt.color }} />}
             <span><strong style={{ color: gt.color }}>{gt.name}</strong> — called by {leaderName}</span>
           </div>
         )}
 
         {lastRound && (
-          <div className="rounded-xl p-4 mb-4 inset-card">
-            <p className="text-[10px] uppercase tracking-widest mb-3 font-western text-amber-dim">This Round</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[...players].sort((a, b) => a.seat - b.seat).map(p => {
+          <div className="rounded-lg p-2 lg:p-4 mb-1.5 lg:mb-4 inset-card">
+            <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-3 font-western text-amber-dim">This Round</p>
+            <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
+              {sortedPlayers.map(p => {
                 const s = lastRound.scores?.[p.seat] ?? 0
                 return (
-                  <div key={p.seat} className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] truncate max-w-full font-typewriter text-cream-soft">{p.name}</span>
-                    <span className={`text-2xl font-black font-mono ${scoreCol(s)}`}>
+                  <div key={p.seat} className="flex flex-col items-center min-w-0">
+                    <span className="text-[9px] lg:text-[10px] truncate max-w-full font-typewriter text-cream-soft">{p.name}</span>
+                    <span className={`text-lg lg:text-2xl font-black font-mono leading-tight ${scoreCol(s)}`}>
                       {s > 0 ? '+' : ''}{s}
                     </span>
                   </div>
@@ -93,16 +97,16 @@ export default function RoundResult() {
           </div>
         )}
 
-        <div className="rounded-xl p-4 mb-5 bg-amber-glow border-brass-strong">
-          <p className="text-[10px] uppercase tracking-widest mb-3 font-western"
+        <div className="rounded-lg p-2 lg:p-4 mb-2 lg:mb-5 bg-amber-glow border-brass-strong">
+          <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-3 font-western"
              style={{ color: 'rgba(240,199,90,0.95)' }}>Running Tally</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[...players].sort((a, b) => a.seat - b.seat).map(p => {
+          <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
+            {sortedPlayers.map(p => {
               const total = cumulativeScores[p.seat] ?? 0
               return (
-                <div key={p.seat} className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] truncate max-w-full font-typewriter text-cream-soft">{p.name}</span>
-                  <span className={`text-2xl font-black font-mono ${scoreCol(total)}`}>
+                <div key={p.seat} className="flex flex-col items-center min-w-0">
+                  <span className="text-[9px] lg:text-[10px] truncate max-w-full font-typewriter text-cream-soft">{p.name}</span>
+                  <span className={`text-lg lg:text-2xl font-black font-mono leading-tight ${scoreCol(total)}`}>
                     {total > 0 ? '+' : ''}{total}
                   </span>
                 </div>
@@ -114,12 +118,12 @@ export default function RoundResult() {
         {isCreator ? (
           <button
             onClick={nextRound}
-            className="casino-btn-gold w-full py-3 text-sm tracking-wider uppercase active:scale-95 inline-flex items-center justify-center gap-2"
+            className="casino-btn-gold w-full py-1.5 lg:py-3 text-xs lg:text-sm tracking-wider uppercase active:scale-95 inline-flex items-center justify-center gap-2"
           >
-            Next Hand <ArrowRight size={16} />
+            Next Hand <ArrowRight size={14} />
           </button>
         ) : (
-          <p className="text-sm font-typewriter text-cream-soft">Waiting on the dealer to deal again…</p>
+          <p className="text-[11px] lg:text-sm font-typewriter text-cream-soft">Waiting on the dealer to deal again…</p>
         )}
       </div>
     </div>

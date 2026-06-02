@@ -360,6 +360,89 @@ function registerHandlers(io, socket, gameManager) {
     } catch (err) { /* no-op */ }
   });
 
+  // ─── voice chat (WebRTC signalling only — no audio touches the server) ───
+  //
+  // Six tiny events. The first three mutate the per-room voice roster on the
+  // server and broadcast a fresh roster to everyone (so non-participants can
+  // still render the avatar column / mute markers). The last three carry
+  // SDP / ICE payloads between exactly two peers and are forwarded only to
+  // the named target seat — the server stays out of the audio path.
+  //
+  // Per-room transient state lives in `room.voice` on GameManager; nothing
+  // is persisted to MySQL, by design — if the server restarts the mesh is
+  // torn down and players manually re-tap "Join Voice".
+
+  function emitVoiceRoster(roomCode) {
+    io.to(roomCode).emit('voice-roster', gameManager.voiceRoster(roomCode));
+  }
+
+  socket.on('voice-join', () => {
+    const mapping = gameManager.getMappingBySocketId(socketId);
+    if (!mapping) return;
+    gameManager.voiceJoin(mapping.roomCode, mapping.seat);
+    emitVoiceRoster(mapping.roomCode);
+  });
+
+  socket.on('voice-leave', () => {
+    const mapping = gameManager.getMappingBySocketId(socketId);
+    if (!mapping) return;
+    gameManager.voiceLeave(mapping.roomCode, mapping.seat);
+    emitVoiceRoster(mapping.roomCode);
+  });
+
+  socket.on('voice-mute', ({ muted } = {}) => {
+    const mapping = gameManager.getMappingBySocketId(socketId);
+    if (!mapping) return;
+    gameManager.voiceSetMuted(mapping.roomCode, mapping.seat, !!muted);
+    emitVoiceRoster(mapping.roomCode);
+  });
+
+  // Generic offer/answer/ICE forwarding. Validates: (a) sender is in voice
+  // (b) target seat is in voice (c) target's socket id is live. Drops the
+  // message otherwise — never a soft error to the client.
+  function forwardVoiceSignal(eventName) {
+    return ({ targetSeat, payload } = {}) => {
+      try {
+        if (typeof targetSeat !== 'number') return;
+        const mapping = gameManager.getMappingBySocketId(socketId);
+        if (!mapping) return;
+        const room = gameManager.getRoom(mapping.roomCode);
+        if (!room?.voice) return;
+        if (!room.voice.participants.has(mapping.seat))    return;
+        if (!room.voice.participants.has(targetSeat))      return;
+        const targetSocketId = gameManager.socketIdForSeat(mapping.roomCode, targetSeat);
+        if (!targetSocketId) return;
+        io.to(targetSocketId).emit(eventName, {
+          fromSeat: mapping.seat,
+          payload,
+        });
+      } catch (err) { /* no-op */ }
+    };
+  }
+
+  socket.on('voice-offer',  forwardVoiceSignal('voice-offer'));
+  socket.on('voice-answer', forwardVoiceSignal('voice-answer'));
+  socket.on('voice-ice',    forwardVoiceSignal('voice-ice'));
+
+  // Live "I'm-currently-talking" indicator. The client only emits on
+  // transitions (false → true, true → false), so this fires at most a few
+  // times a second per speaker — no need to store it server-side, just
+  // fan it out to the rest of the room. Validate the sender is actually
+  // in voice so a non-participant can't spoof the green ring on someone
+  // else's avatar.
+  socket.on('voice-speaking', ({ speaking } = {}) => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return;
+      const room = gameManager.getRoom(mapping.roomCode);
+      if (!room?.voice?.participants.has(mapping.seat)) return;
+      socket.to(mapping.roomCode).emit('voice-speaking', {
+        seat: mapping.seat,
+        speaking: !!speaking,
+      });
+    } catch (err) { /* no-op */ }
+  });
+
   // ─── request-state ────────────────────────────────────────────────────────
   socket.on('request-state', () => {
     try {
@@ -395,6 +478,10 @@ function registerHandlers(io, socket, gameManager) {
       const { roomCode, playerName } = info;
       const room = gameManager.getRoom(roomCode);
       if (!room) return;
+      // The dead seat is also gone from the voice mesh (markDisconnected
+      // strips them); push the new roster so remaining peers can close
+      // their RTCPeerConnection to the vanished seat.
+      io.to(roomCode).emit('voice-roster', gameManager.voiceRoster(roomCode));
       // Everyone offline at once (server hot-reload, brief wifi outage, all
       // three tabs closed): keep the room in memory for a grace window so
       // any of them can reconnect transparently. The grace timer is

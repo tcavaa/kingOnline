@@ -140,6 +140,18 @@ function rowToProfile(row) {
 // ─── finished games ──────────────────────────────────────────────────────────
 
 async function listGames(limit = 50) {
+  // `limit=all` (or any non-numeric truthy string starting with 'a') returns
+  // every finished game. Used by the Hall-of-Fame leaderboard so its
+  // per-player aggregates and graphs include the full history. All other
+  // callers get a bounded query.
+  const wantAll = typeof limit === 'string' && limit.toLowerCase().startsWith('a');
+  if (wantAll) {
+    const [rows] = await pool().query(
+      `SELECT id, played_at, winner_name, winner_seat, winner_score, payload
+       FROM finished_games ORDER BY played_at DESC`
+    );
+    return rows.map(rowToGame);
+  }
   const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
   const [rows] = await pool().query(
     `SELECT id, played_at, winner_name, winner_seat, winner_score, payload

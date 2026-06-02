@@ -19,7 +19,10 @@ export default function Leaderboard({ onBack }) {
 
   useEffect(() => {
     let cancelled = false
-    listGames()
+    // Hall of Fame needs the full game history for accurate per-player
+    // aggregates, head-to-head graphs, and lifetime card stats — not just
+    // the most recent batch. `limit=all` bypasses the 200-row default cap.
+    listGames('all')
       .then(list => { if (!cancelled) setGames(Array.isArray(list) ? list : []) })
       .catch(err => console.warn('[leaderboard] failed to load games:', err.message))
       .finally(() => { if (!cancelled) setLoading(false) })

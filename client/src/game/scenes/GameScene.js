@@ -94,6 +94,11 @@ export class GameScene extends Phaser.Scene {
     this.centerObjs    = []
     this.chatObjs      = []
     this._avatarKeys   = new Map()  // seat -> texture-key
+    // seat → avatar container, so the fast-path `voiceSpeaking`-only state
+    // update can attach/detach a speaking ring without rebuilding the
+    // whole avatar (used to chew CPU on phones during active conversation).
+    this._avatarBySeat   = new Map()
+    this._speakRingBySeat = new Map()
     this._animatingTrick = false
     // Track when a fresh deal happens so we play the deal animation only on
     // the moment hands materialise (round start), not on every re-render.
@@ -130,7 +135,36 @@ export class GameScene extends Phaser.Scene {
     this._onStateUpdate = (state) => {
       // Guard against late events arriving after the scene has been torn down
       if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
+      // Fast path: while people are talking, GameContext re-emits
+      // state-updates 5-20×/second purely to flip `voiceSpeaking`. Rebuilding
+      // the entire scene (avatars + 14 sound-button text glyphs each ×3 seats
+      // + all card sprites) for a speaking-ring toggle is what was heating
+      // up phones. If every other tracked field is referentially equal,
+      // just diff the speaking set and add/remove the rings on existing
+      // avatars instead.
+      const prev = this._prevState
+      const onlySpeakingChanged = !!prev &&
+        prev.hand === state.hand &&
+        prev.cardCounts === state.cardCounts &&
+        prev.centerCards === state.centerCards &&
+        prev.currentTrick === state.currentTrick &&
+        prev.players === state.players &&
+        prev.currentTurn === state.currentTurn &&
+        prev.gamePhase === state.gamePhase &&
+        prev.leaderSeat === state.leaderSeat &&
+        prev.cumulativeScores === state.cumulativeScores &&
+        prev.chatBubbles === state.chatBubbles &&
+        prev.playPending === state.playPending &&
+        prev.trickAnimation === state.trickAnimation &&
+        prev.round === state.round &&
+        prev.tricksTaken === state.tricksTaken &&
+        prev.voiceSpeaking !== state.voiceSpeaking
       this.gameState = state
+      this._prevState = state
+      if (onlySpeakingChanged && !this._animatingTrick && this._avatarBySeat.size > 0) {
+        this._syncSpeakingRings(state)
+        return
+      }
       this._renderAll(state)
     }
     this._onAnimateTrickWinner = ({ winnerSeat }) => {
@@ -140,6 +174,27 @@ export class GameScene extends Phaser.Scene {
 
     EventBus.on('state-update', this._onStateUpdate)
     EventBus.on('animate-trick-winner', this._onAnimateTrickWinner)
+
+    // ── Visibility-change recovery ────────────────────────────────────────
+    // When a tab is backgrounded mid-animation, Phaser pauses the scene
+    // clock and the `delayedCall(750)` inside `_animateTrickToWinner`
+    // never fires — leaving `_animatingTrick = true` and silently
+    // dropping every render until the next refresh. On `visibilitychange
+    // → visible`, force the gate open and re-render with the latest
+    // server state we have cached. The wall-clock watchdog covers the
+    // case where the user never backgrounds but the scene clock still
+    // stalls; this covers the explicit-background case for free.
+    this._onVisibility = () => {
+      if (typeof document === 'undefined') return
+      if (document.visibilityState !== 'visible') return
+      if (!this.sys || !this.sys.isActive()) return
+      this._animatingTrick = false
+      if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
+      if (this.gameState) this._renderAll(this.gameState)
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this._onVisibility)
+    }
 
     // Detach listeners as soon as the scene shuts down or gets destroyed,
     // so dev-mode double-mounts (React strict mode + HMR) don't fire
@@ -157,8 +212,13 @@ export class GameScene extends Phaser.Scene {
   _cleanupBus() {
     if (this._onStateUpdate)        EventBus.off('state-update', this._onStateUpdate)
     if (this._onAnimateTrickWinner) EventBus.off('animate-trick-winner', this._onAnimateTrickWinner)
+    if (this._onVisibility && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this._onVisibility)
+    }
+    if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
     this._onStateUpdate = null
     this._onAnimateTrickWinner = null
+    this._onVisibility = null
   }
 
   // ── Saloon-felt background (PNG) with a procedural fallback ──────────────
@@ -293,6 +353,11 @@ export class GameScene extends Phaser.Scene {
     this.avatarObjs.forEach(c => c.destroy());    this.avatarObjs = []
     if (this.chatObjs) this.chatObjs.forEach(c => c.destroy())
     this.chatObjs = []
+    // Destroying the avatar containers above already nukes any speak-rings
+    // they parented. Just drop the lookup maps so the fast-path doesn't
+    // hand back stale references.
+    this._avatarBySeat.clear()
+    this._speakRingBySeat.clear()
   }
 
   // ── Opponent face-down card fans on left/right ───────────────────────────
@@ -375,6 +440,12 @@ export class GameScene extends Phaser.Scene {
       ring.lineStyle(3, ringCol, 1)
       ring.strokeCircle(0, 0, radius)
       container.add(ring)
+
+      // Record the container + radius for the speak-ring sync pass at the
+      // end of this function. Keeping the ring as a separate, post-loop
+      // step means the fast-path in `_onStateUpdate` can attach/detach
+      // it without rebuilding the whole avatar.
+      this._avatarBySeat.set(seat, { container, radius })
 
       // Profile picture (data URL → texture) → avatar-default → initial letter
       const avatarKey = this._ensureAvatarTexture(player)
@@ -459,6 +530,53 @@ export class GameScene extends Phaser.Scene {
 
       this.avatarObjs.push(container)
     })
+
+    // After the avatar containers exist, attach/detach speak-rings as a
+    // single pass — same code path the fast-path uses, so behaviour stays
+    // consistent regardless of which route a state-update took.
+    this._syncSpeakingRings(state)
+  }
+
+  /**
+   * Idempotent: ensures the speaking ring exists on exactly the seats listed
+   * in `state.voiceSpeaking`. Adds rings for new speakers, destroys rings
+   * for newly-quiet seats, and leaves stable speakers untouched. Cheap
+   * enough to call on every state update.
+   */
+  _syncSpeakingRings(state) {
+    const speakers = state.voiceSpeaking instanceof Set ? state.voiceSpeaking : new Set()
+    // Remove rings for seats that stopped speaking (or whose avatar was
+    // rebuilt out from under us — defensive).
+    for (const [seat, ring] of this._speakRingBySeat) {
+      const stillSpeaking = speakers.has(seat) && this._avatarBySeat.has(seat)
+      if (stillSpeaking) continue
+      try { this.tweens.killTweensOf(ring) } catch {}
+      try { ring.destroy() } catch {}
+      this._speakRingBySeat.delete(seat)
+    }
+    // Add rings for newly-speaking seats. Geometry intentionally mirrors
+    // the original inline draw: lime stroke at +5 radius, pulsing scale +
+    // alpha at ~380ms yoyo.
+    for (const seat of speakers) {
+      if (this._speakRingBySeat.has(seat)) continue
+      const entry = this._avatarBySeat.get(seat)
+      if (!entry) continue
+      const { container, radius } = entry
+      const speakRing = this.add.graphics()
+      speakRing.lineStyle(3, 0x6dbc4f, 1)
+      speakRing.strokeCircle(0, 0, radius + 5)
+      container.add(speakRing)
+      this.tweens.add({
+        targets: speakRing,
+        alpha: { from: 1, to: 0.45 },
+        scaleX: { from: 1, to: 1.08 },
+        scaleY: { from: 1, to: 1.08 },
+        duration: 380,
+        yoyo: true,
+        repeat: -1,
+      })
+      this._speakRingBySeat.set(seat, speakRing)
+    }
   }
 
   /**
@@ -720,11 +838,33 @@ export class GameScene extends Phaser.Scene {
       })
     })
 
-    this.time.delayedCall(750, () => {
+    // Clear the gate in two ways: Phaser's scene-clock timer (normal happy
+    // path, fires exactly when the animation finishes), and a wall-clock
+    // watchdog (covers the case where the scene clock stalls — mobile
+    // background tab on iOS, visibility transitions, WebGL context loss).
+    // The first one to fire wins; the second is a no-op because the flag
+    // is already false. Without the watchdog, a stalled scene clock left
+    // `_animatingTrick = true` forever and all subsequent state-updates
+    // were silently dropped from the canvas (chats still worked because
+    // they're React-driven), which manifested as "I can't see the card
+    // they played until I refresh".
+    const releaseGate = () => {
+      if (!this._animatingTrick) return
       this._animatingTrick = false
       this.trickCards = []
-      if (this.gameState) this._renderAll(this.gameState)
-    })
+      if (this.gameState && this.sys?.isActive?.()) {
+        this._renderAll(this.gameState)
+      }
+    }
+    this.time.delayedCall(750, releaseGate)
+    // 1500ms ≈ 2× the animation duration. Long enough that the happy path
+    // always wins under normal conditions, short enough that a stuck gate
+    // self-heals before the next trick.
+    if (this._trickWatchdog) clearTimeout(this._trickWatchdog)
+    this._trickWatchdog = setTimeout(() => {
+      this._trickWatchdog = null
+      releaseGate()
+    }, 1500)
   }
 
   _renderCenterCards(state) {

@@ -13,6 +13,7 @@ import MenuDrawer       from './Hud/MenuDrawer'
 import DisconnectBanner from './Hud/DisconnectBanner'
 import RoundResult      from './Hud/RoundResult'
 import WaitingChip      from './Hud/WaitingChip'
+import VoicePanel       from './Hud/VoicePanel'
 
 /**
  * Orchestrator for the in-game experience: hosts the Phaser canvas and
@@ -24,7 +25,7 @@ export default function GameLayout() {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, playCard, playPending,
+    trickAnimation, chatBubbles, playCard, playPending, voiceSpeaking,
   } = useGame()
 
   const [drawer,   setDrawer]   = useState(null)
@@ -39,6 +40,10 @@ export default function GameLayout() {
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, chatBubbles, playPending,
+    // `voiceSpeaking` is a Set; the Phaser scene reads it as-is to decide
+    // which seats get a green pulsing halo. Re-renders on identity change
+    // (we always replace the Set in GameContext, never mutate it).
+    voiceSpeaking,
   }
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
@@ -90,7 +95,14 @@ export default function GameLayout() {
   }, [])
 
   return (
-    <div className="relative w-screen h-screen h-screen-dvh overflow-hidden bg-black safe-area-pad">
+    // `fixed inset-0` ties the wrapper to the *visual* viewport (the area
+    // actually visible to the user). `relative w-screen h-screen` would
+    // pull the layout viewport's width/height, which on iOS Safari can
+    // overshoot the visible area by a hair and produce a phantom
+    // horizontal scrollbar. `safe-area-pad` then keeps every HUD element
+    // (positioned absolute inside) clear of notch / home-indicator /
+    // rounded-corner regions.
+    <div className="fixed inset-0 overflow-hidden bg-black safe-area-pad">
       <PhaserGame gameState={gameState} onCardPlay={handleCardPlay} />
 
       <TopBar
@@ -100,6 +112,7 @@ export default function GameLayout() {
       />
       <ScoreBoardPanel onOpen={() => openDrawer('scores')} />
       <ActionPanel     onLastTrick={() => openDrawer('last')} />
+      <VoicePanel />
 
       <DisconnectBanner />
 

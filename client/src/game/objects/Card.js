@@ -1,5 +1,5 @@
-export const CARD_W = 70
-export const CARD_H = 100
+export const CARD_W = 80
+export const CARD_H = 114
 
 export const SUIT_SYMBOLS = { H: '♥', D: '♦', S: '♠', C: '♣' }
 export const SUIT_COLORS  = { H: '#dc2626', D: '#dc2626', S: '#0a0a0a', C: '#0a0a0a' }
@@ -32,18 +32,18 @@ export function createFaceUpCard(scene, x, y, card, interactive = false) {
   container.add(bg)
 
   // Top-left rank
-  const rankTL = scene.add.text(-W / 2 + 6, -H / 2 + 4, rank, {
-    fontSize: '18px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
+  const rankTL = scene.add.text(-W / 2 + 7, -H / 2 + 5, rank, {
+    fontSize: '20px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
   }).setOrigin(0, 0)
 
   // Top-left suit
-  const suitTL = scene.add.text(-W / 2 + 6, -H / 2 + 24, suitSymbol, {
-    fontSize: '16px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
+  const suitTL = scene.add.text(-W / 2 + 7, -H / 2 + 28, suitSymbol, {
+    fontSize: '18px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
   }).setOrigin(0, 0)
 
   // Bottom-right large suit
-  const centerSuit = scene.add.text(W / 2 - 8, H / 2 - 8, suitSymbol, {
-    fontSize: '34px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
+  const centerSuit = scene.add.text(W / 2 - 9, H / 2 - 9, suitSymbol, {
+    fontSize: '40px', color, fontFamily: 'Georgia, serif', fontStyle: 'bold',
   }).setOrigin(1, 1)
 
   container.add([rankTL, suitTL, centerSuit])
