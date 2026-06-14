@@ -9,11 +9,11 @@ import TopBar           from './Hud/TopBar'
 import ScoreBoardPanel  from './Hud/ScoreBoardPanel'
 import ActionPanel      from './Hud/ActionPanel'
 import ScoreDrawer      from './Hud/ScoreDrawer'
+import SoundBoard       from './Hud/SoundBoard'
 import MenuDrawer       from './Hud/MenuDrawer'
 import DisconnectBanner from './Hud/DisconnectBanner'
 import RoundResult      from './Hud/RoundResult'
 import WaitingChip      from './Hud/WaitingChip'
-import VoicePanel       from './Hud/VoicePanel'
 
 /**
  * Orchestrator for the in-game experience: hosts the Phaser canvas and
@@ -25,7 +25,7 @@ export default function GameLayout() {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, playCard, playPending, voiceSpeaking,
+    trickAnimation, chatBubbles, playCard, playPending,
   } = useGame()
 
   const [drawer,   setDrawer]   = useState(null)
@@ -40,10 +40,6 @@ export default function GameLayout() {
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, chatBubbles, playPending,
-    // `voiceSpeaking` is a Set; the Phaser scene reads it as-is to decide
-    // which seats get a green pulsing halo. Re-renders on identity change
-    // (we always replace the Set in GameContext, never mutate it).
-    voiceSpeaking,
   }
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
@@ -95,14 +91,15 @@ export default function GameLayout() {
   }, [])
 
   return (
-    // `fixed inset-0` ties the wrapper to the *visual* viewport (the area
-    // actually visible to the user). `relative w-screen h-screen` would
-    // pull the layout viewport's width/height, which on iOS Safari can
-    // overshoot the visible area by a hair and produce a phantom
-    // horizontal scrollbar. `safe-area-pad` then keeps every HUD element
-    // (positioned absolute inside) clear of notch / home-indicator /
-    // rounded-corner regions.
-    <div className="fixed inset-0 overflow-hidden bg-black safe-area-pad">
+    // The wrapper must track the *visible* viewport height, not the layout
+    // viewport. On mobile (esp. landscape) `inset-0`/`100vh` reports the
+    // taller layout viewport — the area behind the browser chrome — so the
+    // FIT-scaled Phaser canvas renders its bottom (own avatar + cards) below
+    // the fold and it gets clipped. `.h-screen-dvh` (100dvh w/ fallbacks)
+    // pins the height to what's actually on screen so the table always fits
+    // 100%. `safe-area-pad` then keeps HUD elements clear of notch / home-
+    // indicator / rounded-corner regions.
+    <div className="fixed top-0 left-0 right-0 h-screen-dvh overflow-hidden bg-black safe-area-pad">
       <PhaserGame gameState={gameState} onCardPlay={handleCardPlay} />
 
       <TopBar
@@ -112,7 +109,17 @@ export default function GameLayout() {
       />
       <ScoreBoardPanel onOpen={() => openDrawer('scores')} />
       <ActionPanel     onLastTrick={() => openDrawer('last')} />
-      <VoicePanel />
+
+      {/* Sound Board trigger, parked next to the own ("You") avatar. The
+          avatar sits bottom-centre, ~10% up from the bottom of the FIT-scaled
+          canvas; we align the button's vertical centre to it and nudge it
+          right into the gap where the old in-canvas grid used to be. The
+          wrapper is pointer-events-none so only the button itself is clickable
+          (the modal manages its own full-screen layer). */}
+      <div className="absolute z-20 pointer-events-none"
+           style={{ left: '50%', bottom: 'calc(10% - 23px)', transform: 'translateX(34px)' }}>
+        <SoundBoard />
+      </div>
 
       <DisconnectBanner />
 

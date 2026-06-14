@@ -3,7 +3,6 @@ import { io } from 'socket.io-client'
 import { EventBus } from '../game/EventBus'
 import { saveGame } from '../lib/leaderboard'
 import { API_BASE } from '../lib/api'
-import { VoiceClient } from '../lib/voice'
 
 const GameContext = createContext(null)
 
@@ -99,18 +98,13 @@ export function GameProvider({ children }) {
   const [playPending, setPlayPending] = useState(false)
   const setPlayPendingBoth = (v) => { playPendingRef.current = v; setPlayPending(v) }
 
-  // ── Voice chat (WebRTC mesh, all peer-connection logic in lib/voice.js).
-  // We only expose roster + UI-affecting state via context; signalling
-  // (offer/answer/ICE) is consumed directly by VoiceClient from the same
-  // socket reference, so the React tree doesn't have to round-trip every
-  // candidate through state.
-  const voiceClientRef = useRef(null)
-  const [voiceState,    setVoiceState]    = useState({ joined: false, muted: false, error: null })
-  const [voiceRoster,   setVoiceRoster]   = useState({ participants: [], muted: [] })
-  // Seats whose mic level has crossed the speaking threshold. Pure
-  // presentation state — updated from `voice-speaking` socket events
-  // (others) and via the VoiceClient's own RMS detector (us).
-  const [voiceSpeaking, setVoiceSpeaking] = useState(() => new Set())
+  // ── Rematch coordination ────────────────────────────────────────────────
+  // Populated from the server's `rematch-status` broadcast after the game
+  // ends. `newRoomCode` is the rematch lobby; `joinedOldSeats` is the set
+  // of seats (from the *old* / finished room) that have already clicked
+  // Play Again. The game-over screen uses this to render the "wants to
+  // play again" badge over each joined seat's avatar.
+  const [rematch, setRematch] = useState({ newRoomCode: null, joinedOldSeats: [] })
 
   useEffect(() => { playersRef.current = players }, [players])
 
@@ -127,9 +121,10 @@ export function GameProvider({ children }) {
 
   const SOUND_IDS = [
     'yeehaw', 'gunshot', 'whistle',
-    'babi', 'giv', 'janmrteloba', 'ojaxi',
+    'giv', 'janmrteloba',
     'sheilage', 'shemetxara', 'tsava',
     'Dedofali', 'Male!', 'Revia', 'Tazik',
+    '10-10', 'achexet', 'bedi', 'cxado',
   ]
   const audioElsRef = useRef(null)
   if (!audioElsRef.current && typeof window !== 'undefined') {
@@ -208,64 +203,14 @@ export function GameProvider({ children }) {
     })
     socketRef.current = socket
 
-    // Voice chat: a single VoiceClient per provider lifetime. It binds its
-    // own listeners for voice-offer/answer/ice/roster directly on the
-    // socket, so the React tree only sees the high-level state changes.
-    voiceClientRef.current = new VoiceClient({
-      socket,
-      onStateChange: (s) => setVoiceState(s),
-      // Local self → flip our own seat in `voiceSpeaking`. mySeatRef is a
-      // ref because this callback closes over the socket effect's scope
-      // only once; the seat may change later (rejoin) and we need the
-      // current value, not the value at provider mount time.
-      onLocalSpeakingChange: (speaking) => {
-        const seat = mySeatRef.current
-        if (typeof seat !== 'number') return
-        setVoiceSpeaking(prev => {
-          const has = prev.has(seat)
-          if (speaking === has) return prev
-          const next = new Set(prev)
-          if (speaking) next.add(seat); else next.delete(seat)
-          return next
-        })
-      },
-    })
-
-    // We also listen here (in addition to the client) so the UI can render
-    // the avatar column / mute markers even for non-participants. Cheap to
-    // duplicate-listen — socket.io fans out, no extra wire cost.
-    socket.on('voice-roster', (r) => {
-      const participants = Array.isArray(r?.participants) ? r.participants : []
-      const muted        = Array.isArray(r?.muted)        ? r.muted        : []
-      setVoiceRoster({ participants, muted })
-      // Any seat no longer in voice can't possibly be "speaking" — drop
-      // their flag immediately rather than waiting for a maybe-never-
-      // arriving `voice-speaking: false` from a disconnected peer.
-      setVoiceSpeaking(prev => {
-        if (prev.size === 0) return prev
-        const inRoom = new Set(participants)
-        let changed = false
-        const next = new Set()
-        for (const s of prev) {
-          if (inRoom.has(s)) next.add(s)
-          else                changed = true
-        }
-        return changed ? next : prev
-      })
-    })
-
-    // Other players' speaking state. Server filters out the self-fanout
-    // (uses socket.to(roomCode) rather than io.to), so we never receive
-    // our own event back. Local self-indicator is driven by VoiceClient
-    // calling setVoiceSpeaking directly via its onStateChange (see below).
-    socket.on('voice-speaking', ({ seat, speaking }) => {
-      if (typeof seat !== 'number') return
-      setVoiceSpeaking(prev => {
-        const has = prev.has(seat)
-        if (speaking === has) return prev
-        const next = new Set(prev)
-        if (speaking) next.add(seat); else next.delete(seat)
-        return next
+    // ── Rematch broadcast ───────────────────────────────────────────────
+    // Server fans this out to every socket still in the (just-finished)
+    // old room whenever a Play Again click lands: the new lobby code +
+    // the list of old seats that have signed up so far.
+    socket.on('rematch-status', ({ newRoomCode, joinedOldSeats }) => {
+      setRematch({
+        newRoomCode: newRoomCode || null,
+        joinedOldSeats: Array.isArray(joinedOldSeats) ? joinedOldSeats : [],
       })
     })
 
@@ -346,6 +291,9 @@ export function GameProvider({ children }) {
       setLastTrickResult(null)
       setTrickAnimation(null)
       setLastCenterCards([])
+      // Wipe rematch state from any previous game; the new game-over for
+      // THIS room is the only thing that should populate it.
+      setRematch({ newRoomCode: null, joinedOldSeats: [] })
     })
 
     socket.on('hand-dealt', ({ hand: h, centerCards: cc, leaderSeat: ls, round: r, cardCounts: counts }) => {
@@ -701,38 +649,21 @@ export function GameProvider({ children }) {
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onResumeVisibility)
       }
-      // Tear down voice first so we send a `voice-leave` *before* the
-      // socket disconnects (otherwise the server's roster carries our
-      // ghost seat until the disconnect timeout fires).
-      voiceClientRef.current?.dispose()
-      voiceClientRef.current = null
       socket.disconnect()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── voice actions ───────────────────────────────────────────────────────
-  // Each callback is a thin shim over VoiceClient. The actual mic
-  // acquisition / peer-connection juggling happens in lib/voice.js — the
-  // React layer only knows about "are we in?" and "are we muted?".
-
-  const joinVoice = useCallback(() => {
-    const client = voiceClientRef.current
-    if (!client) return
-    // The call site must be a real click handler — that's what unlocks
-    // both `getUserMedia` and remote `<audio>.play()` on iOS Safari.
-    const seat = typeof mySeatRef.current === 'number' ? mySeatRef.current : -1
-    client.join(seat)
-  }, [])
-
-  const leaveVoice = useCallback(() => {
-    voiceClientRef.current?.leave()
-  }, [])
-
-  const toggleVoiceMute = useCallback(() => {
-    const client = voiceClientRef.current
-    if (!client) return
-    client.setMuted(!client.getState().muted)
+  // ── rematch action ────────────────────────────────────────────────────
+  // Triggered from the Play Again button on the game-over screen. Sends
+  // the current name/avatar through so the server can use them as the
+  // canonical identity for the new room (the old room's roster also has
+  // them, but passing them here saves an extra lookup on slow links).
+  const requestRematch = useCallback(() => {
+    socketRef.current?.emit('request-rematch', {
+      playerName: myNameRef.current,
+      avatar:     myAvatarRef.current ?? null,
+    })
   }, [])
 
   const createRoom = useCallback((name, avatar = null) => {
@@ -807,7 +738,7 @@ export function GameProvider({ children }) {
       roundScores, roundDetails, cumulativeScores, finalResults,
       toasts, disconnectedPlayer, reconnecting, selectedDiscards,
       chatMessages, chatBubbles, sendChat, playSound,
-      voiceState, voiceRoster, voiceSpeaking, joinVoice, leaveVoice, toggleVoiceMute,
+      rematch, requestRematch,
       createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
       playCard, nextRound, leaveRoom, toggleDiscard, addToast,
     }}>

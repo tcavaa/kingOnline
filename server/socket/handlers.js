@@ -267,10 +267,14 @@ function registerHandlers(io, socket, gameManager) {
         });
         gs.phase = 'game_over';
         room.status = 'finished';
-        // The game is done — drop the live snapshot. The history is already
-        // captured client-side via POST /api/games into finished_games, so
-        // there's nothing to recover from here.
-        gameManager.destroyRoom(roomCode);
+        // The game is done. Don't destroy the room yet — players may press
+        // "Play Again" from the game-over screen and we need this room to
+        // exist to coordinate the rematch (track who has clicked, link to
+        // the new room). The grace timer will GC it after every socket
+        // has disconnected and the window expires; rematch creation
+        // itself doesn't extend the lifetime, so a slow rematch click
+        // still works as long as someone clicked within the window.
+        gameManager.armRoomGrace(roomCode);
       } else {
         io.to(roomCode).emit('round-complete', {
           winnerSeat: result.winnerSeat,
@@ -321,10 +325,12 @@ function registerHandlers(io, socket, gameManager) {
         // built-in saloon clips
         'yeehaw', 'gunshot', 'whistle',
         // user-added reaction clips (files in client/public/sounds/<id>.mp3)
-        'babi', 'giv', 'janmrteloba', 'ojaxi',
+        'giv', 'janmrteloba',
         'sheilage', 'shemetxara', 'tsava',
-        // newer Georgian reaction clips
+        // Georgian reaction clips
         'Dedofali', 'Male!', 'Revia', 'Tazik',
+        // latest Georgian reaction clips
+        '10-10', 'achexet', 'bedi', 'cxado',
       ]);
       if (!ALLOWED_SOUNDS.has(soundId)) return;
       const mapping = gameManager.getMappingBySocketId(socketId);
@@ -360,87 +366,65 @@ function registerHandlers(io, socket, gameManager) {
     } catch (err) { /* no-op */ }
   });
 
-  // ─── voice chat (WebRTC signalling only — no audio touches the server) ───
+  // ─── rematch ──────────────────────────────────────────────────────────────
   //
-  // Six tiny events. The first three mutate the per-room voice roster on the
-  // server and broadcast a fresh roster to everyone (so non-participants can
-  // still render the avatar column / mute markers). The last three carry
-  // SDP / ICE payloads between exactly two peers and are forwarded only to
-  // the named target seat — the server stays out of the audio path.
-  //
-  // Per-room transient state lives in `room.voice` on GameManager; nothing
-  // is persisted to MySQL, by design — if the server restarts the mesh is
-  // torn down and players manually re-tap "Join Voice".
-
-  function emitVoiceRoster(roomCode) {
-    io.to(roomCode).emit('voice-roster', gameManager.voiceRoster(roomCode));
-  }
-
-  socket.on('voice-join', () => {
-    const mapping = gameManager.getMappingBySocketId(socketId);
-    if (!mapping) return;
-    gameManager.voiceJoin(mapping.roomCode, mapping.seat);
-    emitVoiceRoster(mapping.roomCode);
-  });
-
-  socket.on('voice-leave', () => {
-    const mapping = gameManager.getMappingBySocketId(socketId);
-    if (!mapping) return;
-    gameManager.voiceLeave(mapping.roomCode, mapping.seat);
-    emitVoiceRoster(mapping.roomCode);
-  });
-
-  socket.on('voice-mute', ({ muted } = {}) => {
-    const mapping = gameManager.getMappingBySocketId(socketId);
-    if (!mapping) return;
-    gameManager.voiceSetMuted(mapping.roomCode, mapping.seat, !!muted);
-    emitVoiceRoster(mapping.roomCode);
-  });
-
-  // Generic offer/answer/ICE forwarding. Validates: (a) sender is in voice
-  // (b) target seat is in voice (c) target's socket id is live. Drops the
-  // message otherwise — never a soft error to the client.
-  function forwardVoiceSignal(eventName) {
-    return ({ targetSeat, payload } = {}) => {
-      try {
-        if (typeof targetSeat !== 'number') return;
-        const mapping = gameManager.getMappingBySocketId(socketId);
-        if (!mapping) return;
-        const room = gameManager.getRoom(mapping.roomCode);
-        if (!room?.voice) return;
-        if (!room.voice.participants.has(mapping.seat))    return;
-        if (!room.voice.participants.has(targetSeat))      return;
-        const targetSocketId = gameManager.socketIdForSeat(mapping.roomCode, targetSeat);
-        if (!targetSocketId) return;
-        io.to(targetSocketId).emit(eventName, {
-          fromSeat: mapping.seat,
-          payload,
-        });
-      } catch (err) { /* no-op */ }
-    };
-  }
-
-  socket.on('voice-offer',  forwardVoiceSignal('voice-offer'));
-  socket.on('voice-answer', forwardVoiceSignal('voice-answer'));
-  socket.on('voice-ice',    forwardVoiceSignal('voice-ice'));
-
-  // Live "I'm-currently-talking" indicator. The client only emits on
-  // transitions (false → true, true → false), so this fires at most a few
-  // times a second per speaker — no need to store it server-side, just
-  // fan it out to the rest of the room. Validate the sender is actually
-  // in voice so a non-participant can't spoof the green ring on someone
-  // else's avatar.
-  socket.on('voice-speaking', ({ speaking } = {}) => {
+  // Triggered by the "Play Again" button on the game-over screen. The first
+  // click creates a fresh room with the clicker as seat 0; every subsequent
+  // click from the same finished room is forwarded into that same new room
+  // via joinRoom(). All sockets still in the OLD room get a `rematch-status`
+  // broadcast so non-joiners can render a "wants to play again" badge above
+  // each joined seat's avatar — and so non-clickers see the new room code
+  // and can hit Play Again themselves.
+  socket.on('request-rematch', ({ playerName, avatar } = {}) => {
     try {
-      const mapping = gameManager.getMappingBySocketId(socketId);
-      if (!mapping) return;
-      const room = gameManager.getRoom(mapping.roomCode);
-      if (!room?.voice?.participants.has(mapping.seat)) return;
-      socket.to(mapping.roomCode).emit('voice-speaking', {
-        seat: mapping.seat,
-        speaking: !!speaking,
+      const oldMapping = gameManager.getMappingBySocketId(socketId);
+      if (!oldMapping) return emitError('You are not in a room.');
+      const oldRoomCode = oldMapping.roomCode;
+      const oldSeat     = oldMapping.seat;
+      const oldRoom     = gameManager.getRoom(oldRoomCode);
+      if (!oldRoom) return emitError('Room not found.');
+      // Fall back to whatever name/avatar the player had on file — saves
+      // the client from having to re-pass it through every rematch click.
+      const fallbackPlayer = oldRoom.players.find((p) => p.seat === oldSeat);
+      const useName   = (typeof playerName === 'string' && playerName.trim()) || fallbackPlayer?.name;
+      const useAvatar = avatar || fallbackPlayer?.avatar || null;
+      if (!useName) return emitError('Player name unavailable.');
+
+      const result = gameManager.requestRematch(socketId, useName.trim(), useAvatar);
+      if (result.error) return emitError(result.error);
+
+      const { newRoomCode, seat, joinedOldSeats } = result;
+      // Pull the requester out of the old socket.io room so they don't
+      // keep receiving its broadcasts while sitting in the new lobby.
+      socket.leave(oldRoomCode);
+      socket.join(newRoomCode);
+
+      // Tell the requester their new seat — same shape as `room-joined`
+      // so the client uses the existing handler to transition into the
+      // waiting room UI without a new code path.
+      socket.emit('room-joined', { roomCode: newRoomCode, seat, status: 'waiting' });
+
+      // Send the new lobby's player list to the requester so the waiting
+      // room is populated immediately (otherwise the first joiner sits
+      // there alone with no UI cue until the next player joins).
+      const newRoom = gameManager.getRoom(newRoomCode);
+      if (newRoom) {
+        io.to(newRoomCode).emit('player-joined', {
+          players: playersView(newRoom.players),
+          roomCode: newRoomCode,
+        });
+      }
+
+      // Fan-out to every socket still in the old (finished) room so
+      // their game-over UI can render the "wants to play again" badges
+      // and surface the rematch room code.
+      io.to(oldRoomCode).emit('rematch-status', {
+        newRoomCode,
+        joinedOldSeats,
       });
-    } catch (err) { /* no-op */ }
+    } catch (err) {
+      emitError(err.message);
+    }
   });
 
   // ─── request-state ────────────────────────────────────────────────────────
@@ -478,10 +462,6 @@ function registerHandlers(io, socket, gameManager) {
       const { roomCode, playerName } = info;
       const room = gameManager.getRoom(roomCode);
       if (!room) return;
-      // The dead seat is also gone from the voice mesh (markDisconnected
-      // strips them); push the new roster so remaining peers can close
-      // their RTCPeerConnection to the vanished seat.
-      io.to(roomCode).emit('voice-roster', gameManager.voiceRoster(roomCode));
       // Everyone offline at once (server hot-reload, brief wifi outage, all
       // three tabs closed): keep the room in memory for a grace window so
       // any of them can reconnect transparently. The grace timer is

@@ -1,18 +1,34 @@
 import { useEffect, useMemo, useRef } from 'react'
 import confetti from 'canvas-confetti'
-import { Trophy, Award, Medal } from 'lucide-react'
+import { Trophy, Award, Medal, Check, RefreshCw } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import { getGameType } from '../constants/gameTypes'
 import { SuitIcon } from './Icons'
 import ScoreChart from './ScoreChart'
+import AchievementBadges from './AchievementBadges'
+import { computePerGameAchievements, countCodes } from '../utils/achievements'
 
 const RANK_ICON = [Trophy, Award, Medal]
 const RANK_COLOR = ['#f0a500', '#cbd5e1', '#cd7f32']
 
 export default function GameOverScreen({ onOpenLeaderboard }) {
-  const { finalResults, players, roundScores, roundDetails, mySeat } = useGame()
+  const { finalResults, players, roundScores, roundDetails, mySeat,
+          rematch, requestRematch } = useGame()
 
-  const handlePlayAgain = () => window.location.reload()
+  // Set of seats (in the OLD room) who have clicked Play Again.
+  const joinedSet = useMemo(
+    () => new Set(rematch?.joinedOldSeats || []),
+    [rematch?.joinedOldSeats]
+  )
+  const iJoined = joinedSet.has(mySeat)
+
+  const handlePlayAgain = () => {
+    if (iJoined) return                  // already pressed — don't double-fire
+    requestRematch()
+    // No navigation here — the server will respond with `room-joined`
+    // for the new lobby, which GameContext's existing handler routes to
+    // the WaitingRoom screen.
+  }
 
   // Win parade: a generous confetti burst on mount, *louder* if this player
   // actually won. The trophy PNG also gets a slow zoom via the
@@ -90,6 +106,13 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
     return tally
   }, [details, playerList])
 
+  // Per-game achievements, computed on the fly from this game's rounds.
+  const achievements = useMemo(
+    () => computePerGameAchievements(playerList, details),
+    [playerList, details]
+  )
+  const achieversList = playerList.filter(p => (achievements[p.seat] || []).length > 0)
+
   return (
     <div className="saloon-bg min-h-screen flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-3xl">
@@ -133,12 +156,19 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                     {RankIcon ? <RankIcon size={24} style={{ color: RANK_COLOR[idx] }} /> : null}
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white">{p.name}</span>
                       {p.seat === winner?.seat && (
                         <span className="text-[10px] rounded-full px-2 py-0.5 font-bold"
                               style={{ background: 'rgba(240,165,0,0.15)', color: '#f0a500', border: '1px solid rgba(240,165,0,0.3)' }}>
                           Winner
+                        </span>
+                      )}
+                      {joinedSet.has(p.seat) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-bold"
+                              style={{ background: 'rgba(74,222,128,0.14)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.35)' }}
+                              title="This player has clicked Play Again">
+                          <Check size={10} /> wants to play again
                         </span>
                       )}
                     </div>
@@ -185,6 +215,23 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        )}
+
+        {achieversList.length > 0 && (
+          <div className="rounded-2xl overflow-hidden mb-5"
+               style={{ background: 'linear-gradient(180deg, #4a2e1a 0%, #3a2316 100%)', border: '1px solid rgba(218,165,32,0.35)' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+              <h2 className="text-base font-bold text-white">Achievements</h2>
+            </div>
+            <div className="p-4 flex flex-col gap-4">
+              {achieversList.map(p => (
+                <div key={p.seat}>
+                  <p className="text-xs font-black text-white mb-2">{p.name}</p>
+                  <AchievementBadges achievements={countCodes(achievements[p.seat] || [])} />
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -247,6 +294,22 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
           </div>
         )}
 
+        {/* Rematch status banner — shown the moment any player presses Play
+            Again. Tells everyone left on this screen that a fresh lobby
+            exists and where to find it. Disappears for players who already
+            joined (they navigate away to the new WaitingRoom). */}
+        {rematch?.newRoomCode && !iJoined && (
+          <div className="mb-3 rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+               style={{ background: 'rgba(74,222,128,0.10)', border: '1px solid rgba(74,222,128,0.35)' }}>
+            <span className="inline-flex items-center gap-2 text-sm font-bold" style={{ color: '#86efac' }}>
+              <RefreshCw size={14} /> Rematch in progress — lobby <span className="font-mono">{rematch.newRoomCode}</span>
+            </span>
+            <span className="text-[11px]" style={{ color: 'rgba(134,239,172,0.7)' }}>
+              {joinedSet.size} / {playerList.length} joined
+            </span>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           {onOpenLeaderboard && (
             <button
@@ -263,9 +326,12 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
           )}
           <button
             onClick={handlePlayAgain}
-            className={`${onOpenLeaderboard ? '' : 'col-span-2'} py-3.5 rounded-xl font-bold text-white text-base transition-all active:scale-95 casino-btn-primary`}
+            disabled={iJoined}
+            className={`${onOpenLeaderboard ? '' : 'col-span-2'} py-3.5 rounded-xl font-bold text-white text-base transition-all active:scale-95 casino-btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-default`}
           >
-            Play Again
+            {iJoined ? (<><Check size={16} /> Waiting for others…</>) : (
+              rematch?.newRoomCode ? 'Join Rematch' : 'Play Again'
+            )}
           </button>
         </div>
       </div>

@@ -63,58 +63,12 @@ class GameManager {
         connected: false,
       })),
       gameState: snap.gameState ? GameState.fromSnapshot(snap.gameState) : null,
-      // Voice state is never persisted; rehydrated rooms always start with
-      // an empty mesh and players manually rejoin voice.
-      voice: { participants: new Set(), mutedSeats: new Set() },
+      // Rematch coordination is transient and never persisted — if the
+      // server restarts, players just press Play Again again.
+      rematchRoomCode: null,
+      rematchJoinedSeats: new Set(),
     };
     return room;
-  }
-
-  // ── voice chat (transient, in-memory only) ──────────────────────────────
-
-  voiceJoin(roomCode, seat) {
-    const room = this.rooms.get(roomCode);
-    if (!room) return null;
-    if (!room.voice) room.voice = { participants: new Set(), mutedSeats: new Set() };
-    room.voice.participants.add(seat);
-    return this.voiceRoster(roomCode);
-  }
-
-  voiceLeave(roomCode, seat) {
-    const room = this.rooms.get(roomCode);
-    if (!room || !room.voice) return null;
-    room.voice.participants.delete(seat);
-    room.voice.mutedSeats.delete(seat);
-    return this.voiceRoster(roomCode);
-  }
-
-  voiceSetMuted(roomCode, seat, muted) {
-    const room = this.rooms.get(roomCode);
-    if (!room || !room.voice) return null;
-    if (!room.voice.participants.has(seat)) return this.voiceRoster(roomCode);
-    if (muted) room.voice.mutedSeats.add(seat);
-    else       room.voice.mutedSeats.delete(seat);
-    return this.voiceRoster(roomCode);
-  }
-
-  voiceRoster(roomCode) {
-    const room = this.rooms.get(roomCode);
-    if (!room || !room.voice) return { participants: [], muted: [] };
-    return {
-      participants: [...room.voice.participants].sort((a, b) => a - b),
-      muted:        [...room.voice.mutedSeats].sort((a, b) => a - b),
-    };
-  }
-
-  /**
-   * Look up the live socket id of one specific seat in a room. Used when
-   * forwarding WebRTC offer/answer/ICE messages between two specific peers.
-   */
-  socketIdForSeat(roomCode, seat) {
-    const room = this.rooms.get(roomCode);
-    if (!room) return null;
-    const player = room.players.find((p) => p.seat === seat);
-    return player?.id || null;
   }
 
   /**
@@ -197,9 +151,11 @@ class GameManager {
       creatorSeat: 0,
       gameState: null,
       status: 'waiting',
-      // Voice-chat membership is transient — kept in memory only. If the
-      // server restarts the voice mesh is torn down; players rejoin manually.
-      voice: { participants: new Set(), mutedSeats: new Set() },
+      // Rematch coordination — populated when a finished room transitions
+      // into "waiting for players to click Play Again". Lives only in
+      // memory; never persisted.
+      rematchRoomCode: null,
+      rematchJoinedSeats: new Set(),
     });
     this.socketRoomMap.set(socketId, { roomCode, seat: 0 });
     this._persist(roomCode);
@@ -270,14 +226,9 @@ class GameManager {
     if (!room) { this.socketRoomMap.delete(socketId); return null; }
     const playerIdx = room.players.findIndex((p) => p.id === socketId);
     if (playerIdx === -1) { this.socketRoomMap.delete(socketId); return null; }
-    const { name: playerName, seat: leftSeat } = room.players[playerIdx];
+    const { name: playerName } = room.players[playerIdx];
     room.players.splice(playerIdx, 1);
     this.socketRoomMap.delete(socketId);
-    // Voice membership doesn't survive leaving the room.
-    if (room.voice) {
-      room.voice.participants.delete(leftSeat);
-      room.voice.mutedSeats.delete(leftSeat);
-    }
     if (room.players.length === 0) {
       this.rooms.delete(roomCode);
       console.log(`[GameManager] Room ${roomCode} deleted (empty).`);
@@ -381,12 +332,6 @@ class GameManager {
     // which is all we need to re-attach a future socket via `joinRoom`'s
     // reconnection branch.
     this.socketRoomMap.delete(socketId);
-    // Yank them out of voice — their peer connections are dead anyway. They
-    // can rejoin voice manually after their socket comes back.
-    if (room.voice) {
-      room.voice.participants.delete(player.seat);
-      room.voice.mutedSeats.delete(player.seat);
-    }
     console.log(`[GameManager] Player ${player.name} (seat ${player.seat}) disconnected from room ${mapping.roomCode}`);
     this._persist(mapping.roomCode);
     return { roomCode: mapping.roomCode, seat: player.seat, playerName: player.name };
@@ -430,6 +375,83 @@ class GameManager {
     if (!t) return;
     clearTimeout(t);
     this.roomGraceTimers.delete(roomCode);
+  }
+
+  // ── Rematch flow ─────────────────────────────────────────────────────────
+  //
+  // After a game ends, the room sits in `status: 'finished'` for a short
+  // grace window (see armRoomGrace on the handlers side). Any player on the
+  // game-over screen can press "Play Again" — the first such click creates a
+  // fresh room with that player as seat 0, every subsequent click from the
+  // same finished room is forwarded into the same new room via joinRoom().
+  // The old room learns who has signed up so the game-over UI on other
+  // clients can render a "wants to play again" badge above each joined seat.
+  //
+  // Returns { newRoomCode, seat, isFirst, joinedOldSeats: number[] } on
+  // success, or { error: string } on validation failure.
+  requestRematch(socketId, playerName, avatar = null) {
+    const mapping = this.socketRoomMap.get(socketId);
+    if (!mapping) return { error: 'You are not in a room.' };
+    const oldRoom = this.rooms.get(mapping.roomCode);
+    if (!oldRoom) return { error: 'Room not found.' };
+    if (oldRoom.status !== 'finished') return { error: 'Game is not finished yet.' };
+    const oldSeat = mapping.seat;
+
+    // Make sure the new-room slot is reserved before doing anything else —
+    // if two players click "Play Again" at the same instant, only one of
+    // them creates the room and the second one joins it.
+    let newRoomCode = oldRoom.rematchRoomCode;
+    let isFirst = false;
+    let seat;
+
+    if (!newRoomCode) {
+      // First click: create a fresh room with this socket as seat 0.
+      const result = this.createRoom(socketId, playerName, avatar);
+      newRoomCode = result.roomCode;
+      seat = result.seat;
+      oldRoom.rematchRoomCode = newRoomCode;
+      isFirst = true;
+    } else {
+      // Subsequent clicks: join the existing rematch room. joinRoom
+      // handles "same name reconnecting" gracefully — including the
+      // edge case where the clicker is already in the new room (which
+      // happens if they double-tap Play Again).
+      const newRoom = this.rooms.get(newRoomCode);
+      if (!newRoom) {
+        // The rematch room was destroyed between clicks (e.g. the
+        // creator left and the room went empty). Clear the stale link
+        // and treat this click as a brand-new first click.
+        oldRoom.rematchRoomCode = null;
+        return this.requestRematch(socketId, playerName, avatar);
+      }
+      const joinResult = this.joinRoom(newRoomCode, socketId, playerName, avatar);
+      seat = joinResult.seat;
+    }
+
+    oldRoom.rematchJoinedSeats.add(oldSeat);
+    // No need to _persist for old room — the rematch sub-state is in-memory only.
+    return {
+      newRoomCode,
+      seat,
+      isFirst,
+      joinedOldSeats: [...oldRoom.rematchJoinedSeats].sort((a, b) => a - b),
+    };
+  }
+
+  /**
+   * Look up the rematch status for a given (finished) room. Returns the new
+   * room code (if any) and the list of old seats that have already clicked
+   * Play Again. Safe to call on rooms that have no rematch state yet.
+   */
+  rematchStatus(oldRoomCode) {
+    const oldRoom = this.rooms.get(oldRoomCode);
+    if (!oldRoom) return null;
+    return {
+      newRoomCode: oldRoom.rematchRoomCode || null,
+      joinedOldSeats: oldRoom.rematchJoinedSeats
+        ? [...oldRoom.rematchJoinedSeats].sort((a, b) => a - b)
+        : [],
+    };
   }
 
   reconnectPlayer(newSocketId, roomCode, seat) {

@@ -8,6 +8,7 @@ import HeadToHeadPanel      from './LeaderboardPanels/HeadToHeadPanel'
 import GameTypePerformance  from './LeaderboardPanels/GameTypePerformance'
 import RivalryGraph         from './LeaderboardPanels/RivalryGraph'
 import LifetimeCardStats    from './LeaderboardPanels/LifetimeCardStats'
+import AchievementsPanel    from './LeaderboardPanels/AchievementsPanel'
 import GameDetail           from './LeaderboardPanels/GameDetail'
 
 /** Hall of Fame — orchestrator only; every panel lives in its own file. */
@@ -69,6 +70,10 @@ export default function Leaderboard({ onBack }) {
           )}
 
           <PlayersTable aggregated={aggregated} />
+
+          {games.length > 0 && (
+            <AchievementsPanel games={games} players={aggregated} />
+          )}
 
           {/* Per-player insight panels (only render once we have ≥1 game) */}
           {aggregated.length > 1 && games.length > 0 && (

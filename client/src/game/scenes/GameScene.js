@@ -1,6 +1,10 @@
 import Phaser from 'phaser'
 import { EventBus } from '../EventBus.js'
 import { createFaceUpCard, createFaceDownCard, CARD_W, CARD_H } from '../objects/Card.js'
+import { SOUNDS } from '../../constants/sounds.js'
+
+// CSS hex string ("#daa520") → Phaser color int (0xdaa520).
+const hexToInt = (hex) => parseInt(hex.slice(1), 16)
 
 const W = 1100
 const H = 700
@@ -94,11 +98,6 @@ export class GameScene extends Phaser.Scene {
     this.centerObjs    = []
     this.chatObjs      = []
     this._avatarKeys   = new Map()  // seat -> texture-key
-    // seat → avatar container, so the fast-path `voiceSpeaking`-only state
-    // update can attach/detach a speaking ring without rebuilding the
-    // whole avatar (used to chew CPU on phones during active conversation).
-    this._avatarBySeat   = new Map()
-    this._speakRingBySeat = new Map()
     this._animatingTrick = false
     // Track when a fresh deal happens so we play the deal animation only on
     // the moment hands materialise (round start), not on every re-render.
@@ -135,36 +134,7 @@ export class GameScene extends Phaser.Scene {
     this._onStateUpdate = (state) => {
       // Guard against late events arriving after the scene has been torn down
       if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
-      // Fast path: while people are talking, GameContext re-emits
-      // state-updates 5-20×/second purely to flip `voiceSpeaking`. Rebuilding
-      // the entire scene (avatars + 14 sound-button text glyphs each ×3 seats
-      // + all card sprites) for a speaking-ring toggle is what was heating
-      // up phones. If every other tracked field is referentially equal,
-      // just diff the speaking set and add/remove the rings on existing
-      // avatars instead.
-      const prev = this._prevState
-      const onlySpeakingChanged = !!prev &&
-        prev.hand === state.hand &&
-        prev.cardCounts === state.cardCounts &&
-        prev.centerCards === state.centerCards &&
-        prev.currentTrick === state.currentTrick &&
-        prev.players === state.players &&
-        prev.currentTurn === state.currentTurn &&
-        prev.gamePhase === state.gamePhase &&
-        prev.leaderSeat === state.leaderSeat &&
-        prev.cumulativeScores === state.cumulativeScores &&
-        prev.chatBubbles === state.chatBubbles &&
-        prev.playPending === state.playPending &&
-        prev.trickAnimation === state.trickAnimation &&
-        prev.round === state.round &&
-        prev.tricksTaken === state.tricksTaken &&
-        prev.voiceSpeaking !== state.voiceSpeaking
       this.gameState = state
-      this._prevState = state
-      if (onlySpeakingChanged && !this._animatingTrick && this._avatarBySeat.size > 0) {
-        this._syncSpeakingRings(state)
-        return
-      }
       this._renderAll(state)
     }
     this._onAnimateTrickWinner = ({ winnerSeat }) => {
@@ -353,11 +323,6 @@ export class GameScene extends Phaser.Scene {
     this.avatarObjs.forEach(c => c.destroy());    this.avatarObjs = []
     if (this.chatObjs) this.chatObjs.forEach(c => c.destroy())
     this.chatObjs = []
-    // Destroying the avatar containers above already nukes any speak-rings
-    // they parented. Just drop the lookup maps so the fast-path doesn't
-    // hand back stale references.
-    this._avatarBySeat.clear()
-    this._speakRingBySeat.clear()
   }
 
   // ── Opponent face-down card fans on left/right ───────────────────────────
@@ -440,12 +405,6 @@ export class GameScene extends Phaser.Scene {
       ring.lineStyle(3, ringCol, 1)
       ring.strokeCircle(0, 0, radius)
       container.add(ring)
-
-      // Record the container + radius for the speak-ring sync pass at the
-      // end of this function. Keeping the ring as a separate, post-loop
-      // step means the fast-path in `_onStateUpdate` can attach/detach
-      // it without rebuilding the whole avatar.
-      this._avatarBySeat.set(seat, { container, radius })
 
       // Profile picture (data URL → texture) → avatar-default → initial letter
       const avatarKey = this._ensureAvatarTexture(player)
@@ -530,53 +489,6 @@ export class GameScene extends Phaser.Scene {
 
       this.avatarObjs.push(container)
     })
-
-    // After the avatar containers exist, attach/detach speak-rings as a
-    // single pass — same code path the fast-path uses, so behaviour stays
-    // consistent regardless of which route a state-update took.
-    this._syncSpeakingRings(state)
-  }
-
-  /**
-   * Idempotent: ensures the speaking ring exists on exactly the seats listed
-   * in `state.voiceSpeaking`. Adds rings for new speakers, destroys rings
-   * for newly-quiet seats, and leaves stable speakers untouched. Cheap
-   * enough to call on every state update.
-   */
-  _syncSpeakingRings(state) {
-    const speakers = state.voiceSpeaking instanceof Set ? state.voiceSpeaking : new Set()
-    // Remove rings for seats that stopped speaking (or whose avatar was
-    // rebuilt out from under us — defensive).
-    for (const [seat, ring] of this._speakRingBySeat) {
-      const stillSpeaking = speakers.has(seat) && this._avatarBySeat.has(seat)
-      if (stillSpeaking) continue
-      try { this.tweens.killTweensOf(ring) } catch {}
-      try { ring.destroy() } catch {}
-      this._speakRingBySeat.delete(seat)
-    }
-    // Add rings for newly-speaking seats. Geometry intentionally mirrors
-    // the original inline draw: lime stroke at +5 radius, pulsing scale +
-    // alpha at ~380ms yoyo.
-    for (const seat of speakers) {
-      if (this._speakRingBySeat.has(seat)) continue
-      const entry = this._avatarBySeat.get(seat)
-      if (!entry) continue
-      const { container, radius } = entry
-      const speakRing = this.add.graphics()
-      speakRing.lineStyle(3, 0x6dbc4f, 1)
-      speakRing.strokeCircle(0, 0, radius + 5)
-      container.add(speakRing)
-      this.tweens.add({
-        targets: speakRing,
-        alpha: { from: 1, to: 0.45 },
-        scaleX: { from: 1, to: 1.08 },
-        scaleY: { from: 1, to: 1.08 },
-        duration: 380,
-        yoyo: true,
-        repeat: -1,
-      })
-      this._speakRingBySeat.set(seat, speakRing)
-    }
   }
 
   /**
@@ -588,27 +500,17 @@ export class GameScene extends Phaser.Scene {
    */
   _addSoundButtons(container, seat, radius, isOwn) {
     if (!isOwn) return
-    // Each button is a single character. `id` is the filename (matches the
-    // server ALLOWED_SOUNDS list); `glyph` is what's drawn on the button.
-    const SOUNDS = [
-      // built-in clips
-      { id: 'yeehaw',      glyph: 'Y', color: 0xdaa520 },
-      { id: 'gunshot',     glyph: '!', color: 0xd4574d },
-      { id: 'whistle',     glyph: '~', color: 0x6dbc4f },
-      // user-added reaction clips
-      { id: 'babi',        glyph: 'B', color: 0xf0a500 },
-      { id: 'giv',         glyph: 'G', color: 0x7fa7d6 },
-      { id: 'janmrteloba', glyph: 'J', color: 0xc084fc },
-      { id: 'ojaxi',       glyph: 'O', color: 0xfb923c },
-      { id: 'sheilage',    glyph: 'S', color: 0xa78bfa },
-      { id: 'shemetxara',  glyph: 'X', color: 0xf472b6 },
-      { id: 'tsava',       glyph: 'T', color: 0xfde047 },
-      // newer Georgian reaction clips
-      { id: 'Dedofali',    glyph: 'D', color: 0xff6b9d },
-      { id: 'Male!',       glyph: 'M', color: 0x60a5fa },
-      { id: 'Revia',       glyph: 'R', color: 0x34d399 },
-      { id: 'Tazik',       glyph: 'Z', color: 0xfacc15 },
-    ]
+    // On touch devices these compact canvas buttons are too small to tap
+    // reliably — the DOM Sound Board modal (a big button next to the own
+    // avatar) is the mobile path instead, so skip drawing them here.
+    const isTouch = typeof window !== 'undefined' &&
+      (('ontouchstart' in window) ||
+       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches))
+    if (isTouch) return
+
+    // Reaction clips live in a shared constant (also used by the DOM Sound
+    // Board modal). `glyph` is the single character drawn here; `color` is a
+    // CSS hex string converted to a Phaser int for the canvas stroke.
 
     // 3-row grid that grows out to the right of the own avatar. Column-major
     // fill, so every column holds exactly 3 sounds (the last one tails off
@@ -631,7 +533,7 @@ export class GameScene extends Phaser.Scene {
       const btn = this.add.container(bx, by)
       const bg = this.add.graphics()
       bg.fillStyle(0x4a2e1a, 1); bg.fillCircle(0, 0, r)
-      bg.lineStyle(1.5, s.color, 0.95); bg.strokeCircle(0, 0, r)
+      bg.lineStyle(1.5, hexToInt(s.color), 0.95); bg.strokeCircle(0, 0, r)
       btn.add(bg)
       btn.add(this.add.text(0, 0, s.glyph, {
         fontSize: '11px', color: '#fde9b8',

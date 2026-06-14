@@ -3,6 +3,7 @@ import ScoreTable     from '../ScoreTable'
 import ScoreChart     from '../ScoreChart'
 import GameTypeMatrix from '../GameTypeMatrix'
 import LastTrickView  from '../LastTrickView'
+import WinProbability from '../WinProbability'
 
 const TITLES = {
   scores: 'Tally Sheet',
@@ -35,6 +36,7 @@ export default function ScoreDrawer({ panel, onClose }) {
             <button onClick={onClose} className="hover:opacity-80 text-cream-soft"><X size={18} /></button>
           </div>
           {panel === 'scores' && <ScoreTable />}
+          {panel === 'scores' && <WinProbability />}
           {panel === 'matrix' && <GameTypeMatrix />}
           {panel === 'chart'  && <ScoreChart />}
           {panel === 'last'   && <LastTrickView />}

@@ -5,6 +5,8 @@ import PlayerStatsCards    from './PlayerStatsCards'
 import RoundBreakdownTable from './RoundBreakdownTable'
 import ProgressionTable    from './ProgressionTable'
 import ProgressionChart    from './ProgressionChart'
+import AchievementBadges   from '../AchievementBadges'
+import { computePerGameAchievements, countCodes } from '../../utils/achievements'
 
 /** Detail page for one finished game. */
 export default function GameDetail({ game, onBack }) {
@@ -54,6 +56,12 @@ export default function GameDetail({ game, onBack }) {
     return tally
   }, [details, playerList])
 
+  const achievements = useMemo(
+    () => computePerGameAchievements(playerList, details),
+    [playerList, details]
+  )
+  const achieversList = playerList.filter(p => (achievements[p.seat] || []).length > 0)
+
   return (
     <div className="w-full max-w-3xl">
       <button onClick={onBack}
@@ -65,6 +73,22 @@ export default function GameDetail({ game, onBack }) {
       <PodiumView game={game} sortedPlayers={sortedPlayers} />
 
       <PlayerStatsCards playerList={playerList} stats={stats} />
+
+      {achieversList.length > 0 && (
+        <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
+          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+            <h2 className="text-sm font-western uppercase text-cream">Achievements</h2>
+          </div>
+          <div className="p-4 flex flex-col gap-4">
+            {achieversList.map(p => (
+              <div key={p.seat}>
+                <p className="text-xs font-black text-white mb-2">{p.name}</p>
+                <AchievementBadges achievements={countCodes(achievements[p.seat] || [])} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <RoundBreakdownTable details={details} playerList={playerList} />
 

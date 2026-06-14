@@ -46,6 +46,25 @@ export default function PhaserGame({ gameState, onCardPlay }) {
     EventBus.emit('state-update', gameState)
   }, [gameState])
 
+  // Re-fit the FIT-scaled canvas whenever the *visible* viewport changes.
+  // Phaser's built-in 'resize' listener tracks the layout viewport, which on
+  // mobile doesn't update when browser chrome shows/hides or on some
+  // orientation flips — leaving the canvas sized to the old (taller) box and
+  // clipping the bottom of the table. visualViewport fires on exactly those
+  // changes, so refreshing the scale manager here keeps the table at 100%.
+  useEffect(() => {
+    const refresh = () => gameRef.current?.scale?.refresh()
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    window.addEventListener('resize', refresh)
+    window.addEventListener('orientationchange', refresh)
+    vv?.addEventListener('resize', refresh)
+    return () => {
+      window.removeEventListener('resize', refresh)
+      window.removeEventListener('orientationchange', refresh)
+      vv?.removeEventListener('resize', refresh)
+    }
+  }, [])
+
   // Whenever the GameScene finishes mounting (initial create, scene
   // restart, HMR), replay the most recent state we have. Without this
   // replay the very first state-update — emitted while the scene was
