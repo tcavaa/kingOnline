@@ -108,6 +108,30 @@ export function GameProvider({ children }) {
 
   useEffect(() => { playersRef.current = players }, [players])
 
+  // ── Desync recovery watchdog ──────────────────────────────────────────────
+  // If we sit "waiting on someone else to play" for too long during the
+  // playing phase, the likeliest cause is a dropped socket event that left our
+  // view stale: we still think it's their turn while the server has already
+  // advanced to ours → a deadlock the user can currently only escape by
+  // refreshing. Quietly re-pull the authoritative snapshot.
+  //
+  // Armed ONLY while it's *not* our turn — when it's our turn we already hold
+  // everything we need, so the active player never triggers a resync (no
+  // flicker for the person actually thinking). The timer is re-armed every
+  // time the turn changes; a normal hand-off clears it long before it fires.
+  useEffect(() => {
+    // Who must act right now: the current player while a trick is in progress,
+    // or the leader during the per-round decision phases.
+    const ACTIVE_PHASES = ['playing', 'type_selection', 'trump_selection', 'discard']
+    if (!ACTIVE_PHASES.includes(gamePhase)) return
+    const actorSeat = gamePhase === 'playing' ? currentTurn : leaderSeat
+    if (actorSeat === null || actorSeat === undefined || actorSeat === mySeat) return
+    const t = setTimeout(() => {
+      socketRef.current?.emit('request-state')
+    }, 9000)
+    return () => clearTimeout(t)
+  }, [gamePhase, currentTurn, leaderSeat, mySeat])
+
   const addToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random()
     setToasts(prev => [...prev, { id, message, type }])
@@ -125,6 +149,7 @@ export function GameProvider({ children }) {
     'sheilage', 'shemetxara', 'tsava',
     'Dedofali', 'Male!', 'Revia', 'Tazik',
     '10-10', 'achexet', 'bedi', 'cxado',
+    'ketika',
   ]
   const audioElsRef = useRef(null)
   if (!audioElsRef.current && typeof window !== 'undefined') {
@@ -605,6 +630,17 @@ export function GameProvider({ children }) {
       setPlayPendingBoth(false)
       setTrickAnimation(null)
       clearTrickTimers()
+      // Force the canvas to repaint the rehydrated state. The setX calls above
+      // queue a React re-render → PhaserGame re-emits state-update; we fire
+      // force-render *after* that has committed (double rAF = past commit +
+      // paint) so the scene drops any stuck animation gate and draws the fresh
+      // snapshot. Fixes the "blank table / stale trick until I interact" bug
+      // on rejoin and after a desync resync.
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => requestAnimationFrame(() => EventBus.emit('force-render')))
+      } else {
+        setTimeout(() => EventBus.emit('force-render'), 80)
+      }
     })
 
     socket.on('error', ({ message }) => {

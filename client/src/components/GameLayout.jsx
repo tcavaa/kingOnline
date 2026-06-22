@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGame } from '../context/GameContext'
+import { EventBus } from '../game/EventBus'
 import PhaserGame       from '../game/PhaserGame'
 import GameTypeSelector from './GameTypeSelector'
 import TrumpSelector    from './TrumpSelector'
@@ -60,14 +61,24 @@ export default function GameLayout() {
     gamePhase === 'trump_selection' ? 'to choose trump' :
     gamePhase === 'discard'         ? 'to discard 2 cards' : ''
 
-  // ── Vibration when it becomes my turn (mobile-only, opt-in by default) ──
+  // ── On-our-turn handling: vibrate + force a canvas resync ──────────────────
+  // The vibrate is the original mobile nicety. The force-render is a desync
+  // guard for the "I can't see the card they just played, so I can't take my
+  // turn" bug: if our React state is already correct but the Phaser canvas
+  // skipped a render (e.g. a state-update arrived while the trick-fly
+  // animation gate was up), this clears the gate and repaints the freshest
+  // snapshot the instant it's our move. Small delay so a legitimate trick-fly
+  // animation finishes first. (The deeper case — our React state itself being
+  // stale — is handled by the request-state watchdog in GameContext.)
   const wasMyTurnRef = useRef(false)
   useEffect(() => {
     const isMyTurn = gamePhase === 'playing' && currentTurn === mySeat && !trickAnimation
-    if (isMyTurn && !wasMyTurnRef.current && typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(80)
-    }
+    const justBecameMyTurn = isMyTurn && !wasMyTurnRef.current
     wasMyTurnRef.current = isMyTurn
+    if (!justBecameMyTurn) return
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(80)
+    const t = setTimeout(() => EventBus.emit('force-render'), 250)
+    return () => clearTimeout(t)
   }, [gamePhase, currentTurn, mySeat, trickAnimation])
 
   // ── Wake-lock: keep the screen awake while a game is in progress ────────

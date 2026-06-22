@@ -132,18 +132,37 @@ export class GameScene extends Phaser.Scene {
 
     // Bind handlers so we can detach the exact same references on shutdown
     this._onStateUpdate = (state) => {
-      // Guard against late events arriving after the scene has been torn down
-      if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
+      // ALWAYS cache the freshest snapshot, even if we can't draw it right
+      // now (scene still booting, or mid trick-animation). The gate-release,
+      // force-render and visibility paths all repaint from `this.gameState`,
+      // so it must never lag the server — otherwise a render that was skipped
+      // during an animation replays stale data (the "I can't see the card
+      // they just played" desync).
       this.gameState = state
+      // Guard against late events arriving after the scene has been torn down
+      // or before it's active: store-but-don't-draw, the re-push / scene-ready
+      // / force-render paths will paint it once we're live.
+      if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
       this._renderAll(state)
     }
     this._onAnimateTrickWinner = ({ winnerSeat }) => {
       if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
       this._animateTrickToWinner(winnerSeat)
     }
+    // Hard resync hook: force the canvas to drop any stuck animation gate and
+    // repaint from the freshest cached state. Fired by the client when it
+    // becomes our turn (defeats a Phaser-side stale render) and after a
+    // game-state rehydrate (defeats the blank-table-on-rejoin race).
+    this._onForceRender = () => {
+      if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
+      this._animatingTrick = false
+      if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
+      if (this.gameState) this._renderAll(this.gameState)
+    }
 
     EventBus.on('state-update', this._onStateUpdate)
     EventBus.on('animate-trick-winner', this._onAnimateTrickWinner)
+    EventBus.on('force-render', this._onForceRender)
 
     // ── Visibility-change recovery ────────────────────────────────────────
     // When a tab is backgrounded mid-animation, Phaser pauses the scene
@@ -182,12 +201,14 @@ export class GameScene extends Phaser.Scene {
   _cleanupBus() {
     if (this._onStateUpdate)        EventBus.off('state-update', this._onStateUpdate)
     if (this._onAnimateTrickWinner) EventBus.off('animate-trick-winner', this._onAnimateTrickWinner)
+    if (this._onForceRender)        EventBus.off('force-render', this._onForceRender)
     if (this._onVisibility && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this._onVisibility)
     }
     if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
     this._onStateUpdate = null
     this._onAnimateTrickWinner = null
+    this._onForceRender = null
     this._onVisibility = null
   }
 

@@ -27,4 +27,6 @@ export const SOUNDS = [
   { id: 'achexet',     glyph: 'A', label: 'Achexet',    color: '#fb923c' },
   { id: 'bedi',        glyph: 'B', label: 'Bedi',       color: '#f0a500' },
   { id: 'cxado',       glyph: 'C', label: 'Cxado',      color: '#22d3ee' },
+  // one-off addition
+  { id: 'ketika',      glyph: 'K', label: 'Ketika',     color: '#a3e635' },
 ]

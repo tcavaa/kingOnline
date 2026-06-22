@@ -80,6 +80,28 @@ export default function PhaserGame({ gameState, onCardPlay }) {
     return () => EventBus.off('scene-ready', replay)
   }, [])
 
+  // Belt-and-suspenders for the "blank table until I tap something" rejoin
+  // bug. On rejoin the GameScene boots asynchronously: the game-state snapshot
+  // often lands *before* the scene's listener is live (or before the scene is
+  // active, which makes _onStateUpdate cache-but-not-draw). The single
+  // scene-ready replay can lose that race when assets are cached and the scene
+  // boots almost instantly. Re-pushing the freshest snapshot a few times
+  // across the boot window guarantees the table paints the moment the scene
+  // is alive — whichever push lands first after it becomes active wins, the
+  // rest are cheap no-op repaints of identical state.
+  useEffect(() => {
+    const push = () => {
+      if (lastStateRef.current) EventBus.emit('state-update', lastStateRef.current)
+    }
+    const timers = [
+      setTimeout(push, 60),
+      setTimeout(push, 200),
+      setTimeout(push, 500),
+      setTimeout(push, 1000),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
   useEffect(() => {
     const handler = (card) => onCardPlay && onCardPlay(card)
     EventBus.on('card-clicked', handler)
