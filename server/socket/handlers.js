@@ -331,6 +331,8 @@ function registerHandlers(io, socket, gameManager) {
         'Dedofali', 'Male!', 'Revia', 'Tazik',
         // latest Georgian reaction clips
         '10-10', 'achexet', 'bedi', 'cxado',
+        // one-off addition
+        'ketika',
       ]);
       if (!ALLOWED_SOUNDS.has(soundId)) return;
       const mapping = gameManager.getMappingBySocketId(socketId);
@@ -435,7 +437,14 @@ function registerHandlers(io, socket, gameManager) {
       const { roomCode, seat } = mapping;
       const state = gameManager.getStateForPlayer(roomCode, seat);
       if (!state) return emitError('No game state available.');
-      socket.emit('game-state', state);
+      // Include the room roster (with avatars) — GameState.players carries only
+      // id/name/seat, so emitting raw `state` would blank every avatar on the
+      // client each time the desync watchdog resyncs. Mirror the reconnect path.
+      const room = gameManager.getRoom(roomCode);
+      socket.emit('game-state', {
+        ...state,
+        players: room ? playersView(room.players) : state.players,
+      });
     } catch (err) {
       emitError(err.message);
     }

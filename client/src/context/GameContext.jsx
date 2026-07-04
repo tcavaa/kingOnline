@@ -310,6 +310,11 @@ export function GameProvider({ children }) {
       setPlayers(p)
       setGamePhase('type_selection')
       setAppPhase('game')
+      // Fresh game — wipe the per-seat used-type ledger. Without this a
+      // rematch (same browser session, new room) leaves the previous game's
+      // fully-used matrix in place and the first leader sees every game
+      // type greyed out until a page refresh.
+      setUsedTypes({ 0: [], 1: [], 2: [] })
       setRoundScores([])
       setRoundDetails([])
       setCumulativeScores({ 0: 0, 1: 0, 2: 0 })
@@ -432,9 +437,6 @@ export function GameProvider({ children }) {
       // reveal + animation window, preventing the "card disappears but says
       // not your turn" race.
       setTrickAnimation({ winnerSeat, trick, status: 'showing' })
-
-      const winnerName = playersRef.current.find(p => p.seat === winnerSeat)?.name || `Player ${winnerSeat}`
-      addToast(`${winnerName} won the trick!`, 'info')
 
       clearTrickTimers()
 
