@@ -27,6 +27,10 @@ class GameManager {
     this.socketRoomMap = new Map();
     // roomCode -> Timeout: pending "delete if still empty" job.
     this.roomGraceTimers = new Map();
+    // The one homepage quick-match room currently collecting players.
+    // Cleared the moment its game starts (or the room dies) so the next
+    // sitter opens a fresh public table. In-memory only.
+    this.publicRoomCode = null;
   }
 
   // ── persistence ───────────────────────────────────────────────────────────
@@ -209,7 +213,12 @@ class GameManager {
 
     if (room.players.length >= 3) throw new Error('Room is full.');
 
-    const seat = room.players.length;
+    // Lowest free seat — players can leave a waiting room (or be swept out
+    // of the public lobby after a disconnect), leaving gaps that a plain
+    // `players.length` would double-assign.
+    const takenSeats = new Set(room.players.map((p) => p.seat));
+    let seat = 0;
+    while (takenSeats.has(seat)) seat++;
     const player = { id: socketId, name: playerName, avatar, seat, connected: true };
     room.players.push(player);
     this.socketRoomMap.set(socketId, { roomCode, seat });
@@ -300,6 +309,14 @@ class GameManager {
     return result;
   }
 
+  handleQuitRound(roomCode, quitterSeat) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.gameState) return { ok: false, error: 'Game not found.' };
+    const result = room.gameState.endRoundEarly(quitterSeat);
+    if (result.ok) this._persist(roomCode);
+    return result;
+  }
+
   handleNextRound(roomCode, socketId) {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
@@ -375,6 +392,69 @@ class GameManager {
     if (!t) return;
     clearTimeout(t);
     this.roomGraceTimers.delete(roomCode);
+  }
+
+  // ── Public quick-match room ───────────────────────────────────────────────
+  //
+  // The homepage shows one shared "public room" with 3 seats. Sitting joins
+  // (or lazily creates) that room; when the 3rd seat fills the game starts
+  // automatically and the public slot resets for the next trio. Reconnection
+  // reuses the normal name-based joinRoom path, so a refreshed player can be
+  // re-attached to their seat via `rejoin-public`.
+
+  /**
+   * Seat a socket at the public table. Creates the room on first sit.
+   * Same-name sitters are re-attached to their existing seat (refresh-safe).
+   */
+  sitPublic(socketId, playerName, avatar = null, emoji = null) {
+    let code = this.publicRoomCode;
+    let room = code ? this.rooms.get(code) : null;
+    if (!room || room.status !== 'waiting') {
+      // Stale pointer (room started, died, or was GC'd) — start fresh.
+      this.publicRoomCode = null;
+      room = null;
+      code = null;
+    }
+
+    let seat;
+    if (!room) {
+      const created = this.createRoom(socketId, playerName, avatar);
+      code = created.roomCode;
+      seat = created.seat;
+      room = this.rooms.get(code);
+      room.isPublic = true;
+      this.publicRoomCode = code;
+    } else {
+      const joined = this.joinRoom(code, socketId, playerName, avatar);
+      seat = joined.seat;
+    }
+
+    const player = room.players.find((p) => p.seat === seat);
+    if (player && emoji !== undefined) player.emoji = emoji || player.emoji || null;
+    return { roomCode: code, seat };
+  }
+
+  /** Homepage view of the public table (empty when none is collecting). */
+  publicRoomView() {
+    const code = this.publicRoomCode;
+    const room = code ? this.rooms.get(code) : null;
+    if (!room || room.status !== 'waiting') {
+      return { roomCode: null, seats: [] };
+    }
+    return {
+      roomCode: code,
+      seats: room.players.map((p) => ({
+        seat: p.seat,
+        name: p.name,
+        avatar: p.avatar || null,
+        emoji: p.emoji || null,
+        connected: !!p.connected,
+      })),
+    };
+  }
+
+  clearPublicRoom(roomCode) {
+    if (this.publicRoomCode === roomCode) this.publicRoomCode = null;
   }
 
   // ── Rematch flow ─────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
-import { ClipboardList, Map, LineChart, Layers, X } from 'lucide-react'
+import { ClipboardList, Map, LineChart, Layers, X, DoorOpen, Flag } from 'lucide-react'
+import { useGame } from '../../context/GameContext'
 
 const ITEMS = [
   { id: 'scores', Icon: ClipboardList, label: 'Tally Sheet'  },
@@ -9,7 +10,15 @@ const ITEMS = [
 
 /** Left-side slide-in drawer triggered by the hamburger pill. */
 export default function MenuDrawer({ open, onClose, onPick }) {
+  const { gamePhase, chosenGameType } = useGame()
   if (!open) return null
+
+  // Folding only makes sense once the hand is underway (type picked, cards
+  // being discarded/played). Surrender is available any time mid-game.
+  const canQuitRound =
+    !!chosenGameType && (gamePhase === 'discard' || gamePhase === 'playing')
+  const canSurrender = gamePhase !== 'game_over'
+
   return (
     <>
       <div className="drawer-scrim left" onClick={onClose} />
@@ -30,6 +39,29 @@ export default function MenuDrawer({ open, onClose, onPick }) {
               <span>{label}</span>
             </button>
           ))}
+
+          <div className="my-1" style={{ borderTop: '1px solid rgba(218,165,32,0.25)' }} />
+
+          {canQuitRound && (
+            <button
+              onClick={() => { onPick('quitRound'); onClose() }}
+              className="menu-drawer-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-western uppercase tracking-wide transition-all active:scale-95"
+              style={{ color: '#e8a76a' }}
+            >
+              <DoorOpen size={18} style={{ color: '#e8a76a' }} />
+              <span>Fold Hand</span>
+            </button>
+          )}
+          {canSurrender && (
+            <button
+              onClick={() => { onPick('surrender'); onClose() }}
+              className="menu-drawer-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-western uppercase tracking-wide transition-all active:scale-95"
+              style={{ color: '#e07a5f' }}
+            >
+              <Flag size={18} style={{ color: '#e07a5f' }} />
+              <span>Surrender</span>
+            </button>
+          )}
         </div>
       </div>
     </>

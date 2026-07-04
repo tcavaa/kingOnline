@@ -7,6 +7,15 @@ const { ALL_TYPE_CODES, TOTAL_ROUNDS } = require('./constants');
 
 const TRUMP_TYPES = new Set(['P1', 'P2', 'P3']);
 
+// Full-round point totals per game type, used when a round is quit early via
+// a unanimous "quit round" vote: on negative hands the quitter absorbs the
+// entire penalty; on positive hands the quitter forfeits their share and the
+// other two players split the total evenly.
+const QUIT_ROUND_TOTALS = {
+  K: -40, Q: -40, J: -40, H: -40, L2: -40, T: -40,
+  P1: 80, P2: 80, P3: 80,
+};
+
 function cardsEqual(a, b) {
   return a.rank === b.rank && a.suit === b.suit;
 }
@@ -430,6 +439,71 @@ class GameState {
       cumulativeScores: { ...this.cumulativeScores },
       round: this.round,
       isGameOver,
+      gameType: this.chosenGameType,
+    };
+  }
+
+  /**
+   * End the current round immediately because a "quit round" vote passed.
+   * Scores are flat — whatever was already taken this round is ignored:
+   * the quitter simply eats the round's full penalty (or, on a positive
+   * hand, hands its full reward to the other two).
+   */
+  endRoundEarly(quitterSeat) {
+    if (!this.chosenGameType) {
+      return { ok: false, error: 'No game type chosen yet.' };
+    }
+    if (this.phase !== 'discard' && this.phase !== 'playing') {
+      return { ok: false, error: 'The round cannot be quit right now.' };
+    }
+
+    const total = QUIT_ROUND_TOTALS[this.chosenGameType] || 0;
+    const scores = { 0: 0, 1: 0, 2: 0 };
+    if (total < 0) {
+      scores[quitterSeat] = total;
+    } else {
+      for (let s = 0; s < 3; s++) {
+        if (s !== quitterSeat) scores[s] = total / 2;
+      }
+    }
+
+    for (let s = 0; s < 3; s++) {
+      this.cumulativeScores[s] += scores[s];
+    }
+
+    this.roundScores.push({
+      round: this.round,
+      gameType: this.chosenGameType,
+      scores: { ...scores },
+    });
+
+    this.roundDetails.push({
+      round: this.round,
+      gameType: this.chosenGameType,
+      leaderSeat: this.leaderSeat,
+      trumpSuit: this.trumpSuit,
+      scores: { ...scores },
+      cumulativeScores: { ...this.cumulativeScores },
+      tricksTaken: { ...this.tricksTaken },
+      queensTaken: { ...this.queensTaken },
+      jacksTaken: { ...this.jacksTaken },
+      heartsTaken: { ...this.heartsTaken },
+      kingOfHeartsTakenBy: this.kingOfHeartsTakenBy,
+      trickWinners: [...this.trickWinners],
+      tricksPlayed: this.trickWinners.length,
+      quitBySeat: quitterSeat,
+    });
+
+    this.currentTrick = [];
+    this.ledSuit = null;
+    this.phase = 'round_end';
+
+    return {
+      ok: true,
+      scores,
+      cumulativeScores: { ...this.cumulativeScores },
+      round: this.round,
+      isGameOver: this.round >= TOTAL_ROUNDS,
       gameType: this.chosenGameType,
     };
   }
