@@ -15,6 +15,7 @@ import MenuDrawer       from './Hud/MenuDrawer'
 import DisconnectBanner from './Hud/DisconnectBanner'
 import RoundResult      from './Hud/RoundResult'
 import WaitingChip      from './Hud/WaitingChip'
+import QuitModal        from './Hud/QuitModal'
 
 /**
  * Orchestrator for the in-game experience: hosts the Phaser canvas and
@@ -26,21 +27,36 @@ export default function GameLayout() {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, playCard, playPending,
+    trickAnimation, chatBubbles, typingSeats, playCard, playPending,
   } = useGame()
 
-  const [drawer,   setDrawer]   = useState(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
+  const [drawer,      setDrawer]      = useState(null)
+  const [menuOpen,    setMenuOpen]    = useState(false)
+  const [chatOpen,    setChatOpen]    = useState(false)
+  const [confirmQuit, setConfirmQuit] = useState(null) // null | 'round' | 'game'
 
   const openDrawer  = (id) => setDrawer(prev => prev === id ? null : id)
   const closeDrawer = () => setDrawer(null)
+
+  const handleMenuPick = (id) => {
+    if (id === 'quitRound')      setConfirmQuit('round')
+    else if (id === 'surrender') setConfirmQuit('game')
+    else openDrawer(id)
+  }
+
+  // Table-side typing indicator: seats typing in chat get a "…" bubble above
+  // their avatar via the same canvas bubble pipeline as real messages — a
+  // real message (spread last) always wins over the typing placeholder.
+  const bubblesWithTyping = {
+    ...Object.fromEntries(Object.keys(typingSeats || {}).map(s => [s, { message: '• • •' }])),
+    ...chatBubbles,
+  }
 
   const gameState = {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, playPending,
+    trickAnimation, chatBubbles: bubblesWithTyping, playPending,
   }
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
@@ -142,7 +158,9 @@ export default function GameLayout() {
       {showDiscard       && <DiscardSelector />}
       {showRoundResult   && <RoundResult />}
 
-      <MenuDrawer  open={menuOpen} onClose={() => setMenuOpen(false)} onPick={openDrawer} />
+      <QuitModal confirmKind={confirmQuit} onCloseConfirm={() => setConfirmQuit(null)} />
+
+      <MenuDrawer  open={menuOpen} onClose={() => setMenuOpen(false)} onPick={handleMenuPick} />
       <ScoreDrawer panel={drawer}  onClose={closeDrawer} />
       <ChatOverlay open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>

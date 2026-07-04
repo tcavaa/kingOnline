@@ -71,6 +71,28 @@ export function GameProvider({ children }) {
   const [chatMessages, setChatMessages] = useState([])  // [{seat,name,avatar,message,at}]
   const [chatBubbles, setChatBubbles]   = useState({})  // seat -> {message, at}
   const bubbleTimers = useRef({})
+  // Typing indicator — seats (other than ours) currently typing in chat.
+  // Each entry auto-expires a couple of seconds after the last typing ping.
+  const [typingSeats, setTypingSeats] = useState({})    // seat -> true
+  const typingTimers    = useRef({})
+  const typingSentAtRef = useRef(0)
+
+  // ── Public quick-match room (homepage) ──────────────────────────────────
+  // Live snapshot of the shared homepage table, broadcast to every socket.
+  // `publicSeat` is OUR seat there (null = not sitting); while seated the
+  // user stays on the lobby screen — the game only starts (and appPhase
+  // flips) when the server sees the 3rd seat fill.
+  const [publicRoom, setPublicRoom] = useState({ roomCode: null, seats: [] })
+  const [publicSeat, setPublicSeat] = useState(null)
+  const publicSeatRef = useRef(null)
+  const setPublicSeatBoth = (v) => { publicSeatRef.current = v; setPublicSeat(v) }
+
+  // ── Quit-round / surrender vote ─────────────────────────────────────────
+  // Set while a proposal is waiting on votes:
+  //   { kind: 'round'|'game', proposerSeat, proposerName, acceptedSeats }
+  // Cleared when it passes (round-complete / game-over lands), is declined,
+  // or expires server-side.
+  const [quitProposal, setQuitProposal] = useState(null)
 
   const playersRef = useRef(players)
   const mySeatRef  = useRef(null)
@@ -241,6 +263,8 @@ export function GameProvider({ children }) {
 
     socket.on('connect', () => {
       setConnected(true)
+      // Always refresh the homepage public-table snapshot on (re)connect.
+      socket.emit('public-room-info')
       // After a prior `disconnect`, socket.io has just (re)opened the
       // pipe — but the new socket id has no server-side mapping. Re-emit
       // `join-room` with our saved room/name so the server can run its
@@ -256,7 +280,20 @@ export function GameProvider({ children }) {
         // Stay in the "reconnecting…" state until the server-side
         // reconnect path acknowledges via `room-joined { reconnected: true }`.
       } else {
-        // Fresh connect (page load, no prior session). Nothing to rejoin.
+        // Fresh connect (page load, no prior session). If we were sitting
+        // at the public table before a refresh, silently re-take the seat —
+        // the server only re-attaches (never fresh-sits), and if the game
+        // started while we were away this drops us straight back into it.
+        if (!roomCodeRef.current) {
+          try {
+            const saved = JSON.parse(localStorage.getItem('king.publicSeat') || 'null')
+            if (saved?.roomCode && saved?.name) {
+              myNameRef.current = saved.name
+              setMyName(saved.name)
+              socket.emit('rejoin-public', { roomCode: saved.roomCode, playerName: saved.name })
+            }
+          } catch { /* corrupted storage — ignore */ }
+        }
         setReconnecting(false)
       }
     })
@@ -304,6 +341,62 @@ export function GameProvider({ children }) {
     socket.on('player-joined', ({ players: p }) => setPlayers(p))
     socket.on('player-left',   ({ players: p }) => setPlayers(p))
 
+    // ── Public quick-match table ────────────────────────────────────────
+    socket.on('public-room', (view = {}) => {
+      const v = {
+        roomCode: view.roomCode || null,
+        seats: Array.isArray(view.seats) ? view.seats : [],
+      }
+      setPublicRoom(v)
+      if (publicSeatRef.current === null) return
+      if (v.roomCode === roomCodeRef.current) {
+        // Still the same table — but if our seat is gone the server swept
+        // us out (disconnect grace expired). Stand down locally.
+        if (!v.seats.some(s => s.seat === publicSeatRef.current)) {
+          setPublicSeatBoth(null)
+          roomCodeRef.current = ''
+          setRoomCode('')
+          setMySeat(null); mySeatRef.current = null
+          setIsCreator(false)
+          try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+        }
+      } else {
+        // The public lobby moved on — either our table filled and the game
+        // is starting (game-started handles the transition; keep the room
+        // refs for reconnection) or a fresh table opened. Either way we're
+        // no longer "seated on the homepage".
+        setPublicSeatBoth(null)
+      }
+    })
+
+    socket.on('public-seated', ({ roomCode: code, seat }) => {
+      setRoomCode(code)
+      roomCodeRef.current = code
+      setMySeat(seat)
+      mySeatRef.current = seat
+      setIsCreator(seat === 0)
+      setPublicSeatBoth(seat)
+      // Survive a refresh: rejoin-public re-attaches by room code + name.
+      try {
+        localStorage.setItem('king.publicSeat', JSON.stringify({ roomCode: code, name: myNameRef.current }))
+      } catch { /* ignore quota */ }
+    })
+
+    socket.on('public-unseated', () => {
+      setPublicSeatBoth(null)
+      setRoomCode('')
+      roomCodeRef.current = ''
+      setMySeat(null)
+      mySeatRef.current = null
+      setIsCreator(false)
+      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+    })
+
+    socket.on('public-rejoin-failed', () => {
+      setPublicSeatBoth(null)
+      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+    })
+
     socket.on('game-started', ({ round: r, leaderSeat: ls, players: p }) => {
       setRound(r)
       setLeaderSeat(ls)
@@ -324,6 +417,7 @@ export function GameProvider({ children }) {
       // Wipe rematch state from any previous game; the new game-over for
       // THIS room is the only thing that should populate it.
       setRematch({ newRoomCode: null, joinedOldSeats: [] })
+      setQuitProposal(null)
     })
 
     socket.on('hand-dealt', ({ hand: h, centerCards: cc, leaderSeat: ls, round: r, cardCounts: counts }) => {
@@ -369,6 +463,7 @@ export function GameProvider({ children }) {
       // before the new round so nobody starts the round with their cards
       // still greyed out from a stale optimistic update.
       setPlayPendingBoth(false)
+      setQuitProposal(null)
       clearTrickTimers()
     })
 
@@ -457,7 +552,7 @@ export function GameProvider({ children }) {
       }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
     })
 
-    socket.on('round-complete', ({ winnerSeat, trick, scores, cumulativeScores: cs, round: r, gameType, isGameOver, cardCounts: cc, roundDetail }) => {
+    socket.on('round-complete', ({ winnerSeat, trick, scores, cumulativeScores: cs, round: r, gameType, isGameOver, cardCounts: cc, roundDetail, quitBySeat }) => {
       // Show the last trick of the round briefly, then transition.
       if (trick) {
         setCurrentTrick(trick)
@@ -469,8 +564,23 @@ export function GameProvider({ children }) {
       if (cc) setCardCounts(cc)
 
       setPlayPendingBoth(false)
+      setQuitProposal(null)
 
       clearTrickTimers()
+
+      // Quit-round vote passed: there's no final trick to show or animate —
+      // jump straight to the round summary.
+      if (!trick) {
+        setCurrentTrick([])
+        setLedSuit(null)
+        setTrickAnimation(null)
+        setGamePhase('round_end')
+        if (typeof quitBySeat === 'number') {
+          const quitterName = playersRef.current.find(p => p.seat === quitBySeat)?.name || `Player ${quitBySeat}`
+          addToast(`${quitterName} folded the hand.`, 'warning')
+        }
+        return
+      }
       trickTimers.current.push(setTimeout(() => {
         setTrickAnimation({ winnerSeat, trick: trick || [] })
         EventBus.emit('animate-trick-winner', { winnerSeat, trick: trick || [] })
@@ -484,12 +594,21 @@ export function GameProvider({ children }) {
       }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
     })
 
-    socket.on('game-over', ({ finalScores, winner, players: p, roundDetails: rd }) => {
+    socket.on('game-over', ({ finalScores, winner, players: p, roundDetails: rd, surrenderedBySeat }) => {
       setFinalResults({ finalScores, winner, players: p, roundDetails: rd })
       if (rd) setRoundDetails(rd)
       setGamePhase('game_over')
+      setQuitProposal(null)
+      // The public-seat bookmark (if any) has served its purpose — the game
+      // it pointed at is finished, so a later refresh shouldn't chase it.
+      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
       setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 200)
-      addToast(`${winner.name} wins!`, 'success')
+      if (typeof surrenderedBySeat === 'number') {
+        const surrenderName = (p || []).find(pl => pl.seat === surrenderedBySeat)?.name || `Player ${surrenderedBySeat}`
+        addToast(`${surrenderName} surrendered — ${winner.name} wins!`, 'success')
+      } else {
+        addToast(`${winner.name} wins!`, 'success')
+      }
 
       // Persist this finished game to the leaderboard. Two layers of dedupe:
       //
@@ -563,9 +682,52 @@ export function GameProvider({ children }) {
       }, 2500)
     })
 
+    // ── Quit-round / surrender votes ────────────────────────────────────
+    socket.on('quit-proposal', ({ kind, proposerSeat, proposerName, acceptedSeats }) => {
+      setQuitProposal({
+        kind,
+        proposerSeat,
+        proposerName,
+        acceptedSeats: Array.isArray(acceptedSeats) ? acceptedSeats : [proposerSeat],
+      })
+    })
+
+    socket.on('quit-rejected', ({ kind, voterSeat, reason }) => {
+      setQuitProposal(null)
+      const what = kind === 'game' ? 'surrender' : 'fold the hand'
+      if (reason === 'declined') {
+        const voterName = playersRef.current.find(p => p.seat === voterSeat)?.name || 'Someone'
+        addToast(`${voterName} refused to ${what} — play on.`, 'warning')
+      } else {
+        addToast(`The vote to ${what} expired — play on.`, 'warning')
+      }
+    })
+
+    // ── Typing indicator ────────────────────────────────────────────────
+    socket.on('chat-typing', ({ seat }) => {
+      if (seat === mySeatRef.current) return
+      setTypingSeats(prev => (prev[seat] ? prev : { ...prev, [seat]: true }))
+      if (typingTimers.current[seat]) clearTimeout(typingTimers.current[seat])
+      typingTimers.current[seat] = setTimeout(() => {
+        delete typingTimers.current[seat]
+        setTypingSeats(prev => {
+          const next = { ...prev }; delete next[seat]; return next
+        })
+      }, 2500)
+    })
+
     // ── Chat ────────────────────────────────────────────────────────────
     socket.on('chat-message', (msg) => {
       setChatMessages(prev => [...prev.slice(-49), msg])
+      // Their message landed — retire the typing indicator immediately.
+      if (typingTimers.current[msg.seat]) {
+        clearTimeout(typingTimers.current[msg.seat])
+        delete typingTimers.current[msg.seat]
+      }
+      setTypingSeats(prev => {
+        if (!prev[msg.seat]) return prev
+        const next = { ...prev }; delete next[msg.seat]; return next
+      })
       // Show bubble above the sender's avatar for ~5 seconds
       setChatBubbles(prev => ({ ...prev, [msg.seat]: msg }))
       if (bubbleTimers.current[msg.seat]) clearTimeout(bubbleTimers.current[msg.seat])
@@ -730,6 +892,26 @@ export function GameProvider({ children }) {
   const playSound      = useCallback((soundId, targetSeat = null) => {
     socketRef.current?.emit('play-sound', { soundId, targetSeat })
   }, [])
+  // Throttled "I'm typing" ping — at most one every 1.2s while keys are
+  // being pressed; receivers expire the indicator on their own 2.5s timer.
+  const sendTyping     = useCallback(() => {
+    const now = Date.now()
+    if (now - typingSentAtRef.current < 1200) return
+    typingSentAtRef.current = now
+    socketRef.current?.emit('chat-typing')
+  }, [])
+  const proposeQuit    = useCallback((kind) => { socketRef.current?.emit('propose-quit', { kind }) }, [])
+  const voteQuit       = useCallback((accept) => { socketRef.current?.emit('vote-quit', { accept }) }, [])
+
+  // ── public quick-match actions ──────────────────────────────────────────
+  const sitPublic = useCallback((name, avatar = null, emoji = null) => {
+    setMyName(name)
+    myNameRef.current   = name
+    myAvatarRef.current = avatar
+    socketRef.current?.emit('sit-public', { playerName: name, avatar, emoji })
+  }, [])
+  const standPublic    = useCallback(() => { socketRef.current?.emit('stand-public') }, [])
+  const setPublicEmoji = useCallback((emoji) => { socketRef.current?.emit('set-public-emoji', { emoji }) }, [])
   const selectGameType = useCallback((typeCode) => { socketRef.current?.emit('select-game-type', { typeCode }) }, [])
   const selectTrump    = useCallback((suit) => { socketRef.current?.emit('select-trump', { suit }) }, [])
   const discardCards   = useCallback((cards) => {
@@ -750,9 +932,13 @@ export function GameProvider({ children }) {
     socketRef.current?.emit('leave-room')
     setAppPhase('lobby')
     setRoomCode('')
+    roomCodeRef.current = ''
     setPlayers([])
     setMySeat(null)
+    mySeatRef.current = null
     setIsCreator(false)
+    setPublicSeatBoth(null)
+    try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
   }, [])
 
   const toggleDiscard = useCallback((card) => {
@@ -776,6 +962,9 @@ export function GameProvider({ children }) {
       roundScores, roundDetails, cumulativeScores, finalResults,
       toasts, disconnectedPlayer, reconnecting, selectedDiscards,
       chatMessages, chatBubbles, sendChat, playSound,
+      typingSeats, sendTyping,
+      quitProposal, proposeQuit, voteQuit,
+      publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
       rematch, requestRematch,
       createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
       playCard, nextRound, leaveRoom, toggleDiscard, addToast,

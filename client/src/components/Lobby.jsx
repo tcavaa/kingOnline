@@ -6,6 +6,7 @@ import {
 } from '../lib/profiles'
 import ProfileForm, { ProfilePicker } from './ProfileForm'
 import PinPromptModal from './PinPromptModal'
+import PublicRoomPanel from './PublicRoomPanel'
 
 function StarBar({ children }) {
   return (
@@ -16,7 +17,7 @@ function StarBar({ children }) {
 }
 
 export default function Lobby({ onOpenLeaderboard }) {
-  const { createRoom, joinRoom, connected } = useGame()
+  const { createRoom, joinRoom, connected, publicSeat } = useGame()
 
   const [profiles, setProfiles] = useState([])
   // The "locked-in" profile id (the one the user has already verified on
@@ -239,6 +240,12 @@ export default function Lobby({ onOpenLeaderboard }) {
       </div>
 
       {!showForm && !loading && (
+        <div className="relative z-10 w-full max-w-xl mb-5">
+          <PublicRoomPanel active={active} />
+        </div>
+      )}
+
+      {!showForm && !loading && (
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-xl">
           <div className="western-panel p-6 flex flex-col">
             <div className="mb-4">
@@ -252,10 +259,10 @@ export default function Lobby({ onOpenLeaderboard }) {
             </div>
             <button
               onClick={handleCreate}
-              disabled={!connected || !active}
+              disabled={!connected || !active || publicSeat !== null}
               className="casino-btn-primary mt-auto w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
             >
-              Deal me in
+              {publicSeat !== null ? 'Seated at the public table' : 'Deal me in'}
             </button>
           </div>
 
@@ -279,7 +286,7 @@ export default function Lobby({ onOpenLeaderboard }) {
             </div>
             <button
               onClick={handleJoin}
-              disabled={!connected || !active || !joinCode.trim()}
+              disabled={!connected || !active || !joinCode.trim() || publicSeat !== null}
               className="casino-btn-gold w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
             >
               Join the Game

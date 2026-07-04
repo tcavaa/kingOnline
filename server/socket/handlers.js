@@ -74,6 +74,110 @@ function registerHandlers(io, socket, gameManager) {
     }
   });
 
+  // ─── public quick-match room ──────────────────────────────────────────────
+
+  // Lobby clients ask for the current public-table snapshot on connect.
+  socket.on('public-room-info', () => {
+    try {
+      socket.emit('public-room', gameManager.publicRoomView());
+    } catch (err) { /* no-op */ }
+  });
+
+  // Sit at the homepage public table. The sitter stays on the homepage —
+  // no waiting-room redirect — until the 3rd seat fills, at which point the
+  // game starts automatically for all three and the public slot resets.
+  socket.on('sit-public', ({ playerName, avatar, emoji } = {}) => {
+    try {
+      if (!playerName || typeof playerName !== 'string' || !playerName.trim()) {
+        return emitError('playerName is required.');
+      }
+      const { roomCode, seat } = gameManager.sitPublic(
+        socketId, playerName.trim(), avatar || null, _sanitizeEmoji(emoji)
+      );
+      socket.join(roomCode);
+      socket.emit('public-seated', { roomCode, seat });
+      io.emit('public-room', gameManager.publicRoomView());
+
+      const room = gameManager.getRoom(roomCode);
+      if (room && room.status === 'waiting' && room.players.length === 3) {
+        const gameState = gameManager.startGame(roomCode);
+        io.to(roomCode).emit('game-started', {
+          round: gameState.round,
+          leaderSeat: gameState.leaderSeat,
+          players: playersView(room.players),
+        });
+        _emitHandDealt(io, room, gameState, roomCode);
+        // Free the homepage seats for the next trio.
+        gameManager.clearPublicRoom(roomCode);
+        io.emit('public-room', gameManager.publicRoomView());
+      }
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  // Stand up from the public table (only valid while it's still waiting).
+  socket.on('stand-public', () => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return;
+      const { roomCode } = mapping;
+      const room = gameManager.getRoom(roomCode);
+      if (!room || !room.isPublic || room.status !== 'waiting') return;
+      gameManager.leaveRoom(socketId);
+      socket.leave(roomCode);
+      if (!gameManager.getRoom(roomCode)) gameManager.clearPublicRoom(roomCode);
+      socket.emit('public-unseated');
+      io.emit('public-room', gameManager.publicRoomView());
+    } catch (err) { /* no-op */ }
+  });
+
+  // Pick/clear the reaction emoji shown above the seated profile.
+  socket.on('set-public-emoji', ({ emoji } = {}) => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return;
+      const room = gameManager.getRoom(mapping.roomCode);
+      if (!room || !room.isPublic || room.status !== 'waiting') return;
+      const player = room.players.find((p) => p.seat === mapping.seat);
+      if (!player) return;
+      player.emoji = _sanitizeEmoji(emoji);
+      io.emit('public-room', gameManager.publicRoomView());
+    } catch (err) { /* no-op */ }
+  });
+
+  // Refresh recovery: re-attach ONLY (never fresh-sit) using the room code +
+  // name the client stashed when it sat down. If the game has started in the
+  // meantime this falls through to the standard in-game reconnect flow.
+  socket.on('rejoin-public', ({ roomCode, playerName } = {}) => {
+    try {
+      if (!roomCode || !playerName || typeof playerName !== 'string') {
+        return socket.emit('public-rejoin-failed');
+      }
+      const rc = String(roomCode).toUpperCase();
+      const room = gameManager.getRoom(rc);
+      const name = playerName.trim();
+      if (!room || !room.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+        return socket.emit('public-rejoin-failed');
+      }
+      const { seat, status } = gameManager.joinRoom(rc, socketId, name, null);
+      socket.join(rc);
+      if (status === 'waiting') {
+        socket.emit('public-seated', { roomCode: rc, seat });
+        io.emit('public-room', gameManager.publicRoomView());
+      } else {
+        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status });
+        const state = gameManager.getStateForPlayer(rc, seat);
+        if (state) {
+          socket.emit('game-state', { ...state, players: playersView(room.players) });
+        }
+        io.to(rc).emit('player-reconnected', { playerName: name, players: playersView(room.players) });
+      }
+    } catch (err) {
+      socket.emit('public-rejoin-failed');
+    }
+  });
+
   // ─── start-game ──────────────────────────────────────────────────────────
   socket.on('start-game', () => {
     try {
@@ -234,60 +338,24 @@ function registerHandlers(io, socket, gameManager) {
         return;
       }
 
-      // Round complete
+      // Round complete — a pending quit/surrender vote is moot now; drop it
+      // so voters' dialogs don't linger into the next round.
+      _clearQuitProposal(room);
       const lastDetail = gs.roundDetails[gs.roundDetails.length - 1];
+      io.to(roomCode).emit('round-complete', {
+        winnerSeat: result.winnerSeat,
+        trick: result.trick,
+        roundEnds: true,
+        scores: result.scores,
+        cumulativeScores: result.cumulativeScores,
+        round: result.round,
+        gameType: result.gameType,
+        isGameOver: result.isGameOver,
+        cardCounts,
+        roundDetail: lastDetail,
+      });
       if (result.isGameOver) {
-        io.to(roomCode).emit('round-complete', {
-          winnerSeat: result.winnerSeat,
-          trick: result.trick,
-          roundEnds: true,
-          scores: result.scores,
-          cumulativeScores: result.cumulativeScores,
-          round: result.round,
-          gameType: result.gameType,
-          isGameOver: true,
-          cardCounts,
-          roundDetail: lastDetail,
-        });
-        let bestScore = null;
-        let winnerSeat = null;
-        const finalScores = result.cumulativeScores;
-        for (let s = 0; s < 3; s++) {
-          if (bestScore === null || finalScores[s] > bestScore) {
-            bestScore = finalScores[s];
-            winnerSeat = s;
-          }
-        }
-        const winnerPlayer = room.players.find((p) => p.seat === winnerSeat);
-        io.to(roomCode).emit('game-over', {
-          finalScores,
-          winner: { seat: winnerSeat, name: winnerPlayer ? winnerPlayer.name : 'Unknown', score: bestScore },
-          players: playersView(room.players),
-          roundDetails: gs.roundDetails,
-        });
-        gs.phase = 'game_over';
-        room.status = 'finished';
-        // The game is done. Don't destroy the room yet — players may press
-        // "Play Again" from the game-over screen and we need this room to
-        // exist to coordinate the rematch (track who has clicked, link to
-        // the new room). The grace timer will GC it after every socket
-        // has disconnected and the window expires; rematch creation
-        // itself doesn't extend the lifetime, so a slow rematch click
-        // still works as long as someone clicked within the window.
-        gameManager.armRoomGrace(roomCode);
-      } else {
-        io.to(roomCode).emit('round-complete', {
-          winnerSeat: result.winnerSeat,
-          trick: result.trick,
-          roundEnds: true,
-          scores: result.scores,
-          cumulativeScores: result.cumulativeScores,
-          round: result.round,
-          gameType: result.gameType,
-          isGameOver: false,
-          cardCounts,
-          roundDetail: lastDetail,
-        });
+        _finishGame(io, room, roomCode, gameManager);
       }
     } catch (err) {
       emitError(err.message);
@@ -303,6 +371,7 @@ function registerHandlers(io, socket, gameManager) {
       const room = gameManager.getRoom(roomCode);
       if (!room) return emitError('Room not found.');
       const gameState = gameManager.handleNextRound(roomCode, socketId);
+      _clearQuitProposal(room);
       io.to(roomCode).emit('round-started', {
         round: gameState.round,
         leaderSeat: gameState.leaderSeat,
@@ -343,6 +412,137 @@ function registerHandlers(io, socket, gameManager) {
         targetSeat: typeof targetSeat === 'number' ? targetSeat : mapping.seat,
         at: Date.now(),
       });
+    } catch (err) { /* no-op */ }
+  });
+
+  // ─── propose-quit ─────────────────────────────────────────────────────────
+  // A player asks to end the current round early (`kind: 'round'`) or to
+  // surrender the whole game (`kind: 'game'`). Both other players must accept
+  // via `vote-quit` before anything happens; a single decline (or the 30s
+  // expiry) kills the proposal and play continues untouched.
+  socket.on('propose-quit', ({ kind } = {}) => {
+    try {
+      if (kind !== 'round' && kind !== 'game') return emitError('Invalid proposal.');
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return emitError('You are not in a room.');
+      const { roomCode, seat } = mapping;
+      const room = gameManager.getRoom(roomCode);
+      if (!room || !room.gameState) return emitError('Game not found.');
+      if (room.status !== 'playing') return emitError('Game is not in progress.');
+      const gs = room.gameState;
+      if (kind === 'round' && !(gs.chosenGameType && (gs.phase === 'discard' || gs.phase === 'playing'))) {
+        return emitError('The round cannot be quit right now.');
+      }
+      if (room.quitProposal) return emitError('Another proposal is already waiting on votes.');
+
+      const player = room.players.find((p) => p.seat === seat);
+      const proposal = {
+        kind,
+        proposerSeat: seat,
+        accepted: new Set([seat]),
+        timer: setTimeout(() => {
+          if (room.quitProposal !== proposal) return;
+          room.quitProposal = null;
+          io.to(roomCode).emit('quit-rejected', { kind, proposerSeat: seat, reason: 'timeout' });
+        }, QUIT_VOTE_MS),
+      };
+      if (typeof proposal.timer.unref === 'function') proposal.timer.unref();
+      room.quitProposal = proposal;
+
+      io.to(roomCode).emit('quit-proposal', {
+        kind,
+        proposerSeat: seat,
+        proposerName: player ? player.name : `Player ${seat}`,
+        acceptedSeats: [seat],
+      });
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  // ─── vote-quit ────────────────────────────────────────────────────────────
+  socket.on('vote-quit', ({ accept } = {}) => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return emitError('You are not in a room.');
+      const { roomCode, seat } = mapping;
+      const room = gameManager.getRoom(roomCode);
+      if (!room || !room.gameState) return emitError('Game not found.');
+      const proposal = room.quitProposal;
+      if (!proposal) return emitError('No proposal is waiting on votes.');
+      if (seat === proposal.proposerSeat) return emitError('You proposed this — the other players must vote.');
+      const { kind, proposerSeat } = proposal;
+      const proposerName =
+        room.players.find((p) => p.seat === proposerSeat)?.name || `Player ${proposerSeat}`;
+
+      if (!accept) {
+        _clearQuitProposal(room);
+        io.to(roomCode).emit('quit-rejected', { kind, proposerSeat, voterSeat: seat, reason: 'declined' });
+        return;
+      }
+
+      proposal.accepted.add(seat);
+      if (proposal.accepted.size < 3) {
+        // One yes in, one to go — rebroadcast so everyone's UI updates.
+        io.to(roomCode).emit('quit-proposal', {
+          kind,
+          proposerSeat,
+          proposerName,
+          acceptedSeats: [...proposal.accepted].sort((a, b) => a - b),
+        });
+        return;
+      }
+
+      // Unanimous — execute.
+      _clearQuitProposal(room);
+      const gs = room.gameState;
+
+      if (kind === 'game') {
+        _finishGame(io, room, roomCode, gameManager, { surrenderedBySeat: proposerSeat });
+        return;
+      }
+
+      const result = gameManager.handleQuitRound(roomCode, proposerSeat);
+      if (!result.ok) {
+        // The round moved on while votes were coming in (e.g. it ended
+        // naturally) — tell everyone the proposal fizzled.
+        io.to(roomCode).emit('quit-rejected', { kind, proposerSeat, reason: 'timeout' });
+        return;
+      }
+      const cardCounts = {};
+      for (let s = 0; s < 3; s++) cardCounts[s] = gs.hands[s].length;
+      const lastDetail = gs.roundDetails[gs.roundDetails.length - 1];
+      io.to(roomCode).emit('round-complete', {
+        winnerSeat: null,
+        trick: null,
+        roundEnds: true,
+        scores: result.scores,
+        cumulativeScores: result.cumulativeScores,
+        round: result.round,
+        gameType: result.gameType,
+        isGameOver: result.isGameOver,
+        cardCounts,
+        roundDetail: lastDetail,
+        quitBySeat: proposerSeat,
+      });
+      if (result.isGameOver) {
+        _finishGame(io, room, roomCode, gameManager);
+      }
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  // ─── chat-typing ──────────────────────────────────────────────────────────
+  // Lightweight presence ping: relayed to everyone else in the room so their
+  // chat drawer / table avatars can show a "typing…" indicator. The client
+  // throttles emission and expires the indicator on its own timer, so the
+  // server just forwards.
+  socket.on('chat-typing', () => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return;
+      socket.to(mapping.roomCode).emit('chat-typing', { seat: mapping.seat, at: Date.now() });
     } catch (err) { /* no-op */ }
   });
 
@@ -468,9 +668,28 @@ function registerHandlers(io, socket, gameManager) {
     try {
       const info = gameManager.markDisconnected(socketId);
       if (!info) return;
-      const { roomCode, playerName } = info;
+      const { roomCode, playerName, seat } = info;
       const room = gameManager.getRoom(roomCode);
       if (!room) return;
+
+      // Public table still collecting players: hold the seat briefly so a
+      // refresh survives, then sweep it so a ghost can't block the table.
+      if (room.isPublic && room.status === 'waiting') {
+        const t = setTimeout(() => {
+          const r = gameManager.getRoom(roomCode);
+          if (!r || r.status !== 'waiting') return;
+          const player = r.players.find((p) => p.seat === seat);
+          if (!player || player.connected) return; // they came back
+          r.players = r.players.filter((p) => p !== player);
+          if (r.players.length === 0) {
+            gameManager.destroyRoom(roomCode);
+            gameManager.clearPublicRoom(roomCode);
+          }
+          io.emit('public-room', gameManager.publicRoomView());
+        }, PUBLIC_SEAT_GRACE_MS);
+        if (typeof t.unref === 'function') t.unref();
+        return;
+      }
       // Everyone offline at once (server hot-reload, brief wifi outage, all
       // three tabs closed): keep the room in memory for a grace window so
       // any of them can reconnect transparently. The grace timer is
@@ -482,6 +701,60 @@ function registerHandlers(io, socket, gameManager) {
       io.to(roomCode).emit('player-disconnected', { playerName });
     } catch (err) { /* no-op */ }
   });
+}
+
+// How long a quit/surrender proposal waits for votes before auto-expiring.
+const QUIT_VOTE_MS = 30 * 1000;
+
+// How long a disconnected player keeps their public-table seat before it's
+// swept and offered to the next sitter (long enough to survive a refresh).
+const PUBLIC_SEAT_GRACE_MS = 30 * 1000;
+
+// Reaction emojis are client-chosen; the server just caps them to something
+// emoji-sized so nothing longer sneaks into the broadcast.
+function _sanitizeEmoji(emoji) {
+  if (typeof emoji !== 'string') return null;
+  const trimmed = emoji.trim();
+  if (!trimmed || trimmed.length > 8) return null;
+  return trimmed;
+}
+
+function _clearQuitProposal(room) {
+  if (!room || !room.quitProposal) return;
+  if (room.quitProposal.timer) clearTimeout(room.quitProposal.timer);
+  room.quitProposal = null;
+}
+
+/**
+ * Shared game-over path: rank the cumulative scores, broadcast `game-over`,
+ * flip the room to finished, and arm the grace timer so the room survives
+ * long enough for "Play Again" clicks. `extra` is merged into the payload
+ * (e.g. `surrenderedBySeat` when the game ended via a surrender vote).
+ * The room is intentionally NOT destroyed here — see the rematch flow.
+ */
+function _finishGame(io, room, roomCode, gameManager, extra = {}) {
+  const gs = room.gameState;
+  const finalScores = { ...gs.cumulativeScores };
+  let bestScore = null;
+  let winnerSeat = null;
+  for (let s = 0; s < 3; s++) {
+    if (bestScore === null || finalScores[s] > bestScore) {
+      bestScore = finalScores[s];
+      winnerSeat = s;
+    }
+  }
+  const winnerPlayer = room.players.find((p) => p.seat === winnerSeat);
+  io.to(roomCode).emit('game-over', {
+    finalScores,
+    winner: { seat: winnerSeat, name: winnerPlayer ? winnerPlayer.name : 'Unknown', score: bestScore },
+    players: playersView(room.players),
+    roundDetails: gs.roundDetails,
+    ...extra,
+  });
+  gs.phase = 'game_over';
+  room.status = 'finished';
+  gameManager.armRoomGrace(roomCode);
+  gameManager._persist(roomCode);
 }
 
 function _emitHandDealt(io, room, gameState, roomCode) {

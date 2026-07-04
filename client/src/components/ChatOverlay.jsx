@@ -3,13 +3,17 @@ import { Send, X, MessageCircle } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 
 export default function ChatOverlay({ open, onClose }) {
-  const { chatMessages, sendChat, mySeat } = useGame()
+  const { chatMessages, sendChat, mySeat, players, typingSeats, sendTyping } = useGame()
   const [text, setText] = useState('')
   const listRef = useRef(null)
 
+  const typingPlayers = Object.keys(typingSeats || {})
+    .map(s => players.find(p => p.seat === Number(s)))
+    .filter(Boolean)
+
   useEffect(() => {
     if (open && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
-  }, [open, chatMessages])
+  }, [open, chatMessages, typingPlayers.length])
 
   if (!open) return null
 
@@ -84,6 +88,28 @@ export default function ChatOverlay({ open, onClose }) {
             </div>
           )
         })}
+        {typingPlayers.map(p => (
+          <div key={`typing-${p.seat}`} className="flex gap-2">
+            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                 style={{ background: '#000', border: '1.5px solid rgba(218,165,32,0.55)' }}>
+              <img src={p.avatar || '/avatar-default.png'} alt=""
+                   className="w-full h-full object-cover" />
+            </div>
+            <div className="rounded-lg px-3 py-1.5 text-[12px] leading-snug font-typewriter"
+                 style={{
+                   background: 'linear-gradient(180deg, rgba(245,233,207,0.95), rgba(220,200,165,0.92))',
+                   color: '#3a2410',
+                   border: '1px solid rgba(120,70,30,0.45)',
+                   boxShadow: '0 2px 0 rgba(0,0,0,0.35)',
+                 }}>
+              <div className="text-[10px] font-western uppercase tracking-wider mb-0.5"
+                   style={{ color: 'rgba(120,70,30,0.85)' }}>
+                {p.name}
+              </div>
+              <div className="animate-pulse tracking-widest">● ● ●</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <form onSubmit={submit} className="p-3 flex gap-2"
@@ -93,7 +119,7 @@ export default function ChatOverlay({ open, onClose }) {
             }}>
         <input
           type="text" maxLength={240}
-          value={text} onChange={e => setText(e.target.value)}
+          value={text} onChange={e => { setText(e.target.value); if (e.target.value) sendTyping() }}
           placeholder="Pipe up, partner…"
           className="casino-input flex-1 px-3 py-2 text-sm focus:outline-none"
         />
