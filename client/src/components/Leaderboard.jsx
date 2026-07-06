@@ -34,22 +34,22 @@ export default function Leaderboard({ onBack }) {
     <div className="saloon-bg min-h-screen flex flex-col items-center px-4 py-8">
       {/* Hero podium banner */}
       <div className="w-full max-w-3xl mb-5 relative rounded-2xl overflow-hidden"
-           style={{ aspectRatio: '1280 / 480', border: '1px solid rgba(240,165,0,0.25)' }}>
+           style={{ aspectRatio: '1280 / 480', border: '1px solid rgba(122,83,44,0.25)' }}>
         <img src="/trophy-podium.png" alt=""
              className="absolute inset-0 w-full h-full object-cover object-[center_42%]" />
         <div className="absolute inset-0"
-             style={{ background: 'linear-gradient(180deg, rgba(13,10,26,0) 35%, rgba(13,10,26,0.85) 100%)' }} />
+             style={{ background: 'linear-gradient(180deg, rgba(246,234,208,0) 35%, rgba(246,234,208,0.9) 100%)' }} />
         <div className="absolute inset-0 flex items-end justify-between px-5 pb-4">
           <button onClick={onBack}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-md"
-                  style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(218,165,32,0.4)', color: '#fde9b8' }}>
-            <ArrowLeft size={14} /> Back
+                  style={{ background: 'rgba(248,239,221,0.8)', border: '1px solid rgba(122,83,44,0.4)', color: '#3b2314' }}>
+            <ArrowLeft size={14} /> უკან
           </button>
           <h1 className="text-3xl sm:text-4xl font-western inline-flex items-center gap-3"
-              style={{ color: '#f0c75a', textShadow: '0 4px 24px rgba(0,0,0,0.85), 0 2px 0 #2c1a10' }}>
+              style={{ color: '#8e2b23', textShadow: '0 4px 24px rgba(58,36,24,0.25), 0 2px 0 rgba(255,255,255,0.55)' }}>
             <Trophy size={32} className="parade-pulse"
-                    style={{ color: '#f0c75a', filter: 'drop-shadow(0 0 14px rgba(240,199,90,0.65))' }} />
-            Hall of Fame
+                    style={{ color: '#b98a2f', filter: 'drop-shadow(0 0 14px rgba(185,138,47,0.55))' }} />
+            დიდების დარბაზი
           </h1>
           <span aria-hidden className="w-[88px]" />
         </div>

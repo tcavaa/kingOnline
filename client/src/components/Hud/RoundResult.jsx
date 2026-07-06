@@ -33,7 +33,7 @@ export default function RoundResult() {
         particleCount: 90,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#f0c75a', '#fde9b8', '#a3d68a', '#daa520', '#fff8e6'],
+        colors: ['#e3b04b', '#8e2b23', '#4c7a2f', '#c08a26', '#f8efdd'],
       })
     }
   }, [lastRound, myDelta])
@@ -62,25 +62,25 @@ export default function RoundResult() {
 
       <div className="w-full max-w-sm rounded-2xl p-3 lg:p-6 text-center western-panel my-auto">
         <h2 className="text-sm lg:text-xl font-western uppercase tracking-wider text-cream"
-            style={{ textShadow: '0 1px 0 rgba(0,0,0,0.5)' }}>
-          Round {round} Settled
+            style={{ textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
+          ხელი {round} დასრულდა
         </h2>
 
         {gt && (
           <div className="inline-flex items-center gap-1.5 mt-1 mb-2 lg:mt-2 lg:mb-4 rounded-full px-2.5 py-0.5 text-[10px] lg:text-xs font-typewriter"
                style={{
                  background: `linear-gradient(180deg, ${gt.color}33, ${gt.color}11)`,
-                 color: '#fff8e6',
+                 color: '#3b2314',
                  border: `1px solid ${gt.color}80`,
                }}>
             {TypeIcon && <TypeIcon size={11} style={{ color: gt.color }} />}
-            <span><strong style={{ color: gt.color }}>{gt.name}</strong> — called by {leaderName}</span>
+            <span><strong style={{ color: gt.color }}>{gt.name}</strong> — {leaderName}-ის არჩევანი</span>
           </div>
         )}
 
         {lastRound && (
           <div className="rounded-lg p-2 lg:p-4 mb-1.5 lg:mb-4 inset-card">
-            <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-3 font-western text-amber-dim">This Round</p>
+            <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-3 font-western text-amber-dim">ეს ხელი</p>
             <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
               {sortedPlayers.map(p => {
                 const s = lastRound.scores?.[p.seat] ?? 0
@@ -99,7 +99,7 @@ export default function RoundResult() {
 
         <div className="rounded-lg p-2 lg:p-4 mb-2 lg:mb-5 bg-amber-glow border-brass-strong">
           <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-3 font-western"
-             style={{ color: 'rgba(240,199,90,0.95)' }}>Running Tally</p>
+             style={{ color: 'rgba(142,43,35,0.95)' }}>ჯამი</p>
           <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
             {sortedPlayers.map(p => {
               const total = cumulativeScores[p.seat] ?? 0
@@ -120,10 +120,10 @@ export default function RoundResult() {
             onClick={nextRound}
             className="casino-btn-gold w-full py-1.5 lg:py-3 text-xs lg:text-sm tracking-wider uppercase active:scale-95 inline-flex items-center justify-center gap-2"
           >
-            Next Hand <ArrowRight size={14} />
+            შემდეგი ხელი <ArrowRight size={14} />
           </button>
         ) : (
-          <p className="text-[11px] lg:text-sm font-typewriter text-cream-soft">Waiting on the dealer to deal again…</p>
+          <p className="text-[11px] lg:text-sm font-typewriter text-cream-soft">ველოდებით დამრიგებელს…</p>
         )}
       </div>
     </div>

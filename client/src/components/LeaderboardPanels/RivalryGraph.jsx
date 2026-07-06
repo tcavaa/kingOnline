@@ -50,35 +50,35 @@ export default function RivalryGraph({ games }) {
     return Array.from(set).sort()
   }, [data])
 
-  const COLOURS = ['#f0c75a', '#a3d68a', '#e8a097', '#7fa7d6', '#c084fc', '#fb923c']
+  const COLOURS = ['#8e2b23', '#4c7a2f', '#b98a2f', '#31536b', '#6b3fa0', '#b45309']
 
   if (data.length === 0) return null
 
   return (
     <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
         <h2 className="text-sm font-western uppercase text-cream inline-flex items-center gap-2">
-          <Users size={14} className="text-amber" /> Rivalries
+          <Users size={14} className="text-amber" /> მეტოქეობა
         </h2>
         <p className="text-[11px] mt-0.5 font-typewriter text-cream-dim">
-          Wins between every pair of outlaws
+          მოგებები მოთამაშეთა ყოველ წყვილში
         </p>
       </div>
       <div className="px-3 py-3">
         <ResponsiveContainer width="100%" height={Math.max(180, data.length * 32 + 60)}>
           <BarChart data={data} layout="vertical"
                     margin={{ top: 6, right: 16, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(218,165,32,0.12)" />
-            <XAxis type="number" stroke="#cdb87a" tick={{ fontSize: 11 }} />
-            <YAxis dataKey="pair" type="category" stroke="#cdb87a"
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(122,83,44,0.12)" />
+            <XAxis type="number" stroke="rgba(59,35,20,0.6)" tick={{ fontSize: 11 }} />
+            <YAxis dataKey="pair" type="category" stroke="rgba(59,35,20,0.6)"
                    width={140} tick={{ fontSize: 11 }} />
             <Tooltip
               contentStyle={{
-                background: '#2c1a10',
-                border: '1px solid rgba(218,165,32,0.4)',
+                background: '#f8efdd',
+                border: '1px solid rgba(122,83,44,0.4)',
                 borderRadius: 8,
                 fontSize: 12,
-                color: '#fde9b8',
+                color: '#3b2314',
               }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />

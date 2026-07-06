@@ -8,10 +8,10 @@ import Leaderboard  from './components/Leaderboard'
 import RotatePrompt from './components/RotatePrompt'
 
 const TOAST_STYLES = {
-  error:   { bg: 'rgba(127,29,29,0.95)',  border: 'rgba(239,68,68,0.45)',   color: '#fca5a5' },
-  success: { bg: 'rgba(20,83,45,0.95)',   border: 'rgba(74,222,128,0.4)',   color: '#86efac' },
-  warning: { bg: 'rgba(120,53,15,0.95)',  border: 'rgba(251,191,36,0.4)',   color: '#fde68a' },
-  info:    { bg: 'rgba(26,11,46,0.95)',   border: 'rgba(147,51,234,0.4)',   color: '#c4b5fd' },
+  error:   { bg: 'rgba(111,31,26,0.96)',  border: 'rgba(255,226,190,0.45)', color: '#fdf2df' },
+  success: { bg: 'rgba(76,122,47,0.95)',  border: 'rgba(244,232,207,0.45)', color: '#f6ead0' },
+  warning: { bg: 'rgba(192,138,38,0.96)', border: 'rgba(255,244,214,0.5)',  color: '#3b2314' },
+  info:    { bg: 'rgba(248,239,221,0.97)',border: 'rgba(142,43,35,0.45)',   color: '#3b2314' },
 }
 
 function ToastContainer() {
@@ -43,8 +43,8 @@ function AppInner() {
   const [view, setView] = useState('main') // 'main' | 'leaderboard'
 
   return (
-    <div className="min-h-screen text-[#e6edf3]"
-         style={{ background: '#0d0a1a', minHeight: '100dvh' }}>
+    <div className="min-h-screen text-ink"
+         style={{ background: '#3a2418', minHeight: '100dvh' }}>
       <ToastContainer />
       <RotatePrompt />
       {view === 'leaderboard' ? (

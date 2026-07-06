@@ -49,11 +49,11 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
     // one by leaving the field blank, but if they type *anything* it has to
     // be 4 digits.
     if (isNewProfile && pin.length !== PIN_DIGITS) {
-      setPinErr('Set a 4-digit pass code so only you can saddle up.')
+      setPinErr('დააყენე 4-ციფრიანი კოდი, რომ მხოლოდ შენ შეძლო ამ პროფილით შესვლა.')
       return
     }
     if (!isNewProfile && pin.length > 0 && pin.length !== PIN_DIGITS) {
-      setPinErr('PIN must be exactly 4 digits.')
+      setPinErr('PIN-კოდი ზუსტად 4 ციფრი უნდა იყოს.')
       return
     }
 
@@ -70,7 +70,7 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
       setActiveProfileId(saved.id)
       onDone?.(saved)
     } catch (err) {
-      alert(`Couldn't save profile: ${err.message}`)
+      alert(`პროფილის შენახვა ვერ მოხერხდა: ${err.message}`)
     } finally { setBusy(false) }
   }
 
@@ -81,7 +81,7 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
       await deleteProfile(editing.id)
       onDone?.(null)
     } catch (err) {
-      alert(`Couldn't delete profile: ${err.message}`)
+      alert(`პროფილის წაშლა ვერ მოხერხდა: ${err.message}`)
     } finally { setBusy(false) }
   }
 
@@ -89,13 +89,13 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-western uppercase inline-flex items-center gap-2"
-            style={{ color: '#fde9b8' }}>
+            style={{ color: '#3b2314' }}>
           <User size={14} />
-          {editing ? 'Edit Outlaw' : 'New Outlaw'}
+          {editing ? 'პროფილის შეცვლა' : 'ახალი პროფილი'}
         </h3>
         {onCancel && (
           <button type="button" onClick={onCancel}
-                  className="text-gray-400 hover:text-amber-200"><X size={16} /></button>
+                  className="text-cream-dim hover:text-rust"><X size={16} /></button>
         )}
       </div>
 
@@ -105,22 +105,22 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
           className="relative w-16 h-16 rounded-full flex items-center justify-center cursor-pointer overflow-hidden"
           style={{
             background: '#000',
-            border: '2px solid rgba(218,165,32,0.55)',
+            border: '2px solid rgba(142,43,35,0.55)',
           }}>
           <img src={avatar || '/avatar-default.png'} alt=""
                className="w-full h-full object-cover" />
           <span className="absolute bottom-0 inset-x-0 py-0.5 text-[9px] text-center font-bold font-typewriter"
-                style={{ background: 'rgba(0,0,0,0.7)', color: '#fde9b8' }}>
-            <Upload size={10} className="inline mr-1" />Upload
+                style={{ background: 'rgba(0,0,0,0.7)', color: '#f2e4c8' }}>
+            <Upload size={10} className="inline mr-1" />ატვირთვა
           </span>
         </div>
         <div className="flex-1">
           <label className="block text-[10px] uppercase tracking-widest mb-1 font-western"
-                 style={{ color: 'rgba(218,165,32,0.7)' }}>Outlaw name</label>
+                 style={{ color: 'rgba(142,43,35,0.7)' }}>სახელი</label>
           <input
             type="text" maxLength={20} value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="e.g. Doc Holliday"
+            placeholder="მაგ. ფიროსმანი"
             className="casino-input w-full px-3 py-2 text-sm focus:outline-none"
           />
         </div>
@@ -131,14 +131,14 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
       {/* PIN row */}
       <div>
         <label className="flex items-center justify-between text-[10px] uppercase tracking-widest mb-1 font-western"
-               style={{ color: 'rgba(218,165,32,0.7)' }}>
+               style={{ color: 'rgba(142,43,35,0.7)' }}>
           <span className="inline-flex items-center gap-1">
-            <Lock size={10} /> 4-digit pass code
+            <Lock size={10} /> 4-ციფრიანი PIN-კოდი
           </span>
           {!isNewProfile && hadPin && (
             <span className="normal-case tracking-normal text-[9px] font-typewriter"
-                  style={{ color: 'rgba(245,233,207,0.55)' }}>
-              leave blank to keep current
+                  style={{ color: 'rgba(59,35,20,0.55)' }}>
+              დატოვე ცარიელი, რომ არსებული შენარჩუნდეს
             </span>
           )}
         </label>
@@ -154,12 +154,12 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
           style={{ letterSpacing: '0.5em' }}
         />
         {pinErr && (
-          <p className="text-[10px] font-typewriter mt-1" style={{ color: '#e8a097' }}>{pinErr}</p>
+          <p className="text-[10px] font-typewriter mt-1" style={{ color: '#a5372b' }}>{pinErr}</p>
         )}
         {isNewProfile && !pinErr && (
           <p className="text-[10px] font-typewriter mt-1"
-             style={{ color: 'rgba(245,233,207,0.45)' }}>
-            You'll be asked for this every time you pick this profile on a new device.
+             style={{ color: 'rgba(59,35,20,0.45)' }}>
+            ამ კოდს ყოველ ჯერზე მოგთხოვენ, როცა ამ პროფილს ახალ მოწყობილობაზე აირჩევ.
           </p>
         )}
       </div>
@@ -169,18 +169,18 @@ export default function ProfileForm({ editing, onDone, onCancel }) {
           <button type="button" onClick={onDelete}
                   className="px-3 py-2 rounded-lg text-xs font-western uppercase tracking-wider inline-flex items-center gap-1.5 transition-all active:scale-95"
                   style={{
-                    background: 'linear-gradient(180deg, #6b1e1e 0%, #3a1010 100%)',
-                    border: '1px solid rgba(218,165,32,0.5)',
-                    color: '#fde9b8',
-                    boxShadow: '0 2px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,220,170,0.15)',
-                    textShadow: '0 1px 0 rgba(0,0,0,0.5)',
+                    background: 'linear-gradient(180deg, #a5372b 0%, #7e2a20 100%)',
+                    border: '1px solid rgba(122,83,44,0.5)',
+                    color: '#f8efdd',
+                    boxShadow: '0 2px 0 rgba(58,36,24,0.25), inset 0 1px 0 rgba(255,255,255,0.15)',
+                    textShadow: '0 1px 0 rgba(58,36,24,0.45)',
                   }}>
-            <Trash2 size={12} /> Delete
+            <Trash2 size={12} /> წაშლა
           </button>
         )}
         <button type="submit" disabled={!name.trim()}
                 className="flex-1 casino-btn-primary py-2 rounded-lg font-bold text-sm disabled:opacity-40 inline-flex items-center justify-center gap-1.5">
-          <Plus size={14} /> {editing ? 'Save' : 'Create Profile'}
+          <Plus size={14} /> {editing ? 'შენახვა' : 'პროფილის შექმნა'}
         </button>
       </div>
     </form>
@@ -198,8 +198,16 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
   return (
     <div>
       <label className="block text-[10px] uppercase tracking-widest mb-1.5 font-western"
-             style={{ color: 'rgba(218,165,32,0.75)' }}>
-        Saddle up · Saved Outlaws
+             style={{ color: 'rgba(142,43,35,0.75)' }}>
+        <span className="inline-flex items-center gap-2">
+          შენახული პროფილები
+          <img src="/line-ornament.png" alt=""
+               className="h-4 w-12 object-contain pointer-events-none select-none"
+               style={{ opacity: 0.8 }} />
+        </span>
+        <span className="block text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+          SADDLE UP · SAVED OUTLAWS
+        </span>
       </label>
       <div className="flex flex-wrap gap-2">
         {profiles.map(p => {
@@ -210,21 +218,21 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
                     className="flex items-center gap-2 pl-1.5 pr-2 py-1 rounded-full text-xs font-western uppercase tracking-wide transition-all active:scale-95"
                     style={{
                       background: active
-                        ? 'linear-gradient(180deg, #6f4e37 0%, #4a2e1a 100%)'
-                        : 'linear-gradient(180deg, #3a2316 0%, #2c1a10 100%)',
+                        ? 'linear-gradient(180deg, #f3e2be 0%, #e6cd9a 100%)'
+                        : 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
                       border: active
-                        ? '1px solid rgba(240,199,90,0.75)'
-                        : '1px solid rgba(218,165,32,0.3)',
-                      color: active ? '#fff8e6' : '#fde9b8',
+                        ? '1px solid rgba(142,43,35,0.75)'
+                        : '1px solid rgba(122,83,44,0.3)',
+                      color: '#3b2314',
                       boxShadow: active
-                        ? '0 0 16px rgba(240,199,90,0.35), inset 0 1px 0 rgba(255,220,170,0.2)'
-                        : '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,220,170,0.08)',
-                      textShadow: '0 1px 0 rgba(0,0,0,0.45)',
+                        ? '0 0 16px rgba(142,43,35,0.25), inset 0 1px 0 rgba(255,255,255,0.2)'
+                        : '0 2px 0 rgba(58,36,24,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+                      textShadow: '0 1px 0 rgba(255,255,255,0.45)',
                     }}>
               <span className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center"
                     style={{
                       background: '#000',
-                      border: active ? '1px solid rgba(240,199,90,0.7)' : '1px solid rgba(218,165,32,0.4)',
+                      border: active ? '1px solid rgba(142,43,35,0.7)' : '1px solid rgba(142,43,35,0.4)',
                     }}>
                 <img src={p.avatar || '/avatar-default.png'} alt=""
                      className="w-full h-full object-cover" />
@@ -233,8 +241,11 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
               {onEdit && (
                 <span onClick={(e) => { e.stopPropagation(); onEdit(p) }}
                       className="text-[10px] font-typewriter normal-case tracking-normal hover:underline"
-                      style={{ color: active ? '#ffd980' : 'rgba(218,165,32,0.85)' }}>edit</span>
+                      style={{ color: active ? '#8e2b23' : 'rgba(142,43,35,0.85)' }}>შეცვლა</span>
               )}
+              <img src="/ornament.png" alt=""
+                   className="w-3.5 h-3.5 object-contain pointer-events-none select-none"
+                   style={{ opacity: active ? 0.95 : 0.6 }} />
             </button>
           )
         })}

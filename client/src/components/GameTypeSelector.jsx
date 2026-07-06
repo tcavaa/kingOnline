@@ -32,7 +32,7 @@ export default function GameTypeSelector() {
   const [selected, setSelected] = useState(null)
 
   const usedByLeader = usedTypes?.[leaderSeat] ?? []
-  const leaderName   = players.find(p => p.seat === leaderSeat)?.name ?? `Player ${leaderSeat}`
+  const leaderName   = players.find(p => p.seat === leaderSeat)?.name ?? `მოთამაშე ${leaderSeat}`
   const available    = GAME_TYPES.filter(t => !usedByLeader.includes(t.code))
   const used         = GAME_TYPES.filter(t => usedByLeader.includes(t.code))
   const selectedType = GAME_TYPES.find(t => t.code === selected)
@@ -48,7 +48,7 @@ export default function GameTypeSelector() {
     <div
       className="absolute inset-0 flex items-start lg:items-center justify-center z-30 px-2 py-1.5 lg:px-4 lg:py-3 overflow-y-auto"
       style={{
-        background: 'radial-gradient(ellipse at center, rgba(28,16,10,0.85) 0%, rgba(10,5,2,0.96) 100%)',
+        background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
         backdropFilter: 'blur(6px)',
       }}
     >
@@ -57,22 +57,22 @@ export default function GameTypeSelector() {
       >
         <div className="mb-1.5 lg:mb-4">
           <div className="flex items-center gap-2">
-            <Spade size={16} style={{ color: '#f0c75a' }} fill="#f0c75a" />
-            <h2 className="text-sm lg:text-lg font-western uppercase tracking-wide" style={{ color: '#fde9b8' }}>
-              Call Your Hand
+            <Spade size={16} style={{ color: '#8e2b23' }} fill="#8e2b23" />
+            <h2 className="text-sm lg:text-lg font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
+              აირჩიე თამაში
             </h2>
           </div>
-          <p className="hidden lg:block text-sm font-typewriter mt-1" style={{ color: 'rgba(245,233,207,0.75)' }}>
-            You're the dealer, <strong style={{ color: '#fff8e6' }}>{leaderName}</strong>. Look over your 10 cards before picking your poison.
+          <p className="hidden lg:block text-sm font-typewriter mt-1" style={{ color: 'rgba(59,35,20,0.75)' }}>
+            შენ არიგებ, <strong style={{ color: '#3b2314' }}>{leaderName}</strong>. დახედე შენს კარტებს და აირჩიე თამაში.
           </p>
           <div className="hide-on-phone-landscape mt-2 rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-2 font-typewriter"
                style={{
-                 background: 'rgba(218,165,32,0.10)',
-                 border: '1px solid rgba(218,165,32,0.4)',
-                 color: '#fde9b8',
+                 background: 'rgba(142,43,35,0.07)',
+                 border: '1px solid rgba(122,83,44,0.4)',
+                 color: '#3b2314',
                }}>
-            <AlertTriangle size={13} style={{ color: '#f0c75a' }} />
-            <span>The other gunslingers can't peek at their hands until you call it.</span>
+            <AlertTriangle size={13} style={{ color: '#8e2b23' }} />
+            <span>სხვები თავიანთ კარტებს ვერ ნახავენ, სანამ თამაშს არ აირჩევ.</span>
           </div>
         </div>
 
@@ -81,11 +81,11 @@ export default function GameTypeSelector() {
             constraint; we just trim the padding around the row. */}
         <div className="mb-1.5 lg:mb-4 rounded-xl p-1.5 lg:p-3"
              style={{
-               background: 'linear-gradient(180deg, rgba(28,16,10,0.6), rgba(15,8,4,0.7))',
-               border: '1px solid rgba(218,165,32,0.32)',
+               background: 'linear-gradient(180deg, rgba(236,222,196,0.85), rgba(226,208,176,0.9))',
+               border: '1px solid rgba(122,83,44,0.32)',
              }}>
           <p className="text-[9px] lg:text-[10px] uppercase tracking-widest mb-1 lg:mb-2 font-western"
-             style={{ color: 'rgba(218,165,32,0.75)' }}>Your hand ({hand.length} cards)</p>
+             style={{ color: 'rgba(142,43,35,0.75)' }}>შენი კარტები ({hand.length})</p>
           <div className="flex gap-1.5 flex-wrap justify-center">
             {hand.map((c, i) => <HandPreviewCard key={`${c.rank}-${c.suit}-${i}`} card={c} />)}
           </div>
@@ -102,14 +102,14 @@ export default function GameTypeSelector() {
                 className="relative text-left p-1.5 lg:p-3 rounded-lg lg:rounded-xl transition-all"
                 style={{
                   background: isSelected
-                    ? `linear-gradient(180deg, ${type.color}25, rgba(28,16,10,0.55))`
-                    : 'linear-gradient(180deg, rgba(74,46,26,0.7), rgba(44,26,16,0.7))',
+                    ? `linear-gradient(180deg, ${type.color}25, rgba(236,222,196,0.85))`
+                    : 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
                   border: isSelected
                     ? `1px solid ${type.color}`
-                    : '1px solid rgba(218,165,32,0.32)',
+                    : '1px solid rgba(122,83,44,0.32)',
                   boxShadow: isSelected
-                    ? `0 0 20px ${type.color}40, inset 0 1px 0 rgba(255,220,170,0.18)`
-                    : '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,220,170,0.08)',
+                    ? `0 0 20px ${type.color}40, inset 0 1px 0 rgba(255,255,255,0.18)`
+                    : '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
                   transform: isSelected ? 'translateY(-1px) scale(1.02)' : 'scale(1)',
                 }}
               >
@@ -121,11 +121,11 @@ export default function GameTypeSelector() {
                   </span>
                 </div>
                 <div className="text-[11px] lg:text-xs font-bold leading-tight"
-                     style={{ color: '#fff8e6' }}>{type.name}</div>
+                     style={{ color: '#3b2314' }}>{type.name}</div>
                 {/* Description is informative on desktop but on landscape
                     phones it costs a row of height per button — hide it. */}
                 <div className="hide-on-phone-landscape text-[10px] leading-snug font-typewriter mt-0.5"
-                     style={{ color: 'rgba(245,233,207,0.7)' }}>
+                     style={{ color: 'rgba(59,35,20,0.7)' }}>
                   {type.description}
                 </div>
                 <div className="mt-0.5 lg:mt-1.5 text-[9px] lg:text-[10px] font-mono font-bold" style={{ color: type.color }}>
@@ -145,7 +145,7 @@ export default function GameTypeSelector() {
         {used.length > 0 && (
           <div className="mb-1.5 lg:mb-4 hide-on-phone-landscape">
             <p className="text-[10px] uppercase tracking-widest mb-1.5 font-western"
-               style={{ color: 'rgba(218,165,32,0.55)' }}>Already played</p>
+               style={{ color: 'rgba(142,43,35,0.55)' }}>უკვე ნათამაშები</p>
             <div className="flex flex-wrap gap-1.5">
               {used.map(type => {
                 const Icon = type.Icon
@@ -153,9 +153,9 @@ export default function GameTypeSelector() {
                   <div key={type.code}
                        className="text-xs rounded-lg px-2 py-0.5 flex items-center gap-1 line-through opacity-50 font-typewriter"
                        style={{
-                         background: 'rgba(28,16,10,0.6)',
-                         border: '1px solid rgba(218,165,32,0.18)',
-                         color: '#a08a6a',
+                         background: 'rgba(236,222,196,0.85)',
+                         border: '1px solid rgba(122,83,44,0.18)',
+                         color: 'rgba(59,35,20,0.55)',
                        }}>
                     <Icon size={11} />
                     <span>{type.name}</span>
@@ -171,20 +171,20 @@ export default function GameTypeSelector() {
           disabled={!selected}
           className={`w-full py-1.5 lg:py-2.5 rounded-lg lg:rounded-xl font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 inline-flex items-center justify-center gap-2 ${selected ? 'casino-btn-gold' : ''}`}
           style={!selected ? {
-            background: 'linear-gradient(180deg, rgba(74,46,26,0.7), rgba(44,26,16,0.7))',
-            border: '1px solid rgba(218,165,32,0.25)',
-            color: 'rgba(245,233,207,0.45)',
+            background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
+            border: '1px solid rgba(122,83,44,0.25)',
+            color: 'rgba(59,35,20,0.45)',
             cursor: 'not-allowed',
           } : undefined}
         >
           {selected ? (
             <>
               {SelectedIcon && <SelectedIcon size={14} />}
-              <span>Call it — {selectedType?.name}</span>
+              <span>ვთამაშობთ — {selectedType?.name}</span>
               <ArrowRight size={14} />
             </>
           ) : (
-            <span>Pick your hand to continue</span>
+            <span>აირჩიე თამაში გასაგრძელებლად</span>
           )}
         </button>
       </div>

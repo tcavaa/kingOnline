@@ -27,12 +27,12 @@ function MiniCard({ card, selected, restricted, onClick, isCenter }) {
         borderRadius: 8,
         background: '#fffaf0',
         border: selected
-          ? '2.5px solid #f0c75a'
+          ? '2.5px solid #8e2b23'
           : isCenter
             ? '2px solid #c47a3a'
             : '1.5px solid rgba(120,70,30,0.45)',
         boxShadow: selected
-          ? '0 0 18px rgba(240,199,90,0.7), 0 4px 12px rgba(0,0,0,0.45)'
+          ? '0 0 18px rgba(142,43,35,0.7), 0 4px 12px rgba(0,0,0,0.45)'
           : isCenter
             ? '0 0 10px rgba(196,122,58,0.5), 0 2px 8px rgba(0,0,0,0.4)'
             : '0 2px 8px rgba(0,0,0,0.35)',
@@ -56,13 +56,13 @@ function MiniCard({ card, selected, restricted, onClick, isCenter }) {
 
       {selected && (
         <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center shadow-lg"
-             style={{ background: '#f0c75a', color: '#3a2410', border: '1.5px solid #b8821b' }}>
+             style={{ background: '#e3b04b', color: '#3b2314', border: '1.5px solid #c08a26' }}>
           <Check size={12} strokeWidth={3} />
         </div>
       )}
       {isCenter && !selected && (
         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-western shadow"
-             style={{ background: '#c47a3a', color: '#fff8e6', border: '1px solid #8b3a2e' }}>
+             style={{ background: '#c47a3a', color: '#3b2314', border: '1px solid #8b3a2e' }}>
           N
         </div>
       )}
@@ -74,9 +74,9 @@ export default function DiscardSelector() {
   const { hand, lastCenterCards, selectedDiscards, toggleDiscard, discardCards, chosenGameType, trumpSuit } = useGame()
 
   const restrictionType =
-    chosenGameType === 'K' || chosenGameType === 'H' ? 'Hearts' :
-    chosenGameType === 'Q' ? 'Queens' :
-    chosenGameType === 'J' ? 'Jacks' : null
+    chosenGameType === 'K' || chosenGameType === 'H' ? 'გულებს' :
+    chosenGameType === 'Q' ? 'ქალებს' :
+    chosenGameType === 'J' ? 'ვალეტებს' : null
 
   const centerKeys  = new Set((lastCenterCards || []).map(cardKey))
   const isSelected  = card => selectedDiscards.some(c => c.rank === card.rank && c.suit === card.suit)
@@ -88,7 +88,7 @@ export default function DiscardSelector() {
   return (
     <div className="absolute inset-0 flex items-center justify-center z-30 p-4"
          style={{
-           background: 'radial-gradient(ellipse at center, rgba(28,16,10,0.85) 0%, rgba(10,5,2,0.96) 100%)',
+           background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
            backdropFilter: 'blur(8px)',
          }}>
       <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 western-panel">
@@ -96,50 +96,50 @@ export default function DiscardSelector() {
         {/* Header */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
-            <Trash2 size={22} style={{ color: '#f0c75a' }} />
-            <h2 className="text-xl font-western uppercase tracking-wide" style={{ color: '#fde9b8' }}>
-              Toss Two Cards
+            <Trash2 size={22} style={{ color: '#8e2b23' }} />
+            <h2 className="text-xl font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
+              გადადე 2 კარტი
             </h2>
           </div>
-          <p className="text-sm font-typewriter" style={{ color: 'rgba(245,233,207,0.75)' }}>
-            You picked up the two center cards (marked{' '}
-            <span style={{ color: '#e0a070', fontWeight: 700 }}>orange</span>).
-            Pitch 2 cards from your hand to settle back to ten.
+          <p className="text-sm font-typewriter" style={{ color: 'rgba(59,35,20,0.75)' }}>
+            აიღე პრიკუპის ორი კარტი (მონიშნულია{' '}
+            <span style={{ color: '#c47a3a', fontWeight: 700 }}>ნარინჯისფრად</span>).
+            აირჩიე 2 გადასადები კარტი, რომ ისევ ათი დაგრჩეს.
           </p>
 
           {restrictionType && (
             <div className="mt-3 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 font-typewriter"
                  style={{
-                   background: 'linear-gradient(180deg, rgba(139,58,46,0.4), rgba(74,28,22,0.4))',
-                   border: '1px solid rgba(212,87,77,0.55)',
-                   color: '#ffd0c4',
+                   background: 'rgba(165,55,43,0.12)',
+                   border: '1px solid rgba(165,55,43,0.55)',
+                   color: '#a5372b',
                  }}>
-              <Ban size={14} style={{ color: '#e8a097' }} />
-              <span>Can't toss <strong>{restrictionType}</strong> — required by the "{chosenGameType}" hand</span>
+              <Ban size={14} style={{ color: '#a5372b' }} />
+              <span><strong>{restrictionType}</strong> ვერ გადადებ — „{chosenGameType}" თამაშისთვის საჭიროა</span>
             </div>
           )}
           {trumpSuit && (
             <div className="mt-2 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 font-typewriter"
                  style={{
-                   background: 'rgba(218,165,32,0.10)',
-                   border: '1px solid rgba(218,165,32,0.4)',
-                   color: '#fde9b8',
+                   background: 'rgba(142,43,35,0.07)',
+                   border: '1px solid rgba(122,83,44,0.4)',
+                   color: '#3b2314',
                  }}>
-              <Star size={14} fill="#f0c75a" style={{ color: '#f0c75a' }} />
+              <Star size={14} fill="#8e2b23" style={{ color: '#8e2b23' }} />
               <span className="inline-flex items-center gap-1">
-                Trump for this hand: <strong><SuitLabel suit={trumpSuit} size={12} /></strong>
+                ამ ხელის კოზირი: <strong><SuitLabel suit={trumpSuit} size={12} /></strong>
               </span>
             </div>
           )}
           {bothCenterPicked && (
             <div className="mt-2 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 font-typewriter"
                  style={{
-                   background: 'linear-gradient(180deg, rgba(139,58,46,0.4), rgba(74,28,22,0.4))',
-                   border: '1px solid rgba(212,87,77,0.55)',
-                   color: '#ffd0c4',
+                   background: 'rgba(165,55,43,0.12)',
+                   border: '1px solid rgba(165,55,43,0.55)',
+                   color: '#a5372b',
                  }}>
-              <Ban size={14} style={{ color: '#e8a097' }} />
-              <span>You must keep at least one of the two center cards.</span>
+              <Ban size={14} style={{ color: '#a5372b' }} />
+              <span>პრიკუპის ორი კარტიდან ერთი მაინც უნდა დაიტოვო.</span>
             </div>
           )}
         </div>
@@ -160,39 +160,39 @@ export default function DiscardSelector() {
 
         {/* Legend */}
         <div className="flex items-center gap-5 text-xs mb-6 font-typewriter"
-             style={{ color: 'rgba(245,233,207,0.7)' }}>
+             style={{ color: 'rgba(59,35,20,0.7)' }}>
           <div className="flex items-center gap-2">
             <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', border: '2px solid #c47a3a' }} />
-            <span>From the centre</span>
+            <span>შუიდან</span>
           </div>
           <div className="flex items-center gap-2">
-            <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', border: '2.5px solid #f0c75a' }} />
-            <span>Marked to toss</span>
+            <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', border: '2.5px solid #8e2b23' }} />
+            <span>გადასადებად მონიშნული</span>
           </div>
           <div className="flex items-center gap-2">
             <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', opacity: 0.32, border: '1px solid rgba(120,70,30,0.45)' }} />
-            <span>Locked</span>
+            <span>დაბლოკილი</span>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-western uppercase tracking-wider"
-                style={{ color: canConfirm ? '#a3d68a' : 'rgba(245,233,207,0.6)' }}>
-            {selectedDiscards.length}/2 marked
+                style={{ color: canConfirm ? '#4c7a2f' : 'rgba(59,35,20,0.6)' }}>
+            მონიშნულია {selectedDiscards.length}/2
           </span>
           <button
             onClick={() => discardCards(selectedDiscards)}
             disabled={!canConfirm}
             className={`px-8 py-2.5 rounded-xl text-sm font-western uppercase tracking-wider transition-all active:scale-95 inline-flex items-center gap-2 ${canConfirm ? 'casino-btn-primary' : ''}`}
             style={!canConfirm ? {
-              background: 'linear-gradient(180deg, rgba(74,46,26,0.7), rgba(44,26,16,0.7))',
-              border: '1px solid rgba(218,165,32,0.25)',
-              color: 'rgba(245,233,207,0.4)',
+              background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
+              border: '1px solid rgba(122,83,44,0.25)',
+              color: 'rgba(59,35,20,0.4)',
               cursor: 'not-allowed',
             } : undefined}
           >
-            <span>Confirm Toss</span>
+            <span>გადადე</span>
             <ArrowRight size={16} />
           </button>
         </div>

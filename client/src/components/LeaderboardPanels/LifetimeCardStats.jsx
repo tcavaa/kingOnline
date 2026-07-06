@@ -29,17 +29,17 @@ export default function LifetimeCardStats({ players }) {
 
   return (
     <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
         <h2 className="text-sm font-western uppercase text-cream inline-flex items-center gap-2">
-          <ScrollText size={14} className="text-amber" /> Lifetime Counters
+          <ScrollText size={14} className="text-amber" /> საერთო სტატისტიკა
         </h2>
         <p className="text-[11px] mt-0.5 font-typewriter text-cream-dim">
-          Across every game in the saloon ledger
+          დუქნის დავთარში ჩაწერილი ყველა თამაშიდან
         </p>
       </div>
       {loading ? (
         <div className="p-6 text-center text-sm font-typewriter text-cream-dim">
-          Tallying up the years…
+          დავთარს ვფურცლავთ…
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
@@ -50,18 +50,18 @@ export default function LifetimeCardStats({ players }) {
             }
             return (
               <div key={p.name} className="rounded-xl p-3"
-                   style={{ background: 'rgba(28,16,10,0.7)', border: '1px solid rgba(218,165,32,0.3)' }}>
+                   style={{ background: 'rgba(236,222,196,0.85)', border: '1px solid rgba(122,83,44,0.3)' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <AvatarImg avatar={p.avatar} size={32} />
-                  <span className="text-sm font-black text-white">{p.name}</span>
+                  <span className="text-sm font-black text-ink">{p.name}</span>
                 </div>
-                <Stat icon={Crown}   label="Kings of ♥"   value={s.kingsOfHearts} />
-                <Stat icon={Diamond} label="Queens taken" value={s.queens} />
-                <Stat icon={Spade}   label="Jacks taken"  value={s.jacks} />
-                <Stat icon={Heart}   label="Hearts taken" value={s.hearts} />
+                <Stat icon={Crown}   label="გულის მეფე ♥"   value={s.kingsOfHearts} />
+                <Stat icon={Diamond} label="აღებული ქალები" value={s.queens} />
+                <Stat icon={Spade}   label="აღებული ვალეტები"  value={s.jacks} />
+                <Stat icon={Heart}   label="აღებული გულები" value={s.hearts} />
                 <div className="border-t mt-2 pt-2 text-[10px] font-typewriter text-cream-dim"
-                     style={{ borderColor: 'rgba(218,165,32,0.2)' }}>
-                  {s.gamesPlayed} games · {s.wins} wins · total {s.totalScore > 0 ? '+' : ''}{s.totalScore}
+                     style={{ borderColor: 'rgba(122,83,44,0.2)' }}>
+                  {s.gamesPlayed} თამაში · {s.wins} მოგება · ჯამში {s.totalScore > 0 ? '+' : ''}{s.totalScore}
                 </div>
               </div>
             )

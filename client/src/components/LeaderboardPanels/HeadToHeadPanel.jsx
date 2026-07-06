@@ -68,9 +68,9 @@ export default function HeadToHeadPanel({ games, players }) {
   return (
     <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
       <div className="px-5 py-3 flex items-center justify-between"
-           style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+           style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
         <h2 className="text-sm font-western uppercase text-cream inline-flex items-center gap-2">
-          <Swords size={14} className="text-amber" /> Head-to-Head
+          <Swords size={14} className="text-amber" /> პირისპირ
         </h2>
         <select value={me} onChange={e => setMe(e.target.value)}
                 className="casino-input text-xs font-typewriter px-2 py-1 max-w-[160px]"
@@ -80,36 +80,36 @@ export default function HeadToHeadPanel({ games, players }) {
       </div>
       {mine.length === 0 ? (
         <div className="p-6 text-center text-sm font-typewriter text-cream-dim">
-          No shared games yet for {me || '—'}.
+          {me || '—'}-ს ჯერ საერთო თამაშები არ აქვს.
         </div>
       ) : (
         <table className="w-full text-xs">
-          <thead style={{ background: 'rgba(218,165,32,0.1)' }}>
+          <thead style={{ background: 'rgba(142,43,35,0.07)' }}>
             <tr>
-              <th className="px-3 py-2 text-left">Opponent</th>
-              <th className="px-3 py-2 text-center">Games</th>
-              <th className="px-3 py-2 text-center">W&nbsp;–&nbsp;L</th>
-              <th className="px-3 py-2 text-center">Total Δ</th>
-              <th className="px-3 py-2 text-center">Best Round vs Them</th>
+              <th className="px-3 py-2 text-left">მეტოქე</th>
+              <th className="px-3 py-2 text-center">თამაშები</th>
+              <th className="px-3 py-2 text-center">მოგ.&nbsp;–&nbsp;წაგ.</th>
+              <th className="px-3 py-2 text-center">ჯამური Δ</th>
+              <th className="px-3 py-2 text-center">საუკეთესო ხელი მის წინააღმდეგ</th>
             </tr>
           </thead>
           <tbody>
             {mine.map(row => {
               const delta = row.total
-              const cls = delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-500'
+              const cls = delta > 0 ? 'score-pos-soft' : delta < 0 ? 'score-neg-soft' : 'text-cream-dim'
               return (
-                <tr key={row.other} style={{ borderTop: '1px solid rgba(218,165,32,0.18)' }}>
+                <tr key={row.other} style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <AvatarImg avatar={avatarFor(row.avatarOf)} size={24} />
-                      <span className="font-bold text-white">{row.other}</span>
+                      <span className="font-bold text-ink">{row.other}</span>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-center font-mono">{row.games}</td>
                   <td className="px-3 py-2 text-center font-mono">
-                    <span className="text-green-400 font-bold">{row.wins}</span>
+                    <span className="score-pos-soft font-bold">{row.wins}</span>
                     <span className="text-cream-dim mx-1">·</span>
-                    <span className="text-red-400 font-bold">{row.losses}</span>
+                    <span className="score-neg-soft font-bold">{row.losses}</span>
                   </td>
                   <td className={`px-3 py-2 text-center font-mono font-semibold ${cls}`}>
                     {delta > 0 ? '+' : ''}{delta}

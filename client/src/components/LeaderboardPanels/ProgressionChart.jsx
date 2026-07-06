@@ -3,7 +3,7 @@ import {
   CartesianGrid, ReferenceLine, Tooltip, Legend,
 } from 'recharts'
 
-const COLOURS = ['#f0c75a', '#a3d68a', '#e8a097']
+const COLOURS = ['#8e2b23', '#4c7a2f', '#31536b']
 
 /**
  * Recharts line chart of the running tally per round. Same data as
@@ -15,19 +15,19 @@ export default function ProgressionChart({ rows, players }) {
     <div className="px-3 py-3">
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={rows} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(218,165,32,0.12)" />
-          <XAxis dataKey="round" stroke="#cdb87a" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#cdb87a" width={42} tick={{ fontSize: 11 }} />
-          <ReferenceLine y={0} stroke="rgba(218,165,32,0.5)" strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(122,83,44,0.12)" />
+          <XAxis dataKey="round" stroke="rgba(59,35,20,0.6)" tick={{ fontSize: 11 }} />
+          <YAxis stroke="rgba(59,35,20,0.6)" width={42} tick={{ fontSize: 11 }} />
+          <ReferenceLine y={0} stroke="rgba(122,83,44,0.5)" strokeDasharray="3 3" />
           <Tooltip
             contentStyle={{
-              background: '#2c1a10',
-              border: '1px solid rgba(218,165,32,0.4)',
+              background: '#f8efdd',
+              border: '1px solid rgba(122,83,44,0.4)',
               borderRadius: 8,
               fontSize: 12,
-              color: '#fde9b8',
+              color: '#3b2314',
             }}
-            labelFormatter={(v) => `Round ${v}`}
+            labelFormatter={(v) => `ხელი ${v}`}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           {players.map((p, i) => (

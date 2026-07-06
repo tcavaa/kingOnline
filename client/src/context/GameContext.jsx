@@ -472,15 +472,15 @@ export function GameProvider({ children }) {
       setLeaderSeat(ls)
       setGamePhase(phase)
       setUsedTypes(ut)
-      const leaderName = playersRef.current.find(p => p.seat === ls)?.name || `Player ${ls}`
-      addToast(`Game type "${typeCode}" selected by ${leaderName}`, 'info')
+      const leaderName = playersRef.current.find(p => p.seat === ls)?.name || `მოთამაშე ${ls}`
+      addToast(`${leaderName}-მ აირჩია — „${typeCode}“`, 'info')
     })
 
     socket.on('trump-selected', ({ trumpSuit: ts, phase }) => {
       setTrumpSuit(ts)
       setGamePhase(phase)
-      const label = ts ? { H: 'Hearts', D: 'Diamonds', S: 'Spades', C: 'Clubs' }[ts] : 'No Trump'
-      addToast(`Trump: ${label}`, 'info')
+      const label = ts ? { H: 'გული', D: 'აგური', S: 'ყვავი', C: 'ჯვარი' }[ts] : 'უკოზირო'
+      addToast(`კოზირი: ${label}`, 'info')
     })
 
     socket.on('hand-updated', ({ hand: h, lastCenterCards: lcc }) => {
@@ -576,8 +576,8 @@ export function GameProvider({ children }) {
         setTrickAnimation(null)
         setGamePhase('round_end')
         if (typeof quitBySeat === 'number') {
-          const quitterName = playersRef.current.find(p => p.seat === quitBySeat)?.name || `Player ${quitBySeat}`
-          addToast(`${quitterName} folded the hand.`, 'warning')
+          const quitterName = playersRef.current.find(p => p.seat === quitBySeat)?.name || `მოთამაშე ${quitBySeat}`
+          addToast(`${quitterName}-მ დათმო ხელი.`, 'warning')
         }
         return
       }
@@ -590,7 +590,7 @@ export function GameProvider({ children }) {
         setLedSuit(null)
         setTrickAnimation(null)
         setGamePhase('round_end')
-        if (!isGameOver) addToast(`Hand ${r} settled.`, 'success')
+        if (!isGameOver) addToast(`ხელი ${r} დასრულდა.`, 'success')
       }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
     })
 
@@ -604,10 +604,10 @@ export function GameProvider({ children }) {
       try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
       setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 200)
       if (typeof surrenderedBySeat === 'number') {
-        const surrenderName = (p || []).find(pl => pl.seat === surrenderedBySeat)?.name || `Player ${surrenderedBySeat}`
-        addToast(`${surrenderName} surrendered — ${winner.name} wins!`, 'success')
+        const surrenderName = (p || []).find(pl => pl.seat === surrenderedBySeat)?.name || `მოთამაშე ${surrenderedBySeat}`
+        addToast(`${surrenderName} დანებდა — ${winner.name} იმარჯვებს!`, 'success')
       } else {
-        addToast(`${winner.name} wins!`, 'success')
+        addToast(`${winner.name} იმარჯვებს!`, 'success')
       }
 
       // Persist this finished game to the leaderboard. Two layers of dedupe:
@@ -694,12 +694,12 @@ export function GameProvider({ children }) {
 
     socket.on('quit-rejected', ({ kind, voterSeat, reason }) => {
       setQuitProposal(null)
-      const what = kind === 'game' ? 'surrender' : 'fold the hand'
+      const what = kind === 'game' ? 'დანებებაზე' : 'ხელის დათმობაზე'
       if (reason === 'declined') {
-        const voterName = playersRef.current.find(p => p.seat === voterSeat)?.name || 'Someone'
-        addToast(`${voterName} refused to ${what} — play on.`, 'warning')
+        const voterName = playersRef.current.find(p => p.seat === voterSeat)?.name || 'ვიღაცამ'
+        addToast(`${voterName}-მ უარი თქვა ${what} — თამაში გრძელდება.`, 'warning')
       } else {
-        addToast(`The vote to ${what} expired — play on.`, 'warning')
+        addToast(`${what} ხმის მიცემის დრო ამოიწურა — თამაში გრძელდება.`, 'warning')
       }
     })
 
@@ -748,7 +748,7 @@ export function GameProvider({ children }) {
       if (disconnectGraceTimer) clearTimeout(disconnectGraceTimer)
       disconnectGraceTimer = setTimeout(() => {
         setDisconnectedPlayer(playerName)
-        addToast(`${playerName} disconnected…`, 'warning')
+        addToast(`${playerName} გაითიშა…`, 'warning')
       }, 5000)
     })
 

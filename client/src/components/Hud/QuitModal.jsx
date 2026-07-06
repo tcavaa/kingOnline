@@ -24,36 +24,36 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
       return (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
           <div className="western-pill px-5 py-2 text-xs font-typewriter">
-            {kind === 'game' ? 'Surrender' : 'Fold the hand'} — waiting for the table to agree… ({agreed}/2)
+            {kind === 'game' ? 'დანებება' : 'ხელის დათმობა'} — ველოდებით თანხმობას… ({agreed}/2)
           </div>
         </div>
       )
     }
 
     const Icon = kind === 'game' ? Flag : DoorOpen
-    const title = kind === 'game' ? 'Surrender?' : 'Fold This Hand?'
+    const title = kind === 'game' ? 'ნებდები?' : 'დათმობ ამ ხელს?'
     const body = kind === 'game'
-      ? `${proposerName} wants to surrender — the game ends now and whoever tops the tally sheet takes the win.`
+      ? `${proposerName}-ს უნდა დანებება — თამაში ახლავე დასრულდება და ვინც ქულებით ლიდერობს, ის მოიგებს.`
       : isPositiveRound
-        ? `${proposerName} wants to fold this hand — they forfeit it, and you and the other player split the +80.`
-        : `${proposerName} wants to fold this hand — they take the full -40 and the table moves on to the next hand.`
+        ? `${proposerName}-ს უნდა ამ ხელის დათმობა — ხელს თმობს და +80-ს შენ და მესამე მოთამაშე გაიყოფთ.`
+        : `${proposerName}-ს უნდა ამ ხელის დათმობა — მთელი -40 მას ჩაეწერება და მაგიდა შემდეგ ხელზე გადავა.`
 
     return (
       <div
         className="absolute inset-0 flex items-center justify-center z-40 px-4"
         style={{
-          background: 'radial-gradient(ellipse at center, rgba(28,16,10,0.75) 0%, rgba(10,5,2,0.92) 100%)',
+          background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
           backdropFilter: 'blur(4px)',
         }}
       >
         <div className="w-full max-w-sm rounded-2xl p-4 lg:p-5 western-panel">
           <div className="flex items-center gap-2 mb-2">
-            <Icon size={18} style={{ color: '#f0c75a' }} />
-            <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#fde9b8' }}>
+            <Icon size={18} style={{ color: '#8e2b23' }} />
+            <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
               {title}
             </h2>
           </div>
-          <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(245,233,207,0.85)' }}>
+          <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.85)' }}>
             {body}
           </p>
           <div className="flex gap-2">
@@ -61,18 +61,18 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
               onClick={() => voteQuit(true)}
               className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 casino-btn-gold inline-flex items-center justify-center gap-1.5"
             >
-              <Check size={14} /> Agree
+              <Check size={14} /> თანახმა ვარ
             </button>
             <button
               onClick={() => voteQuit(false)}
               className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 inline-flex items-center justify-center gap-1.5"
               style={{
-                background: 'linear-gradient(180deg, rgba(74,46,26,0.85), rgba(44,26,16,0.85))',
-                border: '1px solid rgba(218,165,32,0.35)',
-                color: '#fde9b8',
+                background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
+                border: '1px solid rgba(122,83,44,0.35)',
+                color: '#3b2314',
               }}
             >
-              <X size={14} /> Refuse
+              <X size={14} /> უარი
             </button>
           </div>
         </div>
@@ -84,29 +84,29 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
   if (!confirmKind) return null
 
   const Icon = confirmKind === 'game' ? Flag : DoorOpen
-  const title = confirmKind === 'game' ? 'Surrender the Game?' : 'Fold This Hand?'
+  const title = confirmKind === 'game' ? 'ნებდები?' : 'დათმობ ამ ხელს?'
   const body = confirmKind === 'game'
-    ? 'The game ends immediately and whoever leads the tally sheet takes the win. Both other players must agree.'
+    ? 'თამაში მაშინვე დასრულდება და ქულების ლიდერი მოიგებს. ორივე მოთამაშე უნდა დათანხმდეს.'
     : isPositiveRound
-      ? 'You forfeit this hand — the other two players split the +80 between them. Both must agree.'
-      : 'You take this hand’s full -40 and the table moves on to the next hand. Both other players must agree.'
+      ? 'ამ ხელს თმობ — +80-ს დანარჩენი ორი გაიყოფს. ორივე უნდა დათანხმდეს.'
+      : 'ამ ხელის მთელი -40 შენ ჩაგეწერება და მაგიდა შემდეგ ხელზე გადავა. ორივე მოთამაშე უნდა დათანხმდეს.'
 
   return (
     <div
       className="absolute inset-0 flex items-center justify-center z-40 px-4"
       style={{
-        background: 'radial-gradient(ellipse at center, rgba(28,16,10,0.75) 0%, rgba(10,5,2,0.92) 100%)',
+        background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
         backdropFilter: 'blur(4px)',
       }}
     >
       <div className="w-full max-w-sm rounded-2xl p-4 lg:p-5 western-panel">
         <div className="flex items-center gap-2 mb-2">
-          <Icon size={18} style={{ color: '#f0c75a' }} />
-          <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#fde9b8' }}>
+          <Icon size={18} style={{ color: '#8e2b23' }} />
+          <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
             {title}
           </h2>
         </div>
-        <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(245,233,207,0.85)' }}>
+        <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.85)' }}>
           {body}
         </p>
         <div className="flex gap-2">
@@ -114,18 +114,18 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
             onClick={() => { proposeQuit(confirmKind); onCloseConfirm() }}
             className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 casino-btn-gold"
           >
-            {confirmKind === 'game' ? 'Propose Surrender' : 'Propose Fold'}
+            {confirmKind === 'game' ? 'შესთავაზე დანებება' : 'შესთავაზე დათმობა'}
           </button>
           <button
             onClick={onCloseConfirm}
             className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95"
             style={{
-              background: 'linear-gradient(180deg, rgba(74,46,26,0.85), rgba(44,26,16,0.85))',
-              border: '1px solid rgba(218,165,32,0.35)',
-              color: '#fde9b8',
+              background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
+              border: '1px solid rgba(122,83,44,0.35)',
+              color: '#3b2314',
             }}
           >
-            Cancel
+            გაუქმება
           </button>
         </div>
       </div>

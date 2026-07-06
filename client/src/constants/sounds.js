@@ -1,4 +1,4 @@
-// Single source of truth for the saloon reaction clips. Used by both the
+// Single source of truth for the tavern reaction clips. Used by both the
 // in-canvas avatar buttons (GameScene) and the DOM Sound Board modal.
 //
 //   id    — filename + server ALLOWED_SOUNDS id (do not change lightly)
@@ -8,25 +8,25 @@
 
 export const SOUNDS = [
   // built-in clips
-  { id: 'yeehaw',      glyph: 'Y', label: 'Yee-haw',    color: '#daa520' },
-  { id: 'gunshot',     glyph: '!', label: 'Bang',       color: '#d4574d' },
-  { id: 'whistle',     glyph: '~', label: 'Whistle',    color: '#6dbc4f' },
+  { id: 'yeehaw',      glyph: 'ჰ', label: 'ყიჟინა',      color: '#b98a2f' },
+  { id: 'gunshot',     glyph: '!', label: 'გასროლა',     color: '#a5372b' },
+  { id: 'whistle',     glyph: '~', label: 'სტვენა',      color: '#4c7a2f' },
   // user-added reaction clips
-  { id: 'giv',         glyph: 'G', label: 'Giv',        color: '#7fa7d6' },
-  { id: 'janmrteloba', glyph: 'J', label: 'Janmrteloba', color: '#c084fc' },
-  { id: 'sheilage',    glyph: 'S', label: 'Sheilage',   color: '#a78bfa' },
-  { id: 'shemetxara',  glyph: 'X', label: 'Shemetxara', color: '#f472b6' },
-  { id: 'tsava',       glyph: 'T', label: 'Tsava',      color: '#fde047' },
+  { id: 'giv',         glyph: 'გ', label: 'გივ',         color: '#31536b' },
+  { id: 'janmrteloba', glyph: 'ჯ', label: 'ჯანმრთელობა', color: '#6b3fa0' },
+  { id: 'sheilage',    glyph: 'შ', label: 'შეილაგე',     color: '#5b3d99' },
+  { id: 'shemetxara',  glyph: 'ხ', label: 'შემეთხარა',   color: '#a83a68' },
+  { id: 'tsava',       glyph: 'ც', label: 'ცავა',        color: '#8e6a1e' },
   // Georgian reaction clips (first batch)
-  { id: 'Dedofali',    glyph: 'D', label: 'Dedofali',   color: '#ff6b9d' },
-  { id: 'Male!',       glyph: 'M', label: 'Male',       color: '#60a5fa' },
-  { id: 'Revia',       glyph: 'R', label: 'Revia',      color: '#34d399' },
-  { id: 'Tazik',       glyph: 'Z', label: 'Tazik',      color: '#facc15' },
+  { id: 'Dedofali',    glyph: 'დ', label: 'დედოფალი',    color: '#b0446e' },
+  { id: 'Male!',       glyph: 'მ', label: 'მალე!',       color: '#2f5d8a' },
+  { id: 'Revia',       glyph: 'რ', label: 'რევია',       color: '#2b7a55' },
+  { id: 'Tazik',       glyph: 'თ', label: 'თაზიკ',       color: '#9c7818' },
   // Georgian reaction clips (latest batch)
-  { id: '10-10',       glyph: '1', label: '10-10',      color: '#fb7185' },
-  { id: 'achexet',     glyph: 'A', label: 'Achexet',    color: '#fb923c' },
-  { id: 'bedi',        glyph: 'B', label: 'Bedi',       color: '#f0a500' },
-  { id: 'cxado',       glyph: 'C', label: 'Cxado',      color: '#22d3ee' },
+  { id: '10-10',       glyph: '1', label: '10-10',       color: '#b04a52' },
+  { id: 'achexet',     glyph: 'ა', label: 'აჩეხეთ',      color: '#9c5a24' },
+  { id: 'bedi',        glyph: 'ბ', label: 'ბედი',        color: '#a97b14' },
+  { id: 'cxado',       glyph: 'ო', label: 'ცხადო',       color: '#22758a' },
   // one-off addition
-  { id: 'ketika',      glyph: 'K', label: 'Ketika',     color: '#a3e635' },
+  { id: 'ketika',      glyph: 'კ', label: 'კეტიკა',      color: '#5e7a1e' },
 ]

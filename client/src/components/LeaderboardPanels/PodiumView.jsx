@@ -17,12 +17,12 @@ function PodiumStep({ player, rank }) {
       <div className="flex flex-col items-center">
         {rank === 0 && (
           <Trophy size={48} className="parade-pulse"
-                  style={{ color: '#f0a500', filter: 'drop-shadow(0 0 16px rgba(240,165,0,0.6))' }} />
+                  style={{ color: '#b98a2f', filter: 'drop-shadow(0 0 16px rgba(185,138,47,0.55))' }} />
         )}
         <div className="mt-2">
-          <AvatarImg avatar={player?.avatar} size={64} ring="#f0a500" />
+          <AvatarImg avatar={player?.avatar} size={64} ring="#b98a2f" />
         </div>
-        <div className="mt-1 text-sm font-bold text-white">{player?.name ?? '—'}</div>
+        <div className="mt-1 text-sm font-bold text-ink">{player?.name ?? '—'}</div>
         {player && (
           <div className="text-[11px] font-mono score-pos-soft">
             {(player.score > 0 ? '+' : '') + (player.score ?? 0)}
@@ -34,8 +34,8 @@ function PodiumStep({ player, rank }) {
              height: PODIUM_HEIGHT[rank],
              background: grad.bg,
              color: grad.text,
-             boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.18), 0 6px 24px rgba(0,0,0,0.4)',
-             border: '1px solid rgba(0,0,0,0.25)',
+             boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.18), 0 6px 24px rgba(58,36,24,0.25)',
+             border: '1px solid rgba(58,36,24,0.3)',
            }}>
         <div className="flex flex-col items-center">
           {Icon && <Icon size={28} />}
@@ -52,13 +52,13 @@ export default function PodiumView({ game, sortedPlayers }) {
   const ranks = [1, 0, 2]
   return (
     <div className="rounded-2xl p-6 mb-5 bg-leather"
-         style={{ border: '1px solid rgba(240,165,0,0.2)' }}>
+         style={{ border: '1px solid rgba(122,83,44,0.25)' }}>
       <div className="flex items-end gap-3">
         {arr.map((p, i) => <PodiumStep key={i} player={p} rank={ranks[i]} />)}
       </div>
       {game?.playedAt && (
         <div className="text-center text-[11px] mt-3 text-cream-soft">
-          Played on {new Date(game.playedAt).toLocaleString()}
+          ნათამაშებია {new Date(game.playedAt).toLocaleString()}
         </div>
       )}
     </div>

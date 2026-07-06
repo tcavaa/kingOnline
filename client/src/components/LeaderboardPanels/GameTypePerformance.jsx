@@ -42,9 +42,9 @@ export default function GameTypePerformance({ games, players }) {
   return (
     <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
       <div className="px-5 py-3 flex items-center justify-between"
-           style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
+           style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
         <h2 className="text-sm font-western uppercase text-cream inline-flex items-center gap-2">
-          <Sparkles size={14} className="text-amber" /> Hand Performance
+          <Sparkles size={14} className="text-amber" /> შედეგები თამაშის ტიპებით
         </h2>
         <select value={me} onChange={e => setMe(e.target.value)}
                 className="casino-input text-xs font-typewriter px-2 py-1 max-w-[160px]"
@@ -54,17 +54,17 @@ export default function GameTypePerformance({ games, players }) {
       </div>
       {sorted.length === 0 ? (
         <div className="p-6 text-center text-sm font-typewriter text-cream-dim">
-          {me} hasn't played any rounds yet.
+          {me}-ს ჯერ არც ერთი ხელი არ უთამაშია.
         </div>
       ) : (
         <table className="w-full text-xs">
-          <thead style={{ background: 'rgba(218,165,32,0.1)' }}>
+          <thead style={{ background: 'rgba(142,43,35,0.07)' }}>
             <tr>
-              <th className="px-3 py-2 text-left">Hand</th>
-              <th className="px-3 py-2 text-center">Played</th>
-              <th className="px-3 py-2 text-center">Avg</th>
-              <th className="px-3 py-2 text-center">Best</th>
-              <th className="px-3 py-2 text-center">Worst</th>
+              <th className="px-3 py-2 text-left">ხელი</th>
+              <th className="px-3 py-2 text-center">ნათამაშები</th>
+              <th className="px-3 py-2 text-center">საშუალო</th>
+              <th className="px-3 py-2 text-center">საუკეთესო</th>
+              <th className="px-3 py-2 text-center">ყველაზე ცუდი</th>
             </tr>
           </thead>
           <tbody>
@@ -72,9 +72,9 @@ export default function GameTypePerformance({ games, players }) {
               const gt = getGameType(r.code)
               const Icon = gt?.Icon
               const avgRounded = Math.round(r.avg * 10) / 10
-              const avgCls = r.avg > 0 ? 'text-green-400' : r.avg < 0 ? 'text-red-400' : 'text-gray-500'
+              const avgCls = r.avg > 0 ? 'score-pos-soft' : r.avg < 0 ? 'score-neg-soft' : 'text-cream-dim'
               return (
-                <tr key={r.code} style={{ borderTop: '1px solid rgba(218,165,32,0.18)' }}>
+                <tr key={r.code} style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5 font-typewriter"
                           style={{ color: gt?.color }}>
@@ -85,10 +85,10 @@ export default function GameTypePerformance({ games, players }) {
                   <td className={`px-3 py-2 text-center font-mono font-bold ${avgCls}`}>
                     {avgRounded > 0 ? '+' : ''}{avgRounded}
                   </td>
-                  <td className="px-3 py-2 text-center font-mono text-green-400">
+                  <td className="px-3 py-2 text-center font-mono score-pos-soft">
                     {r.best > -Infinity ? (r.best > 0 ? '+' : '') + r.best : '—'}
                   </td>
-                  <td className="px-3 py-2 text-center font-mono text-red-400">
+                  <td className="px-3 py-2 text-center font-mono score-neg-soft">
                     {r.worst < Infinity ? (r.worst > 0 ? '+' : '') + r.worst : '—'}
                   </td>
                 </tr>

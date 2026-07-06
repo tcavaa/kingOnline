@@ -46,22 +46,22 @@ export default function SoundBoard() {
   // only as wide as the button), which made the modal a thin vertical strip.
   const modal = open && createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3"
-         style={{ background: 'rgba(8,4,2,0.72)', backdropFilter: 'blur(4px)' }}
+         style={{ background: 'rgba(32,18,10,0.72)', backdropFilter: 'blur(4px)' }}
          onClick={() => setOpen(false)}>
       <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
            style={{
-             background: 'linear-gradient(180deg, #4a2e1a 0%, #2c1a10 100%)',
-             border: '1px solid rgba(218,165,32,0.45)',
-             boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+             background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
+             border: '1px solid rgba(122,83,44,0.45)',
+             boxShadow: '0 12px 48px rgba(58,36,24,0.25)',
            }}
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
-          <h3 className="text-sm font-western uppercase tracking-wider" style={{ color: '#fde9b8' }}>
-            Sounds
+             style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
+          <h3 className="text-sm font-western uppercase tracking-wider" style={{ color: '#3b2314' }}>
+            ხმები
           </h3>
           <button onClick={() => setOpen(false)} className="text-cream-soft hover:opacity-80"
-                  aria-label="Close sounds">
+                  aria-label="ხმების დახურვა">
             <X size={20} />
           </button>
         </div>
@@ -75,7 +75,7 @@ export default function SoundBoard() {
                 title={s.label}
                 className="flex flex-col items-center gap-1.5 rounded-xl py-2.5 px-1 active:scale-95 transition-transform"
                 style={{
-                  background: flash === s.id ? `${s.color}33` : 'rgba(28,16,10,0.7)',
+                  background: flash === s.id ? `${s.color}33` : 'rgba(236,222,196,0.85)',
                   border: `1.5px solid ${s.color}`,
                 }}
               >
@@ -83,16 +83,16 @@ export default function SoundBoard() {
                       style={{
                         width: 44,
                         height: 44,
-                        background: '#3a2316',
+                        background: '#f8efdd',
                         border: `2px solid ${s.color}`,
-                        color: '#fde9b8',
+                        color: '#3b2314',
                         fontFamily: 'Roboto Slab, Georgia, serif',
                         fontSize: 18,
                       }}>
                   {s.glyph}
                 </span>
                 <span className="text-[10px] text-center leading-tight truncate w-full"
-                      style={{ color: '#f5e9cf' }}>
+                      style={{ color: '#3b2314' }}>
                   {s.label}
                 </span>
               </button>
@@ -109,16 +109,16 @@ export default function SoundBoard() {
       {/* Trigger — deliberately larger than the neighbouring icon pills. */}
       <button
         onClick={() => setOpen(true)}
-        title="Sounds"
-        aria-label="Open sounds"
+        title="ხმები"
+        aria-label="ხმების გახსნა"
         className="pointer-events-auto inline-flex items-center justify-center rounded-2xl active:scale-95 transition-transform shrink-0"
         style={{
           width: 46,
           height: 46,
-          background: 'linear-gradient(180deg, #6f4e37 0%, #3a2316 100%)',
-          border: '1px solid rgba(240,199,90,0.6)',
-          color: '#fde9b8',
-          boxShadow: '0 2px 0 rgba(0,0,0,0.5), 0 0 14px rgba(240,199,90,0.25), inset 0 1px 0 rgba(255,220,170,0.18)',
+          background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
+          border: '1px solid rgba(142,43,35,0.6)',
+          color: '#3b2314',
+          boxShadow: '0 2px 0 rgba(58,36,24,0.25), 0 0 14px rgba(142,43,35,0.25), inset 0 1px 0 rgba(255,255,255,0.18)',
         }}
       >
         <Volume2 size={28} />

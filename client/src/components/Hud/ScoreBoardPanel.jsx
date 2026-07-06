@@ -9,9 +9,9 @@ export default function ScoreBoardPanel({ onOpen }) {
 
   return (
     <div className="absolute bottom-3 lg:bottom-4 left-3 lg:left-4 z-20 flex flex-col gap-1.5 lg:gap-2 pointer-events-auto max-w-[calc(100vw-1.5rem)]">
-      <Pill onClick={onOpen} className="self-start px-2.5 lg:px-3" title="Score Board">
+      <Pill onClick={onOpen} className="self-start px-2.5 lg:px-3" title="ქულების დავთარი">
         <ClipboardList size={14} />
-        <span className="text-xs lg:text-sm">Score Board</span>
+        <span className="text-xs lg:text-sm">ქულების დავთარი</span>
       </Pill>
       <div className="rounded-xl px-2 py-1.5 lg:px-3 lg:py-2 bg-leather border-brass" style={{ backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center gap-2 lg:gap-3">

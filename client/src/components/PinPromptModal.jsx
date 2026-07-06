@@ -59,7 +59,7 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
     try {
       const r = await verifyPin(profile.id, pin)
       if (r.ok) { onSuccess?.({ profile }); return }
-      setError("That ain't the right code, partner.")
+      setError('არასწორი კოდი, სცადე ხელახლა.')
       setPin('')
       // Brief shake animation feedback handled via CSS class (added below).
       const el = inputRef.current
@@ -70,7 +70,7 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
         el.classList.add('pin-shake')
       }
     } catch (err) {
-      setError(err.message || 'Could not verify PIN.')
+      setError(err.message || 'PIN-კოდის შემოწმება ვერ მოხერხდა.')
     } finally {
       setBusy(false)
     }
@@ -94,30 +94,30 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
         {onCancel && (
           <button type="button" onClick={onCancel}
                   className="absolute top-3 right-3 hover:opacity-80"
-                  style={{ color: 'rgba(245,233,207,0.7)' }}>
+                  style={{ color: 'rgba(59,35,20,0.7)' }}>
             <X size={16} />
           </button>
         )}
 
         <div className="flex flex-col items-center gap-3 mb-4">
           <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center"
-               style={{ background: '#000', border: '2px solid rgba(218,165,32,0.6)',
-                        boxShadow: '0 0 16px rgba(240,199,90,0.35)' }}>
+               style={{ background: '#000', border: '2px solid rgba(142,43,35,0.55)',
+                        boxShadow: '0 0 16px rgba(142,43,35,0.35)' }}>
             <img src={profile.avatar || '/avatar-default.png'} alt=""
                  className="w-full h-full object-cover" />
           </div>
           <div className="text-center">
             <div className="text-[10px] uppercase tracking-[0.4em] mb-1 font-western inline-flex items-center gap-1"
-                 style={{ color: 'rgba(218,165,32,0.7)' }}>
-              <Lock size={11} /> Pass code required
+                 style={{ color: 'rgba(142,43,35,0.7)' }}>
+              <Lock size={11} /> საჭიროა PIN-კოდი
             </div>
             <h3 className="text-lg font-western"
-                style={{ color: '#fde9b8' }}>
-              Howdy, <span style={{ color: '#f0c75a' }}>{profile.name}</span>
+                style={{ color: '#3b2314' }}>
+              გამარჯობა, <span style={{ color: '#8e2b23' }}>{profile.name}</span>
             </h3>
             <p className="text-xs font-typewriter mt-1"
-               style={{ color: 'rgba(245,233,207,0.6)' }}>
-              Punch in your 4-digit code to mount up.
+               style={{ color: 'rgba(59,35,20,0.6)' }}>
+              შეიყვანე შენი 4-ციფრიანი კოდი შესასვლელად.
             </p>
           </div>
         </div>
@@ -131,13 +131,13 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
           value={pin}
           onChange={onChange}
           placeholder="••••"
-          aria-label="4-digit pass code"
+          aria-label="4-ციფრიანი კოდი"
           className="casino-input font-typewriter text-center text-2xl"
           style={{ letterSpacing: '0.7em', paddingLeft: '0.7em' }}
         />
 
         {error && (
-          <p className="text-[11px] text-center font-typewriter mt-2" style={{ color: '#e8a097' }}>
+          <p className="text-[11px] text-center font-typewriter mt-2" style={{ color: '#a5372b' }}>
             {error}
           </p>
         )}
@@ -165,7 +165,7 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
           <button type="button"
                   onClick={tapBackspace}
                   disabled={busy || !pin.length}
-                  aria-label="Backspace"
+                  aria-label="წაშლა"
                   className="pin-key py-3 rounded-xl inline-flex items-center justify-center disabled:opacity-30">
             <Delete size={18} />
           </button>
@@ -176,17 +176,17 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
             <button type="button" onClick={onCancel}
                     className="flex-1 py-2 rounded-xl font-western uppercase text-xs tracking-wider"
                     style={{
-                      background: 'linear-gradient(180deg, rgba(74,46,26,0.85), rgba(44,26,16,0.85))',
-                      border: '1px solid rgba(218,165,32,0.4)',
-                      color: '#fde9b8',
+                      background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
+                      border: '1px solid rgba(122,83,44,0.4)',
+                      color: '#3b2314',
                     }}>
-              Cancel
+              გაუქმება
             </button>
           )}
           <button type="submit" disabled={pin.length !== 4 || busy}
                   className="flex-[2] casino-btn-gold py-2 rounded-xl font-western uppercase text-xs tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-40">
             <ShieldCheck size={14} />
-            {busy ? 'Checkin'+"'"+'…' : 'Saddle up'}
+            {busy ? 'მოწმდება…' : 'შესვლა'}
           </button>
         </div>
       </form>

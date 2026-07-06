@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Layers, DoorOpen, Trophy, User, Plus, LogOut, Lock } from 'lucide-react'
+import { Layers, Trophy, User, Plus, LogOut, Lock } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import {
   listProfiles, getActiveProfileId, clearActiveProfile, markProfileVerified,
@@ -127,35 +127,35 @@ export default function Lobby({ onOpenLeaderboard }) {
       {/* Top-right: Leaderboard */}
       <button onClick={onOpenLeaderboard}
               className="absolute top-4 right-4 z-20 western-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all active:scale-95"
-              style={{ color: '#fde9b8' }}>
-        <Trophy size={16} style={{ color: '#daa520' }} /> <span className="font-western">Leaderboards</span>
+              style={{ color: '#3b2314' }}>
+        <Trophy size={16} style={{ color: '#8e2b23' }} /> <span className="font-western">რეიტინგი</span>
       </button>
 
       <div className="relative z-10 mb-6 text-center select-none">
-        <div className="text-[11px] uppercase tracking-[0.55em] text-amber-300/70 font-western mb-2">
-          ☆ &nbsp; Welcome to the &nbsp; ☆
+        <div className="text-[11px] uppercase tracking-[0.55em] text-amber-dim font-western mb-2">
+          ✦ &nbsp; კეთილი იყოს შენი მობრძანება &nbsp; ✦
         </div>
         <h1 className="text-7xl font-western"
             style={{
-              color: '#f0c75a',
-              textShadow: '0 4px 0 #2c1a10, 0 6px 22px rgba(0,0,0,0.7), 0 0 36px rgba(218,165,32,0.3)',
+              color: '#8e2b23',
+              textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(58,36,24,0.25), 0 0 36px rgba(142,43,35,0.18)',
               letterSpacing: '0.08em',
             }}>
-          KING
+          კინგი
         </h1>
         <div className="mt-1 text-[11px] uppercase tracking-[0.4em] font-western"
-             style={{ color: 'rgba(218,165,32,0.85)' }}>
-          ★ &nbsp; Saloon Card Game &nbsp; ★
+             style={{ color: 'rgba(142,43,35,0.85)' }}>
+          ✦ &nbsp; დუქნის კარტის თამაში &nbsp; ✦
         </div>
 
         <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-typewriter"
              style={{
-               background: connected ? 'rgba(109,188,79,0.12)' : 'rgba(212,87,77,0.12)',
-               border: connected ? '1px solid rgba(109,188,79,0.4)' : '1px solid rgba(212,87,77,0.4)',
-               color: connected ? '#a3d68a' : '#e8a097',
+               background: connected ? 'rgba(76,122,47,0.12)' : 'rgba(165,55,43,0.12)',
+               border: connected ? '1px solid rgba(76,122,47,0.4)' : '1px solid rgba(165,55,43,0.4)',
+               color: connected ? '#4c7a2f' : '#a5372b',
              }}>
           <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
-          {connected ? 'Wired up to the wire' : 'Saddlin\' up…'}
+          {connected ? 'კავშირი გამართულია' : 'ვემზადებით…'}
         </div>
       </div>
 
@@ -170,54 +170,60 @@ export default function Lobby({ onOpenLeaderboard }) {
             />
           ) : loading ? (
             <div className="text-center text-sm font-typewriter py-3"
-                 style={{ color: 'rgba(245,233,207,0.55)' }}>
-              Roundin' up the outlaws…
+                 style={{ color: 'rgba(59,35,20,0.55)' }}>
+              პროფილების ჩატვირთვა…
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-western text-amber-100 inline-flex items-center gap-2 uppercase">
-                  <User size={14} /> {active ? 'Player' : 'Pick yer outlaw'}
+                <h3 className="text-sm font-western text-ink inline-flex items-center gap-2 uppercase">
+                  <User size={14} />
+                  <span className="inline-flex flex-col leading-tight">
+                    <span>{active ? 'მოთამაშე' : 'აირჩიე პროფილი'}</span>
+                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+                      {active ? 'PLAYER' : 'PICK YER OUTLAW'}
+                    </span>
+                  </span>
                 </h3>
                 <button onClick={() => { setEditing(null); setShowForm(true) }}
                         className="text-xs inline-flex items-center gap-1 font-typewriter"
-                        style={{ color: '#daa520' }}>
-                  <Plus size={12} /> New profile
+                        style={{ color: '#8e2b23' }}>
+                  <Plus size={12} /> ახალი პროფილი
                 </button>
               </div>
 
               {active ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl"
-                     style={{ background: 'rgba(218,165,32,0.08)', border: '1px solid rgba(218,165,32,0.3)' }}>
+                     style={{ background: 'rgba(142,43,35,0.07)', border: '1px solid rgba(122,83,44,0.3)' }}>
                   <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
-                       style={{ background: '#000', border: '2px solid rgba(218,165,32,0.5)' }}>
+                       style={{ background: '#000', border: '2px solid rgba(142,43,35,0.55)' }}>
                     <img src={active.avatar || '/avatar-default.png'} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold font-western inline-flex items-center gap-1.5"
-                         style={{ color: '#fde9b8' }}>
+                         style={{ color: '#3b2314' }}>
                       {active.name}
                       {active.has_pin && (
-                        <Lock size={11} style={{ color: 'rgba(240,199,90,0.85)' }} />
+                        <Lock size={11} style={{ color: 'rgba(142,43,35,0.85)' }} />
                       )}
                     </div>
-                    <div className="text-[10px] font-typewriter" style={{ color: 'rgba(218,165,32,0.7)' }}>
-                      Riding under this name
+                    <div className="text-[10px] font-typewriter" style={{ color: 'rgba(142,43,35,0.7)' }}>
+                      ამ სახელით თამაშობ
                     </div>
                   </div>
                   <button onClick={() => { setEditing(active); setShowForm(true) }}
-                          className="text-xs px-2 font-typewriter" style={{ color: '#daa520' }}>edit</button>
+                          className="text-xs px-2 font-typewriter" style={{ color: '#8e2b23' }}>შეცვლა</button>
                   <button onClick={switchProfile}
-                          title="Switch outlaw"
+                          title="პროფილის გადართვა"
                           className="text-xs px-2 font-typewriter inline-flex items-center gap-1"
-                          style={{ color: 'rgba(245,233,207,0.65)' }}>
-                    <LogOut size={11} /> switch
+                          style={{ color: 'rgba(59,35,20,0.65)' }}>
+                    <LogOut size={11} /> გადართვა
                   </button>
                 </div>
               ) : (
                 <p className="text-xs font-typewriter"
-                   style={{ color: 'rgba(245,233,207,0.6)' }}>
-                  Tap an outlaw below — you'll need their 4-digit pass code to ride.
+                   style={{ color: 'rgba(59,35,20,0.6)' }}>
+                  აირჩიე პროფილი ქვემოთ — დაგჭირდება მისი 4-ციფრიანი კოდი.
                 </p>
               )}
 
@@ -248,37 +254,74 @@ export default function Lobby({ onOpenLeaderboard }) {
       {!showForm && !loading && (
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-xl">
           <div className="western-panel p-6 flex flex-col">
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Layers size={18} style={{ color: '#daa520' }} />
-                <h2 className="text-lg font-western text-amber-100 uppercase">Open Saloon</h2>
+            <div className="mb-4 flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers size={18} style={{ color: '#8e2b23' }} />
+                  <h2 className="text-lg font-western text-ink uppercase inline-flex flex-col leading-tight">
+                    <span>გახსენი დუქანი</span>
+                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+                      OPEN SALOON
+                    </span>
+                  </h2>
+                </div>
+                <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                  დაიწყე ახალი თამაში და მოიწვიე 2 მეგობარი.
+                </p>
               </div>
-              <p className="text-xs font-typewriter" style={{ color: 'rgba(245,233,207,0.55)' }}>
-                Start a new round and call in 2 friends.
-              </p>
+              {/* Old-Tbilisi balcony house with a wine table in front */}
+              <div className="relative flex-shrink-0 w-28 h-24 pointer-events-none select-none">
+                <img src="/home.png" alt=""
+                     className="absolute inset-0 w-full h-full object-contain" />
+                <img src="/wine.png" alt=""
+                     className="absolute -bottom-2 -left-5 w-16 h-16 object-contain"
+                     style={{ filter: 'drop-shadow(0 2px 3px rgba(58,36,24,0.3))' }} />
+              </div>
             </div>
             <button
               onClick={handleCreate}
               disabled={!connected || !active || publicSeat !== null}
               className="casino-btn-primary mt-auto w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
             >
-              {publicSeat !== null ? 'Seated at the public table' : 'Deal me in'}
+              {publicSeat !== null ? 'ზიხარ საჯარო მაგიდასთან' : (
+                <span className="inline-flex items-center justify-center gap-3">
+                  <img src="/ornament-2.png" alt=""
+                       className="w-5 h-5 object-contain pointer-events-none select-none"
+                       style={{ opacity: 0.8, filter: 'brightness(1.6)' }} />
+                  <span className="inline-flex flex-col items-center leading-tight">
+                    <span>დამირიგე</span>
+                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+                      DEAL ME IN
+                    </span>
+                  </span>
+                  <img src="/ornament-2.png" alt=""
+                       className="w-5 h-5 object-contain pointer-events-none select-none"
+                       style={{ opacity: 0.8, filter: 'brightness(1.6)' }} />
+                </span>
+              )}
             </button>
           </div>
 
           <div className="western-panel p-6 flex flex-col">
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-1">
-                <DoorOpen size={18} style={{ color: '#daa520' }} />
-                <h2 className="text-lg font-western text-amber-100 uppercase">Walk into a Saloon</h2>
+                <img src="/door.png" alt=""
+                     className="w-11 h-11 object-contain pointer-events-none select-none flex-shrink-0"
+                     style={{ filter: 'drop-shadow(0 1px 2px rgba(58,36,24,0.25))' }} />
+                <h2 className="text-lg font-western text-ink uppercase inline-flex flex-col leading-tight">
+                  <span>შედი დუქანში</span>
+                  <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+                    WALK INTO A SALOON
+                  </span>
+                </h2>
               </div>
-              <p className="text-xs font-typewriter" style={{ color: 'rgba(245,233,207,0.55)' }}>
-                Got a code? Mosey on in.
+              <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                გაქვს კოდი? შემოდი.
               </p>
             </div>
             <div className="mb-3">
               <label className="block text-xs mb-1.5 uppercase font-western tracking-widest"
-                     style={{ color: 'rgba(218,165,32,0.7)' }}>Room Code</label>
+                     style={{ color: 'rgba(142,43,35,0.7)' }}>ოთახის კოდი</label>
               <input type="text" maxLength={6} value={joinCode}
                      onChange={e => setJoinCode(e.target.value.toUpperCase())}
                      placeholder="XXXXXX"
@@ -289,14 +332,34 @@ export default function Lobby({ onOpenLeaderboard }) {
               disabled={!connected || !active || !joinCode.trim() || publicSeat !== null}
               className="casino-btn-gold w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
             >
-              Join the Game
+              <span className="inline-flex items-center justify-center gap-3">
+                <img src="/ornament.png" alt=""
+                     className="w-5 h-5 object-contain pointer-events-none select-none"
+                     style={{ opacity: 0.85 }} />
+                <span className="inline-flex flex-col items-center leading-tight">
+                  <span>შეუერთდი თამაშს</span>
+                  <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+                    JOIN THE GAME
+                  </span>
+                </span>
+                <img src="/ornament.png" alt=""
+                     className="w-5 h-5 object-contain pointer-events-none select-none"
+                     style={{ opacity: 0.85 }} />
+              </span>
             </button>
           </div>
         </div>
       )}
 
       <div className="relative z-10 mt-8 max-w-xl w-full">
-        <StarBar>3 outlaws · 27 hands · Classic King rules</StarBar>
+        <img src="/line-ornament.png" alt=""
+             className="mx-auto mb-1 h-8 object-contain pointer-events-none select-none"
+             style={{ opacity: 0.9 }} />
+        <StarBar>სმა-ჭამა — დიდად შესარგი ✦ შოთა რუსთაველი</StarBar>
+        <div className="mt-2 text-center text-[10px] font-typewriter uppercase tracking-widest"
+             style={{ color: 'rgba(59,35,20,0.55)' }}>
+          3 მოთამაშე · 27 ხელი · კლასიკური კინგის წესები
+        </div>
       </div>
 
       {pinPending && (

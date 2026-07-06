@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { Users, Plus } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 
 // Pool the 4 offered reaction emojis are drawn from (re-rolled per sit-down).
-const EMOJI_POOL = ['🤠', '🔥', '😎', '🃏', '💀', '🍺', '🐴', '🌵']
+const EMOJI_POOL = ['🍇', '🔥', '😎', '🃏', '💀', '🍺', '🐴', '🌵']
 
 /**
  * Homepage public quick-match table: 3 seats, click to sit. Sitters stay on
@@ -43,15 +43,26 @@ export default function PublicRoomPanel({ active }) {
   return (
     <div className="western-panel p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-western text-amber-100 uppercase inline-flex items-center gap-2">
-          <Users size={14} /> Public Room
-        </h2>
-        {publicRoom.roomCode && (
-          <span className="text-[10px] font-typewriter tracking-[0.3em]"
-                style={{ color: 'rgba(218,165,32,0.55)' }}>
-            {publicRoom.roomCode}
+        <h2 className="text-sm font-western text-ink uppercase inline-flex items-center gap-2">
+          <Users size={14} />
+          <span className="inline-flex flex-col leading-tight">
+            <span>საჯარო ოთახი</span>
+            <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
+              PUBLIC ROOM
+            </span>
           </span>
-        )}
+        </h2>
+        <span className="inline-flex items-center gap-3">
+          {publicRoom.roomCode && (
+            <span className="text-[10px] font-typewriter tracking-[0.3em]"
+                  style={{ color: 'rgba(142,43,35,0.55)' }}>
+              {publicRoom.roomCode}
+            </span>
+          )}
+          <img src="/ornament-2.png" alt=""
+               className="w-8 h-8 object-contain pointer-events-none select-none"
+               style={{ opacity: 0.85 }} />
+        </span>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -66,8 +77,8 @@ export default function PublicRoomPanel({ active }) {
               disabled={!clickable}
               className="relative rounded-xl px-2 py-3 flex flex-col items-center gap-1.5 transition-all active:scale-95"
               style={{
-                background: isMe ? 'rgba(218,165,32,0.12)' : 'rgba(0,0,0,0.18)',
-                border: isMe ? '1px solid rgba(240,199,90,0.65)' : '1px solid rgba(218,165,32,0.28)',
+                background: isMe ? 'rgba(142,43,35,0.07)' : 'rgba(122,83,44,0.1)',
+                border: isMe ? '1px solid rgba(142,43,35,0.65)' : '1px solid rgba(122,83,44,0.28)',
                 cursor: clickable ? 'pointer' : 'default',
                 opacity: !occ && seated ? 0.55 : 1,
               }}
@@ -77,38 +88,41 @@ export default function PublicRoomPanel({ active }) {
                   <div className="relative">
                     {occ.emoji && (
                       <div className="absolute -top-3 -right-2.5 text-lg z-10 select-none"
-                           style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.6))' }}>
+                           style={{ filter: 'drop-shadow(0 2px 2px rgba(58,36,24,0.35))' }}>
                         {occ.emoji}
                       </div>
                     )}
                     <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
-                         style={{ background: '#000', border: '2px solid rgba(218,165,32,0.55)' }}>
+                         style={{ background: '#000', border: '2px solid rgba(142,43,35,0.55)' }}>
                       <img src={occ.avatar || '/avatar-default.png'} alt=""
                            className="w-full h-full object-cover" />
                     </div>
                   </div>
                   <div className="text-[11px] font-western uppercase tracking-wide truncate max-w-full"
-                       style={{ color: '#fde9b8' }}>
+                       style={{ color: '#3b2314' }}>
                     {occ.name}
                   </div>
                   <div className="text-[9px] font-typewriter"
-                       style={{ color: 'rgba(245,233,207,0.5)' }}>
-                    {isMe ? 'tap to stand up' : 'saddled up'}
+                       style={{ color: 'rgba(59,35,20,0.5)' }}>
+                    {isMe ? 'დააჭირე ასადგომად' : 'ზის მაგიდასთან'}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center"
-                       style={{ border: '2px dashed rgba(218,165,32,0.5)' }}>
-                    <Plus size={18} style={{ color: '#daa520' }} />
-                  </div>
+                  <img src="/seat.png" alt=""
+                       className="w-14 h-14 object-contain pointer-events-none select-none"
+                       style={{ filter: 'drop-shadow(0 2px 3px rgba(58,36,24,0.2))' }} />
                   <div className="text-[11px] font-western uppercase tracking-wide"
-                       style={{ color: '#fde9b8' }}>
-                    Open Seat
+                       style={{ color: '#3b2314' }}>
+                    თავისუფალი ადგილი
+                  </div>
+                  <div className="text-[8px] font-typewriter tracking-widest"
+                       style={{ color: 'rgba(59,35,20,0.55)' }}>
+                    OPEN SEAT
                   </div>
                   <div className="text-[9px] font-typewriter"
-                       style={{ color: 'rgba(245,233,207,0.5)' }}>
-                    Click to sit
+                       style={{ color: 'rgba(59,35,20,0.5)' }}>
+                    დააჭირე დასაჯდომად
                   </div>
                 </>
               )}
@@ -119,8 +133,8 @@ export default function PublicRoomPanel({ active }) {
 
       {seated && (
         <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-xs font-typewriter" style={{ color: 'rgba(245,233,207,0.65)' }}>
-            Waitin' on {openCount} more outlaw{openCount === 1 ? '' : 's'} — cards fly when the table's full.
+          <div className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.65)' }}>
+            ველოდებით კიდევ {openCount} მოთამაშეს — თამაში დაიწყება, როცა მაგიდა შეივსება.
           </div>
           <div className="flex items-center gap-1.5">
             {emojiChoices.map(e => {
@@ -129,11 +143,11 @@ export default function PublicRoomPanel({ active }) {
                 <button
                   key={e}
                   onClick={() => setPublicEmoji(chosen ? null : e)}
-                  title="React"
+                  title="რეაქცია"
                   className="w-8 h-8 rounded-lg text-base flex items-center justify-center transition-all active:scale-90"
                   style={{
-                    background: chosen ? 'rgba(240,199,90,0.25)' : 'rgba(0,0,0,0.25)',
-                    border: chosen ? '1px solid rgba(240,199,90,0.7)' : '1px solid rgba(218,165,32,0.3)',
+                    background: chosen ? 'rgba(142,43,35,0.25)' : 'rgba(122,83,44,0.1)',
+                    border: chosen ? '1px solid rgba(142,43,35,0.7)' : '1px solid rgba(122,83,44,0.3)',
                   }}
                 >
                   {e}
@@ -146,8 +160,8 @@ export default function PublicRoomPanel({ active }) {
 
       {!active && (
         <div className="mt-3 text-[11px] font-typewriter"
-             style={{ color: 'rgba(245,233,207,0.45)' }}>
-          Pick yer outlaw above to grab a seat.
+             style={{ color: 'rgba(59,35,20,0.45)' }}>
+          ჯერ აირჩიე პროფილი ზემოთ.
         </div>
       )}
     </div>

@@ -225,40 +225,31 @@ export class GameScene extends Phaser.Scene {
       // additional vignette needed.
       return
     }
-    // Fallback: original procedural green felt
+    // Fallback: procedural wine-cellar table (deep Kakhetian reds)
     const g = this.add.graphics()
     g.fillStyle(0x0a0a0a, 1); g.fillRect(0, 0, W, H)
-    g.fillStyle(0x0d2818, 1); g.fillRect(0, 0, W, H)
+    g.fillStyle(0x24100c, 1); g.fillRect(0, 0, W, H)
     const layers = [
-      { col: 0x103a22, a: 0.7,  ew: W * 0.95, eh: H * 0.95 },
-      { col: 0x125c2e, a: 0.55, ew: W * 0.7,  eh: H * 0.65 },
-      { col: 0x167a3a, a: 0.4,  ew: W * 0.5,  eh: H * 0.45 },
-      { col: 0x1e9447, a: 0.25, ew: W * 0.32, eh: H * 0.28 },
+      { col: 0x341410, a: 0.7,  ew: W * 0.95, eh: H * 0.95 },
+      { col: 0x4d1d16, a: 0.55, ew: W * 0.7,  eh: H * 0.65 },
+      { col: 0x66261b, a: 0.4,  ew: W * 0.5,  eh: H * 0.45 },
+      { col: 0x7e2f20, a: 0.25, ew: W * 0.32, eh: H * 0.28 },
     ]
     layers.forEach(({ col, a, ew, eh }) => {
       g.fillStyle(col, a); g.fillEllipse(TABLE_CX, TABLE_CY, ew, eh)
     })
   }
 
-  // ── Subtle oval glow centered behind the trick area ──────────────────────
-  _drawTable() {
-    const g = this.add.graphics()
-    // Soft inner glow tinted to match the brass border of the felt PNG
-    g.fillStyle(0x000000, 0.22)
-    g.fillEllipse(TABLE_CX, TABLE_CY + 18, TABLE_RX * 2 + 60, TABLE_RY * 2 + 30)
-    for (let i = 5; i >= 1; i--) {
-      g.fillStyle(0xc78e3c, 0.025 * i)
-      g.fillEllipse(TABLE_CX, TABLE_CY, (TABLE_RX - i * 22) * 2, (TABLE_RY - i * 14) * 2)
-    }
-    g.lineStyle(1.5, 0xd6a85a, 0.22)
-    g.strokeEllipse(TABLE_CX, TABLE_CY, TABLE_RX * 0.85, TABLE_RY * 0.85)
-  }
+  // ── Table-center accent ───────────────────────────────────────────────────
+  // Intentionally draws nothing: the background art already carries the
+  // table framing, and the old dark/tan ellipse overlays muddied it.
+  _drawTable() {}
 
   _drawWatermark() {
-    this.add.text(TABLE_CX, TABLE_CY, 'C L A S S I C       R O O M', {
+    this.add.text(TABLE_CX, TABLE_CY, 'დ უ ქ ა ნ ი', {
       fontSize: '22px',
       color: '#3a2410',
-      fontFamily: 'Georgia, Times New Roman, serif',
+      fontFamily: 'Noto Serif Georgian, Georgia, Times New Roman, serif',
       fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.45)
   }
@@ -465,10 +456,10 @@ export class GameScene extends Phaser.Scene {
 
       // Name + score chip (mimics 'Frank / 1,860' style)
       const nameOffY = isOwn ? radius + 16 : radius + 18
-      const nameLabel = isOwn ? 'You' : player.name
+      const nameLabel = isOwn ? 'შენ' : player.name
       const nameTxt = this.add.text(0, nameOffY, nameLabel, {
         fontSize: '14px', color: '#ffffff',
-        fontFamily: 'Inter, system-ui, Arial, sans-serif',
+        fontFamily: 'Noto Sans Georgian, Inter, system-ui, Arial, sans-serif',
         fontStyle: 'bold',
       }).setOrigin(0.5)
       container.add(nameTxt)
@@ -493,14 +484,14 @@ export class GameScene extends Phaser.Scene {
       if (isLeader) {
         const pillY = scoreOffY + 18
         const pillBg = this.add.graphics()
-        pillBg.fillStyle(0x8b3a2e, 1)  // barn red, western
+        pillBg.fillStyle(0x8e2b23, 1)  // Kakhetian wine
         pillBg.fillRoundedRect(-32, pillY - 9, 64, 18, 9)
-        pillBg.lineStyle(1, 0xdaa520, 0.7)
+        pillBg.lineStyle(1, 0xe3b04b, 0.75)
         pillBg.strokeRoundedRect(-32, pillY - 9, 64, 18, 9)
         container.add(pillBg)
-        container.add(this.add.text(0, pillY, 'SHERIFF', {
-          fontSize: '10px', color: '#fde9b8',
-          fontFamily: 'Georgia, Roboto Slab, serif',
+        container.add(this.add.text(0, pillY, 'თამადა', {
+          fontSize: '10px', color: '#fdf2df',
+          fontFamily: 'Noto Sans Georgian, Georgia, Roboto Slab, serif',
           fontStyle: 'bold',
         }).setOrigin(0.5))
       }
@@ -558,7 +549,7 @@ export class GameScene extends Phaser.Scene {
       btn.add(bg)
       btn.add(this.add.text(0, 0, s.glyph, {
         fontSize: '11px', color: '#fde9b8',
-        fontFamily: 'Roboto Slab, Georgia, serif', fontStyle: 'bold',
+        fontFamily: 'Noto Sans Georgian, Roboto Slab, Georgia, serif', fontStyle: 'bold',
       }).setOrigin(0.5))
       btn.setSize(r * 2, r * 2)
       btn.setInteractive({ useHandCursor: true })
@@ -804,16 +795,16 @@ export class GameScene extends Phaser.Scene {
       const container = createFaceUpCard(this, x, TABLE_CY + 10, card, false)
 
       const border = this.add.graphics()
-      border.lineStyle(3, 0x54a0ff, 1)
+      border.lineStyle(3, 0xe3b04b, 1)
       border.strokeRoundedRect(-CARD_W / 2 - 3, -CARD_H / 2 - 3, CARD_W + 6, CARD_H + 6, 11)
       container.add(border)
 
       this.centerObjs.push(container)
     })
 
-    const lbl = this.add.text(TABLE_CX, TABLE_CY + CARD_H / 2 + 28, '◆  Center Cards  ◆', {
-      fontSize: '11px', color: '#54a0ff',
-      fontFamily: 'Inter, Arial', stroke: '#000', strokeThickness: 3,
+    const lbl = this.add.text(TABLE_CX, TABLE_CY + CARD_H / 2 + 28, '❖  პრიკუპი  ❖', {
+      fontSize: '11px', color: '#e3b04b',
+      fontFamily: 'Noto Sans Georgian, Inter, Arial', stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5)
     this.centerObjs.push(lbl)
   }

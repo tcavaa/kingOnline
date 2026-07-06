@@ -29,15 +29,15 @@ export default function AchievementsPanel({ games = [], players = [] }) {
 
   return (
     <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
-        <h2 className="text-sm font-western uppercase text-cream">Achievements</h2>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
+        <h2 className="text-sm font-western uppercase text-cream">მიღწევები</h2>
       </div>
       <div className="p-4 flex flex-col gap-4">
         {order.map(name => (
           <div key={name}>
             <div className="flex items-center gap-2 mb-2">
               <AvatarImg avatar={avatarOf(name)} size={24} />
-              <span className="font-bold text-white text-sm">{name}</span>
+              <span className="font-bold text-ink text-sm">{name}</span>
             </div>
             <AchievementBadges achievements={lifetime[name]} />
           </div>

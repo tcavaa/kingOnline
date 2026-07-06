@@ -66,8 +66,8 @@ export default function GameDetail({ game, onBack }) {
     <div className="w-full max-w-3xl">
       <button onClick={onBack}
               className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fde9b8' }}>
-        <ArrowLeft size={14} /> Back to all games
+              style={{ background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
+        <ArrowLeft size={14} /> უკან ყველა თამაშთან
       </button>
 
       <PodiumView game={game} sortedPlayers={sortedPlayers} />
@@ -76,13 +76,13 @@ export default function GameDetail({ game, onBack }) {
 
       {achieversList.length > 0 && (
         <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
-            <h2 className="text-sm font-western uppercase text-cream">Achievements</h2>
+          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
+            <h2 className="text-sm font-western uppercase text-cream">მიღწევები</h2>
           </div>
           <div className="p-4 flex flex-col gap-4">
             {achieversList.map(p => (
               <div key={p.seat}>
-                <p className="text-xs font-black text-white mb-2">{p.name}</p>
+                <p className="text-xs font-black text-ink mb-2">{p.name}</p>
                 <AchievementBadges achievements={countCodes(achievements[p.seat] || [])} />
               </div>
             ))}
@@ -95,10 +95,10 @@ export default function GameDetail({ game, onBack }) {
       {/* Tally Trail — the cumulative line chart + table */}
       {progression.length >= 1 && (
         <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
-            <h2 className="text-sm font-western uppercase text-cream">Tally Trail</h2>
+          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
+            <h2 className="text-sm font-western uppercase text-cream">პროგრესი</h2>
             <p className="text-[11px] mt-0.5 font-typewriter text-cream-dim">
-              Running score after each hand
+              ჯამური ქულა ყოველი ხელის შემდეგ
             </p>
           </div>
           {progression.length >= 2 && (

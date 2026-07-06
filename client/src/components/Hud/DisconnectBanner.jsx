@@ -16,7 +16,7 @@ export default function DisconnectBanner() {
     return (
       <div className="disconnect-banner absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl text-xs font-medium pointer-events-auto inline-flex items-center gap-2">
         <WifiOff size={14} />
-        <span>Reconnecting to the saloon…</span>
+        <span>კავშირი აღდგება…</span>
       </div>
     )
   }
@@ -25,7 +25,7 @@ export default function DisconnectBanner() {
   return (
     <div className="disconnect-banner absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl text-xs font-medium pointer-events-auto inline-flex items-center gap-2">
       <AlertTriangle size={14} />
-      <span>{disconnectedPlayer} disconnected — waiting for reconnection…</span>
+      <span>{disconnectedPlayer} გაითიშა — ველოდებით მის დაბრუნებას…</span>
     </div>
   )
 }

@@ -73,9 +73,9 @@ export default function GameLayout() {
     (gamePhase === 'type_selection' || gamePhase === 'trump_selection' || gamePhase === 'discard') &&
     mySeat !== leaderSeat
   const leaderBusyLabel =
-    gamePhase === 'type_selection'  ? 'to choose a game type' :
-    gamePhase === 'trump_selection' ? 'to choose trump' :
-    gamePhase === 'discard'         ? 'to discard 2 cards' : ''
+    gamePhase === 'type_selection'  ? 'თამაშის არჩევას' :
+    gamePhase === 'trump_selection' ? 'კოზირის არჩევას' :
+    gamePhase === 'discard'         ? '2 კარტის გადადებას' : ''
 
   // ── On-our-turn handling: vibrate + force a canvas resync ──────────────────
   // The vibrate is the original mobile nicety. The force-render is a desync
@@ -150,7 +150,7 @@ export default function GameLayout() {
 
       <DisconnectBanner />
 
-      {showWaiting && <WaitingChip name={turnName}   label="to play" />}
+      {showWaiting && <WaitingChip name={turnName}   label="სვლას" />}
       {leaderBusy  && <WaitingChip name={leaderName} label={leaderBusyLabel} />}
 
       {showTypeSelector  && <GameTypeSelector />}

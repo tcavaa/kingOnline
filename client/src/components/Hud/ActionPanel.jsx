@@ -10,11 +10,11 @@ export default function ActionPanel({ onLastTrick }) {
       <button
         onClick={onLastTrick}
         className="last-trick-btn inline-flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-7 py-1.5 lg:py-3 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-black tracking-wide font-western uppercase transition-all active:scale-95"
-        title="Show last trick"
+        title="ბოლო აღების ჩვენება"
       >
         {/* Text only on lg+; on phone landscape the button is icon-only so
             it can't push past the right edge of the safe area. */}
-        <span className="hidden lg:inline">Last Trick</span>
+        <span className="hidden lg:inline">ბოლო აღება</span>
         <Layers size={14} className="lg:hidden" />
         <Layers size={18} className="hidden lg:inline" />
       </button>

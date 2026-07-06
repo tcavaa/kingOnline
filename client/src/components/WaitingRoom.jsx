@@ -13,7 +13,7 @@ function Dots() {
   )
 }
 
-const SEAT_COLOR = ['#daa520', '#a8593f', '#6dbc4f']
+const SEAT_COLOR = ['#8e2b23', '#7a532c', '#4c7a2f']
 
 export default function WaitingRoom() {
   const { roomCode, players, mySeat, isCreator, startGame } = useGame()
@@ -33,49 +33,49 @@ export default function WaitingRoom() {
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-6">
           <p className="text-amber-400/70 text-[11px] tracking-[0.5em] uppercase font-western mb-2">
-            ★ &nbsp; Saloon &nbsp; ★
+            ✦ &nbsp; დუქანი &nbsp; ✦
           </p>
           <h1 className="text-4xl font-western"
-              style={{ color: '#f0c75a', textShadow: '0 3px 0 #2c1a10, 0 5px 18px rgba(0,0,0,0.7)' }}>
-            Waiting Room
+              style={{ color: '#8e2b23', textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 4px 12px rgba(58,36,24,0.25)' }}>
+            მოსაცდელი ოთახი
           </h1>
-          <p className="text-sm font-typewriter mt-1" style={{ color: 'rgba(245,233,207,0.55)' }}>
-            Pass the code along to 2 partners
+          <p className="text-sm font-typewriter mt-1" style={{ color: 'rgba(59,35,20,0.55)' }}>
+            გაუზიარე კოდი 2 მეგობარს
           </p>
         </div>
 
         {/* Room code card */}
         <div className="western-panel p-6 mb-5 text-center">
           <p className="text-[11px] uppercase tracking-[0.3em] mb-3 font-western"
-             style={{ color: 'rgba(218,165,32,0.7)' }}>Room Code</p>
+             style={{ color: 'rgba(142,43,35,0.7)' }}>ოთახის კოდი</p>
           <div className="flex items-center justify-center gap-4 mb-2">
             <span className="text-4xl font-typewriter font-black tracking-[0.35em]"
-                  style={{ color: '#f0c75a', textShadow: '0 2px 0 #2c1a10, 0 0 24px rgba(218,165,32,0.45)' }}>
+                  style={{ color: '#8e2b23', textShadow: '0 1px 0 rgba(255,255,255,0.4), 0 0 24px rgba(142,43,35,0.25)' }}>
               {roomCode}
             </span>
             <button
               onClick={copyCode}
               className="text-xs rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5 font-typewriter"
               style={{
-                background: copied ? 'rgba(109,188,79,0.15)' : 'rgba(218,165,32,0.08)',
-                border: copied ? '1px solid rgba(109,188,79,0.5)' : '1px solid rgba(218,165,32,0.4)',
-                color: copied ? '#a3d68a' : '#fde9b8',
+                background: copied ? 'rgba(76,122,47,0.15)' : 'rgba(142,43,35,0.07)',
+                border: copied ? '1px solid rgba(76,122,47,0.5)' : '1px solid rgba(122,83,44,0.4)',
+                color: copied ? '#4c7a2f' : '#3b2314',
               }}
             >
               {copied
-                ? <><Check size={12} strokeWidth={3} /><span>Copied</span></>
-                : <><Copy size={12} /><span>Copy</span></>}
+                ? <><Check size={12} strokeWidth={3} /><span>დაკოპირდა</span></>
+                : <><Copy size={12} /><span>კოდის კოპირება</span></>}
             </button>
           </div>
-          <p className="text-xs font-typewriter" style={{ color: 'rgba(245,233,207,0.4)' }}>
-            Other riders need this to find your saloon
+          <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.4)' }}>
+            ეს კოდი სჭირდებათ მეგობრებს შენს დუქანში შესასვლელად
           </p>
         </div>
 
         {/* Player seats */}
         <div className="western-panel p-5 mb-5">
           <p className="text-[11px] uppercase tracking-[0.3em] mb-4 font-western"
-             style={{ color: 'rgba(218,165,32,0.7)' }}>Outlaws ({players.length}/3)</p>
+             style={{ color: 'rgba(142,43,35,0.7)' }}>მოთამაშეები ({players.length}/3)</p>
 
           <div className="flex flex-col gap-3">
             {[0, 1, 2].map(seat => {
@@ -89,50 +89,50 @@ export default function WaitingRoom() {
                      style={{
                        background: player
                          ? `linear-gradient(135deg, ${color}1a, ${color}08)`
-                         : 'rgba(245,233,207,0.04)',
+                         : 'rgba(59,35,20,0.04)',
                        border: player
                          ? `1px solid ${color}55`
-                         : '1px dashed rgba(218,165,32,0.25)',
+                         : '1px dashed rgba(122,83,44,0.25)',
                      }}>
                   <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
                        style={{
                          background: '#000',
-                         border: player ? `2px solid ${color}` : '2px dashed rgba(218,165,32,0.4)',
+                         border: player ? `2px solid ${color}` : '2px dashed rgba(122,83,44,0.4)',
                          boxShadow: player ? `0 0 14px ${color}55` : 'none',
                        }}>
                     {player
                       ? <img src={player.avatar || '/avatar-default.png'} alt="" className="w-full h-full object-cover" />
-                      : <User size={16} style={{ color: 'rgba(218,165,32,0.4)' }} />}
+                      : <User size={16} style={{ color: 'rgba(142,43,35,0.4)' }} />}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     {player ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold font-western truncate" style={{ color: '#fde9b8' }}>{player.name}</span>
+                        <span className="text-sm font-bold font-western truncate" style={{ color: '#3b2314' }}>{player.name}</span>
                         {isMe && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold font-typewriter flex-shrink-0"
                                 style={{ background: `${color}25`, color, border: `1px solid ${color}55` }}>
-                            You
+                            შენ
                           </span>
                         )}
                         {seat === 0 && isCreator && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold font-typewriter flex-shrink-0"
-                                style={{ background: 'rgba(218,165,32,0.18)', color: '#f0c75a', border: '1px solid rgba(218,165,32,0.45)' }}>
-                            Sheriff
+                                style={{ background: 'rgba(142,43,35,0.1)', color: '#8e2b23', border: '1px solid rgba(122,83,44,0.45)' }}>
+                            თამადა
                           </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm flex items-center font-typewriter" style={{ color: 'rgba(245,233,207,0.45)' }}>
-                        Waiting<Dots />
+                      <span className="text-sm flex items-center font-typewriter" style={{ color: 'rgba(59,35,20,0.45)' }}>
+                        ველოდებით<Dots />
                       </span>
                     )}
                   </div>
 
                   {player && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-typewriter inline-flex items-center gap-1 flex-shrink-0"
-                          style={{ background: 'rgba(109,188,79,0.14)', color: '#a3d68a', border: '1px solid rgba(109,188,79,0.4)' }}>
-                      <Check size={10} strokeWidth={3} /> Ready
+                          style={{ background: 'rgba(76,122,47,0.14)', color: '#4c7a2f', border: '1px solid rgba(76,122,47,0.4)' }}>
+                      <Check size={10} strokeWidth={3} /> მზადაა
                     </span>
                   )}
                 </div>
@@ -148,12 +148,12 @@ export default function WaitingRoom() {
             className="casino-btn-primary w-full py-3 text-sm tracking-widest mb-3 inline-flex items-center justify-center gap-2 uppercase active:scale-95"
           >
             {players.length < 3
-              ? <span>Waiting for outlaws ({players.length}/3)…</span>
-              : <><Play size={14} fill="currentColor" /><span>Deal the Cards</span></>}
+              ? <span>ველოდებით მოთამაშეებს ({players.length}/3)…</span>
+              : <><Play size={14} fill="currentColor" /><span>თამაშის დაწყება</span></>}
           </button>
         ) : (
-          <div className="text-center text-sm py-3 mb-3 font-typewriter" style={{ color: 'rgba(245,233,207,0.6)' }}>
-            Waiting on the sheriff to start<Dots />
+          <div className="text-center text-sm py-3 mb-3 font-typewriter" style={{ color: 'rgba(59,35,20,0.6)' }}>
+            ველოდებით თამადას, რომ დაიწყოს თამაში<Dots />
           </div>
         )}
       </div>

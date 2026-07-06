@@ -8,9 +8,9 @@ export default function RotatePrompt() {
     <div className="rotate-banner">
       <div className="text-center">
         <div className="text-5xl mb-3" aria-hidden="true">↻</div>
-        <p className="font-western text-xl tracking-wider uppercase mb-1">Turn yer device</p>
-        <p className="font-typewriter text-sm" style={{ color: 'rgba(245,233,207,0.7)' }}>
-          The saloon plays best in landscape.
+        <p className="font-western text-xl tracking-wider uppercase mb-1">მოაბრუნე ტელეფონი გვერდულად</p>
+        <p className="font-typewriter text-sm" style={{ color: 'rgba(59,35,20,0.7)' }}>
+          თამაში ლანდშაფტურ რეჟიმშია.
         </p>
       </div>
     </div>

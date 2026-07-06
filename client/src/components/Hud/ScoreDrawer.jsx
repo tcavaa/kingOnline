@@ -6,10 +6,10 @@ import LastTrickView  from '../LastTrickView'
 import WinProbability from '../WinProbability'
 
 const TITLES = {
-  scores: 'Tally Sheet',
-  matrix: 'Hands Played',
-  chart:  'Tally Trail',
-  last:   'Last Trick',
+  scores: 'ქულების დავთარი',
+  matrix: 'ნათამაშები ხელები',
+  chart:  'ქულების გრაფიკი',
+  last:   'ბოლო აღება',
 }
 
 /**
@@ -29,7 +29,7 @@ export default function ScoreDrawer({ panel, onClose }) {
       {/* Backdrop scrim — clicking anywhere outside the drawer closes it. */}
       <div className="drawer-scrim" onClick={onClose} />
       <div className={`absolute top-0 right-0 bottom-0 ${widthClass} z-30 overflow-y-auto pointer-events-auto bg-leather`}
-           style={{ borderLeft: '1px solid rgba(218,165,32,0.4)', backdropFilter: 'blur(16px)' }}>
+           style={{ borderLeft: '1px solid rgba(122,83,44,0.4)', backdropFilter: 'blur(16px)' }}>
         <div className="p-4 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-western uppercase tracking-wider text-cream">{TITLES[panel] || ''}</h3>

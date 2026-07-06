@@ -25,16 +25,16 @@ export default function PastGamesList({ loading, games, onSelect }) {
 
   return (
     <div className="rounded-2xl overflow-hidden bg-leather-dark border-brass">
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(218,165,32,0.32)' }}>
-        <h2 className="text-sm font-western uppercase text-cream">Past Games</h2>
+      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
+        <h2 className="text-sm font-western uppercase text-cream">ძველი თამაშები</h2>
       </div>
       {loading ? (
         <div className="p-8 text-center text-sm font-typewriter text-cream-dim">
-          Diggin' through the saloon ledger…
+          დუქნის დავთარს ვქექავთ…
         </div>
       ) : games.length === 0 ? (
         <div className="p-8 text-center text-sm text-cream-dim">
-          No games played yet. Finish a game to see it here.
+          ჯერ არც ერთი თამაში არ არის. დაამთავრე თამაში და აქ გამოჩნდება.
         </div>
       ) : (
         <div>
@@ -44,12 +44,12 @@ export default function PastGamesList({ loading, games, onSelect }) {
             return (
               <button key={g.id} onClick={() => onSelect(g)}
                       className="w-full flex items-center gap-3 px-5 py-3 text-left transition-all hover:bg-white/5"
-                      style={{ borderTop: '1px solid rgba(218,165,32,0.18)' }}>
+                      style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                 <Trophy size={18} className="text-amber" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-western uppercase text-cream">{g.winner?.name} won</div>
+                  <div className="text-sm font-western uppercase text-cream">გამარჯვებული: {g.winner?.name}</div>
                   <div className="text-[11px] text-cream-dim">
-                    {new Date(g.playedAt).toLocaleString()} · {g.players?.length} players
+                    {new Date(g.playedAt).toLocaleString()} · {g.players?.length} მოთამაშე
                   </div>
                   {earned && (
                     <div className="mt-1 flex flex-col gap-0.5">

@@ -48,12 +48,12 @@ export default function AchievementBadges({ achievements, variant = 'full', size
                className="flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5"
                style={{
                  minWidth: 66,
-                 background: 'rgba(28,16,10,0.7)',
+                 background: 'rgba(236,222,196,0.85)',
                  border: `1px solid ${def.color}55`,
                }}>
             <Icon size={px} style={{ color: def.color }} />
             <div className="text-[9px] uppercase tracking-wide text-center leading-tight"
-                 style={{ color: '#f5e9cf' }}>
+                 style={{ color: '#3b2314' }}>
               {def.label}
             </div>
             {count > 1 && (

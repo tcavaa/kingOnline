@@ -3,7 +3,7 @@ import {
 } from 'lucide-react'
 
 const SUIT_ICONS = { H: Heart, D: Diamond, S: Spade, C: Club }
-const SUIT_NAMES = { H: 'Hearts', D: 'Diamonds', S: 'Spades', C: 'Clubs' }
+const SUIT_NAMES = { H: 'გული', D: 'აგური', S: 'ყვავი', C: 'ჯვარი' }
 const SUIT_COLOR = { H: '#dc2626', D: '#dc2626', S: '#1a1a1a', C: '#1a1a1a' }
 
 /**

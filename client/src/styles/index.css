@@ -1,5 +1,7 @@
-/* Old-Western theme */
-@import url('https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&family=Roboto+Slab:wght@400;600;800;900&display=swap');
+/* Georgian tavern (duqani) theme — old Tbilisi, parchment & wine.
+   Class NAMES are kept from the old western theme so components keep
+   working; only the visual language changed. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Georgian:wght@400;600;700;900&family=Noto+Sans+Georgian:wght@400;500;700&family=Special+Elite&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,6 +9,30 @@
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  /* Parchment field */
+  --parchment:       #f2e4c8;
+  --parchment-light: #f8efdd;
+  --parchment-dark:  #e9d7b6;
+  /* Dark wood frame */
+  --wood:            #3a2418;
+  --wood-deep:       #2a1a10;
+  /* Ink (text) */
+  --ink:             #3b2314;
+  --ink-soft:        rgba(59, 35, 20, 0.78);
+  --ink-dim:         rgba(59, 35, 20, 0.55);
+  /* Wine red (primary accent) */
+  --wine:            #8e2b23;
+  --wine-bright:     #a63a2e;
+  --wine-deep:       #6f1f1a;
+  /* Old gold */
+  --gold:            #b98a2f;
+  --gold-soft:       rgba(185, 138, 47, 0.55);
+  /* Borders */
+  --line:            rgba(122, 83, 44, 0.5);
+  --line-soft:       rgba(122, 83, 44, 0.28);
+}
 
 html, body, #root {
   /* Mobile browsers (Safari/Chrome) report `100vh` as the viewport size
@@ -39,9 +65,9 @@ html, body, #root {
 html { height: -webkit-fill-available; }
 
 body {
-  background: #1c100a;
-  color: #f5e9cf;
-  font-family: 'Roboto Slab', 'Special Elite', Georgia, serif;
+  background: var(--wood);
+  color: var(--ink);
+  font-family: 'Noto Sans Georgian', 'Roboto Slab', Georgia, serif;
   -webkit-font-smoothing: antialiased;
   margin: 0;
   padding: 0;
@@ -68,31 +94,36 @@ body {
   padding-right:  env(safe-area-inset-right);
 }
 
-/* ── Western font families ─────────────────────────────────────────────────── */
+/* ── Font families ─────────────────────────────────────────────────────────
+   .font-western = display/headers (kept name for back-compat). Georgian
+   glyphs render in Noto Serif Georgian; Latin subtitles fall through to
+   the same serif so the manuscript feel is uniform.
+   .font-typewriter = small print. Latin gets the typewriter face (like the
+   bilingual sub-labels on the mock); Georgian glyphs fall back to Noto
+   Sans Georgian per-glyph. */
 .font-western {
-  font-family: 'Rye', 'Roboto Slab', Georgia, serif;
+  font-family: 'Noto Serif Georgian', 'Roboto Slab', Georgia, serif;
   letter-spacing: 0.02em;
 }
 .font-typewriter {
-  font-family: 'Special Elite', 'Courier New', monospace;
+  font-family: 'Special Elite', 'Noto Sans Georgian', 'Courier New', monospace;
 }
 .font-slab {
-  font-family: 'Roboto Slab', Georgia, serif;
+  font-family: 'Noto Sans Georgian', 'Roboto Slab', Georgia, serif;
 }
 
-/* ── Wood plank background (procedural, no asset needed) ───────────────────── */
+/* ── Dark wood (procedural, no asset needed) ───────────────────────────────── */
 .wood-bg {
-  background-color: #3a2316;
+  background-color: #3a2418;
   background-image:
     /* horizontal plank seams */
-    linear-gradient(180deg, transparent 0%, transparent 23%, rgba(0,0,0,0.55) 24%, rgba(0,0,0,0.55) 25%, transparent 26%),
-    linear-gradient(180deg, transparent 0%, transparent 48%, rgba(0,0,0,0.4) 49%, rgba(0,0,0,0.4) 50%, transparent 51%),
-    linear-gradient(180deg, transparent 0%, transparent 73%, rgba(0,0,0,0.45) 74%, rgba(0,0,0,0.45) 75%, transparent 76%),
+    linear-gradient(180deg, transparent 0%, transparent 23%, rgba(0,0,0,0.5) 24%, rgba(0,0,0,0.5) 25%, transparent 26%),
+    linear-gradient(180deg, transparent 0%, transparent 48%, rgba(0,0,0,0.35) 49%, rgba(0,0,0,0.35) 50%, transparent 51%),
+    linear-gradient(180deg, transparent 0%, transparent 73%, rgba(0,0,0,0.4) 74%, rgba(0,0,0,0.4) 75%, transparent 76%),
     /* knot blobs */
-    radial-gradient(ellipse 18px 6px at 18% 15%, rgba(0,0,0,0.32), transparent 70%),
-    radial-gradient(ellipse 22px 8px at 78% 38%, rgba(0,0,0,0.28), transparent 70%),
-    radial-gradient(ellipse 20px 7px at 35% 65%, rgba(0,0,0,0.32), transparent 70%),
-    radial-gradient(ellipse 24px 9px at 64% 88%, rgba(0,0,0,0.3), transparent 70%),
+    radial-gradient(ellipse 18px 6px at 18% 15%, rgba(0,0,0,0.3), transparent 70%),
+    radial-gradient(ellipse 22px 8px at 78% 38%, rgba(0,0,0,0.26), transparent 70%),
+    radial-gradient(ellipse 20px 7px at 35% 65%, rgba(0,0,0,0.3), transparent 70%),
     /* fine vertical grain */
     repeating-linear-gradient(
       90deg,
@@ -101,200 +132,198 @@ body {
       rgba(255,210,170,0.04) 4px, rgba(255,210,170,0.04) 5px,
       transparent 5px, transparent 9px
     ),
-    /* main brown gradient */
-    linear-gradient(135deg, #4a2e1d 0%, #3a2316 50%, #2c1a10 100%);
-  background-size: 100% 100%, 100% 100%, 100% 100%, auto, auto, auto, auto, 100% 100%, 100% 100%;
-  background-blend-mode: normal, normal, normal, normal, normal, normal, normal, multiply, normal;
+    linear-gradient(135deg, #46301f 0%, #3a2418 50%, #2a1a10 100%);
 }
 
-/* Lighter sun-faded boards */
+/* Lighter boards */
 .wood-bg-light {
   background-color: #6f4e37;
   background-image:
-    linear-gradient(180deg, transparent 0%, transparent 23%, rgba(0,0,0,0.4) 24%, rgba(0,0,0,0.4) 25%, transparent 26%),
-    linear-gradient(180deg, transparent 0%, transparent 49%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.3) 51%, transparent 52%),
-    linear-gradient(180deg, transparent 0%, transparent 74%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0.35) 76%, transparent 77%),
-    radial-gradient(ellipse 20px 6px at 22% 15%, rgba(0,0,0,0.28), transparent 70%),
-    radial-gradient(ellipse 18px 6px at 70% 60%, rgba(0,0,0,0.28), transparent 70%),
+    linear-gradient(180deg, transparent 0%, transparent 23%, rgba(0,0,0,0.35) 24%, rgba(0,0,0,0.35) 25%, transparent 26%),
+    radial-gradient(ellipse 20px 6px at 22% 15%, rgba(0,0,0,0.24), transparent 70%),
     repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 5px),
     linear-gradient(135deg, #8b5e3c 0%, #6f4e37 50%, #5a3d29 100%);
 }
 
 /* ── Aged parchment ────────────────────────────────────────────────────────── */
 .parchment-bg {
-  background-color: #f0d9a8;
+  background-color: var(--parchment);
   background-image:
-    radial-gradient(ellipse at top left,    rgba(120, 70, 30, 0.18), transparent 55%),
-    radial-gradient(ellipse at bottom right, rgba(80, 40, 15, 0.22), transparent 55%),
-    radial-gradient(circle at 20% 30%, rgba(120,70,30,0.06) 0 12px, transparent 12px),
-    radial-gradient(circle at 75% 60%, rgba(120,70,30,0.05) 0 16px, transparent 16px),
-    repeating-linear-gradient(45deg, rgba(170,120,70,0.04) 0 2px, transparent 2px 8px),
-    linear-gradient(180deg, #f4e3b9 0%, #e8cf94 100%);
-  color: #3a2410;
+    radial-gradient(ellipse at top left,     rgba(120, 70, 30, 0.10), transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(90, 45, 18, 0.14), transparent 55%),
+    radial-gradient(circle at 20% 30%, rgba(120,70,30,0.05) 0 12px, transparent 12px),
+    radial-gradient(circle at 75% 60%, rgba(120,70,30,0.04) 0 16px, transparent 16px),
+    repeating-linear-gradient(45deg, rgba(170,120,70,0.035) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, #f6ead0 0%, #ecd9b6 100%);
+  color: var(--ink);
 }
 
-/* ── Saddle leather ────────────────────────────────────────────────────────── */
+/* ── Wine-cellar leather (kept for dark accents) ───────────────────────────── */
 .leather-bg {
-  background-color: #5a3a1f;
+  background-color: #4a2a1a;
   background-image:
-    /* surface grain */
-    radial-gradient(circle at 20% 30%, rgba(255,200,140,0.07) 0 1.5px, transparent 1.5px),
-    radial-gradient(circle at 80% 70%, rgba(255,200,140,0.06) 0 1.5px, transparent 1.5px),
-    radial-gradient(circle at 40% 80%, rgba(0,0,0,0.18)        0 1.5px, transparent 1.5px),
-    radial-gradient(circle at 65% 25%, rgba(0,0,0,0.18)        0 1.5px, transparent 1.5px),
-    /* edge darken */
-    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.5) 100%),
-    linear-gradient(135deg, #6b4423 0%, #4a2e1a 100%);
-  background-size: 14px 14px, 18px 18px, 22px 22px, 28px 28px, 100% 100%, 100% 100%;
+    radial-gradient(circle at 20% 30%, rgba(255,200,140,0.06) 0 1.5px, transparent 1.5px),
+    radial-gradient(circle at 80% 70%, rgba(255,200,140,0.05) 0 1.5px, transparent 1.5px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%),
+    linear-gradient(135deg, #5d3a24 0%, #3a2418 100%);
+  background-size: 14px 14px, 18px 18px, 100% 100%, 100% 100%;
   color: #f5e9cf;
 }
 
-/* ── Saloon background (full-page) ─────────────────────────────────────────── */
+/* ── Full-page background: parchment hall inside a dark wood frame ─────────── */
 .saloon-bg {
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #1c100a;
+  background-color: var(--parchment);
   background-image:
-    /* warm spotlight */
-    radial-gradient(ellipse 1100px 700px at 50% 0%, rgba(218, 165, 32, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 800px 600px at 50% 100%, rgba(139, 69, 19, 0.18) 0%, transparent 70%),
-    /* dust motes */
-    radial-gradient(circle at 25% 35%, rgba(218,165,32,0.04) 0 1px, transparent 2px),
-    radial-gradient(circle at 75% 65%, rgba(218,165,32,0.04) 0 1px, transparent 2px),
-    /* faint plank seams */
-    repeating-linear-gradient(0deg,
-      transparent 0 80px,
-      rgba(0,0,0,0.18) 80px 81px),
-    linear-gradient(180deg, #2a1810 0%, #1c100a 60%, #120a06 100%);
+    /* candle-warm glow from the top */
+    radial-gradient(ellipse 1100px 700px at 50% 0%, rgba(255, 244, 214, 0.55) 0%, transparent 60%),
+    /* wine-cellar shade pooling at the bottom */
+    radial-gradient(ellipse 900px 600px at 50% 100%, rgba(142, 43, 35, 0.08) 0%, transparent 70%),
+    /* aged-paper blotches */
+    radial-gradient(circle at 22% 32%, rgba(120,70,30,0.05) 0 14px, transparent 15px),
+    radial-gradient(circle at 78% 64%, rgba(120,70,30,0.045) 0 18px, transparent 19px),
+    /* faint weave */
+    repeating-linear-gradient(45deg, rgba(150,105,60,0.03) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #f6ead0 0%, #f0e0c0 55%, #e7d2ac 100%);
+  /* dark wood frame around the whole hall, like the mock */
+  box-shadow:
+    inset 0 0 0 6px rgba(58, 36, 24, 0.9),
+    inset 0 0 0 8px rgba(185, 138, 47, 0.35),
+    inset 0 0 90px rgba(90, 50, 20, 0.18);
 }
 
 /* Lobby alias (back-compat with existing class names) */
 .lobby-bg { @apply saloon-bg; }
 
-/* ── Western panel = aged paper inside leather frame ───────────────────────── */
+/* ── Main panel = manuscript page with a double-ruled border ───────────────── */
 .western-panel {
   background:
-    linear-gradient(180deg, rgba(255, 230, 180, 0.04), rgba(0,0,0,0.18)),
-    linear-gradient(180deg, #4a2e1a 0%, #3a2316 100%);
-  border: 1px solid rgba(218, 165, 32, 0.35);
+    radial-gradient(ellipse at top left, rgba(255,250,235,0.6), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(150,105,60,0.028) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, var(--parchment-light) 0%, #eeddbd 100%);
+  border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow:
-    0 6px 32px rgba(0,0,0,0.55),
-    inset 0 1px 0 rgba(255, 220, 170, 0.12),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.35);
-  color: #f5e9cf;
+    0 4px 18px rgba(58, 36, 24, 0.22),
+    inset 0 0 0 1px rgba(255, 250, 235, 0.65),
+    inset 0 0 0 4px rgba(248, 239, 221, 0.001),
+    inset 0 0 0 5px var(--line-soft);
+  color: var(--ink);
 }
 
 .parchment-panel {
-  border: 1px solid rgba(120, 70, 30, 0.6);
+  border: 1px solid rgba(120, 70, 30, 0.55);
   border-radius: 12px;
   box-shadow:
-    0 6px 22px rgba(0,0,0,0.45),
-    inset 0 0 50px rgba(120,70,30,0.12);
+    0 6px 22px rgba(58,36,24,0.3),
+    inset 0 0 50px rgba(120,70,30,0.1);
 }
-.parchment-panel.parchment-bg { color: #3a2410; }
+.parchment-panel.parchment-bg { color: var(--ink); }
 
-/* ── Inputs (western look) ─────────────────────────────────────────────────── */
+/* ── Inputs (manuscript look) ──────────────────────────────────────────────── */
 .casino-input {
-  background: rgba(245, 220, 175, 0.06);
-  border: 1px solid rgba(218, 165, 32, 0.32);
-  color: #f5e9cf;
+  background: rgba(255, 250, 238, 0.65);
+  border: 1px solid var(--line);
+  color: var(--ink);
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 14px;
   width: 100%;
   transition: border-color 0.2s, box-shadow 0.2s;
-  font-family: 'Special Elite', 'Courier New', monospace;
+  font-family: 'Special Elite', 'Noto Sans Georgian', 'Courier New', monospace;
 }
-.casino-input::placeholder { color: rgba(245, 220, 175, 0.35); }
+.casino-input::placeholder { color: rgba(59, 35, 20, 0.35); }
 .casino-input:focus {
-  border-color: rgba(218, 165, 32, 0.7);
-  box-shadow: 0 0 0 3px rgba(218, 165, 32, 0.15);
+  border-color: rgba(142, 43, 35, 0.65);
+  box-shadow: 0 0 0 3px rgba(142, 43, 35, 0.12);
   outline: none;
 }
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
+/* Primary = deep Kakhetian wine (the "დამირიგე" banner on the mock) */
 .casino-btn-primary {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.1), rgba(0,0,0,0.05)),
-    linear-gradient(180deg, #c47a3a 0%, #8b3a2e 100%);
-  border: 1px solid rgba(255, 220, 170, 0.4);
-  color: #fff8e6;
+    linear-gradient(180deg, rgba(255,255,255,0.12), rgba(0,0,0,0.06)),
+    linear-gradient(180deg, #a03428 0%, #711f18 100%);
+  border: 1px solid rgba(255, 226, 190, 0.45);
+  color: #fdf2df;
   font-weight: 800;
-  font-family: 'Rye', 'Roboto Slab', Georgia, serif;
+  font-family: 'Noto Serif Georgian', 'Roboto Slab', Georgia, serif;
   letter-spacing: 0.04em;
   border-radius: 10px;
   cursor: pointer;
   box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.45),
-    0 6px 22px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 2px 0 rgba(58, 20, 12, 0.55),
+    0 6px 18px rgba(90, 30, 20, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 2px rgba(255, 226, 190, 0.14);
   transition: all 0.18s;
-  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.35);
 }
 .casino-btn-primary:hover:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.05)),
-    linear-gradient(180deg, #d68a4a 0%, #a14633 100%);
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.06)),
+    linear-gradient(180deg, #b13c2e 0%, #82261d 100%);
   transform: translateY(-1px);
 }
 .casino-btn-primary:active:not(:disabled) { transform: translateY(1px); }
 .casino-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.4); }
 
+/* Gold = honey-amber (the "შეუერთდი თამაშს" banner on the mock) */
 .casino-btn-gold {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.05)),
-    linear-gradient(180deg, #f0c75a 0%, #b8821b 100%);
-  border: 1px solid rgba(255, 244, 200, 0.5);
-  color: #3a2410;
+    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.05)),
+    linear-gradient(180deg, #e3b04b 0%, #c08a26 100%);
+  border: 1px solid rgba(120, 80, 30, 0.55);
+  color: #3b2314;
   font-weight: 800;
-  font-family: 'Rye', 'Roboto Slab', Georgia, serif;
+  font-family: 'Noto Serif Georgian', 'Roboto Slab', Georgia, serif;
   letter-spacing: 0.04em;
   border-radius: 10px;
   cursor: pointer;
   box-shadow:
-    0 2px 0 rgba(80, 50, 10, 0.6),
-    0 6px 22px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 2px 0 rgba(110, 70, 15, 0.55),
+    0 6px 18px rgba(90, 60, 20, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 2px rgba(255, 244, 214, 0.25);
   transition: all 0.18s;
 }
 .casino-btn-gold:hover:not(:disabled) {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.05)),
-    linear-gradient(180deg, #ffdf78 0%, #d49d2a 100%);
+    linear-gradient(180deg, rgba(255,255,255,0.28), rgba(0,0,0,0.05)),
+    linear-gradient(180deg, #f0bd58 0%, #cd9730 100%);
   transform: translateY(-1px);
 }
 .casino-btn-gold:active:not(:disabled) { transform: translateY(1px); }
 .casino-btn-gold:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.4); }
 
-/* ── Western pill (HUD) ────────────────────────────────────────────────────── */
+/* ── Pill (HUD) — parchment chip with a ruled border ───────────────────────── */
 .western-pill {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25)),
-    linear-gradient(180deg, #4a2e1a 0%, #2c1a10 100%);
-  border: 1px solid rgba(218, 165, 32, 0.4);
-  color: #f5e9cf;
+    linear-gradient(180deg, rgba(255,250,238,0.85), rgba(238,221,189,0.9));
+  border: 1px solid var(--line);
+  color: var(--ink);
   border-radius: 14px;
   box-shadow:
-    0 3px 0 rgba(0,0,0,0.55),
-    0 6px 14px rgba(0,0,0,0.5),
-    inset 0 1px 0 rgba(255,220,170,0.18);
-  font-family: 'Roboto Slab', Georgia, serif;
+    0 2px 6px rgba(58,36,24,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+  font-family: 'Noto Sans Georgian', 'Roboto Slab', Georgia, serif;
 }
 
-/* Decorative star border lines (above/below headings) */
+/* Decorative divider lines (above/below headings) */
 .western-divider {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: rgba(218, 165, 32, 0.7);
+  color: rgba(142, 43, 35, 0.75);
 }
 .western-divider::before,
 .western-divider::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(218,165,32,0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(122,83,44,0.55), transparent);
 }
 
 /* ── Toasts ────────────────────────────────────────────────────────────────── */
@@ -303,51 +332,51 @@ body {
 .toast-enter { animation: toastIn  0.28s cubic-bezier(0.22, 1, 0.36, 1); }
 
 /* ── Score colours ─────────────────────────────────────────────────────────── */
-.score-pos { color: #6dbc4f; }
-.score-neg { color: #d4574d; }
+.score-pos { color: #4c7a2f; }
+.score-neg { color: #a5372b; }
 .score-nil { color: #8a6f4d; }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(58, 35, 22, 0.4); }
-::-webkit-scrollbar-thumb { background: rgba(218, 165, 32, 0.5); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(218, 165, 32, 0.75); }
+::-webkit-scrollbar-track { background: rgba(122, 83, 44, 0.12); }
+::-webkit-scrollbar-thumb { background: rgba(142, 43, 35, 0.45); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(142, 43, 35, 0.65); }
 
 /* ── Phaser canvas ─────────────────────────────────────────────────────────── */
 #phaser-container canvas { display: block; }
 
-/* ── Back-compat: keep .casino-panel working but in western style ──────────── */
+/* ── Back-compat: keep .casino-panel working ───────────────────────────────── */
 .casino-panel { @apply western-panel; }
 
-/* ── Dust-motes on lobby ───────────────────────────────────────────────────── */
+/* ── Subtle ornament dots (lobby texture) ──────────────────────────────────── */
 .card-pattern {
-  background-image: radial-gradient(circle, rgba(218,165,32,0.07) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(142,43,35,0.06) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-/* ── HUD chrome (extracted from GameLayout/Leaderboard inline styles) ─────── */
-/* Leather background gradient — used on most panels and pills */
-.bg-leather       { background: linear-gradient(180deg, #4a2e1a 0%, #2c1a10 100%); }
-.bg-leather-dark  { background: linear-gradient(180deg, #4a2e1a 0%, #3a2316 100%); }
-.bg-leather-soft  { background: linear-gradient(180deg, rgba(74,46,26,0.85), rgba(44,26,16,0.85)); }
-.bg-pit           { background: linear-gradient(180deg, rgba(28,16,10,0.6), rgba(15,8,4,0.7)); }
-.bg-amber-glow    { background: linear-gradient(180deg, rgba(218,165,32,0.12), rgba(218,165,32,0.04)); }
+/* ── HUD chrome (shared surface classes; names kept, look re-skinned) ─────── */
+/* "Leather" = parchment card surfaces now */
+.bg-leather       { background: linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%); }
+.bg-leather-dark  { background: linear-gradient(180deg, #f4e8cf 0%, #e7d2ac 100%); }
+.bg-leather-soft  { background: linear-gradient(180deg, rgba(248,239,221,0.92), rgba(236,217,182,0.92)); }
+.bg-pit           { background: linear-gradient(180deg, rgba(236,222,196,0.85), rgba(226,208,176,0.9)); }
+.bg-amber-glow    { background: linear-gradient(180deg, rgba(185,138,47,0.16), rgba(185,138,47,0.06)); }
 
-/* Brass borders */
-.border-brass       { border: 1px solid rgba(218,165,32,0.35); }
-.border-brass-strong{ border: 1px solid rgba(218,165,32,0.45); }
-.border-brass-soft  { border: 1px solid rgba(218,165,32,0.18); }
+/* Ruled borders (old "brass") */
+.border-brass       { border: 1px solid rgba(122,83,44,0.42); }
+.border-brass-strong{ border: 1px solid rgba(122,83,44,0.6); }
+.border-brass-soft  { border: 1px solid rgba(122,83,44,0.22); }
 
-/* Color tokens (matched to score colours used everywhere) */
-.text-cream      { color: #fde9b8; }
-.text-cream-soft { color: rgba(245,233,207,0.7); }
-.text-cream-dim  { color: rgba(245,233,207,0.55); }
-.text-amber      { color: #f0c75a; }
-.text-amber-dim  { color: rgba(218,165,32,0.7); }
-.text-sage       { color: #a3d68a; }
-.text-rust       { color: #e8a097; }
+/* Color tokens — semantic names kept, values remapped to ink/wine/gold */
+.text-cream      { color: #3b2314; }
+.text-cream-soft { color: rgba(59,35,20,0.72); }
+.text-cream-dim  { color: rgba(59,35,20,0.55); }
+.text-amber      { color: #8e2b23; }
+.text-amber-dim  { color: rgba(142,43,35,0.75); }
+.text-sage       { color: #4c7a2f; }
+.text-rust       { color: #a5372b; }
 
-/* HUD pill — replaces the duplicated `linear-gradient + brass + cream` styling */
+/* HUD pill — parchment chip */
 .western-hud-pill {
   display: inline-flex;
   align-items: center;
@@ -356,18 +385,19 @@ body {
   border-radius: 1rem;
   font-size: 0.875rem;
   font-weight: 700;
-  background: linear-gradient(180deg, #4a2e1a 0%, #2c1a10 100%);
-  border: 1px solid rgba(218,165,32,0.35);
-  color: #fde9b8;
+  background: linear-gradient(180deg, rgba(255,250,238,0.92), rgba(238,221,189,0.94));
+  border: 1px solid rgba(122,83,44,0.42);
+  color: #3b2314;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: transform 0.15s ease;
+  box-shadow: 0 2px 6px rgba(58,36,24,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
 }
 .western-hud-pill:active { transform: scale(0.97); }
 
-/* Modal backdrop (used by every selector overlay) */
+/* Modal backdrop (used by every selector overlay) — warm cellar dusk */
 .western-backdrop {
-  background: radial-gradient(ellipse at center, rgba(28,16,10,0.85) 0%, rgba(10,5,2,0.96) 100%);
+  background: radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -378,60 +408,60 @@ body {
 .drawer-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.55) 100%);
+  background: linear-gradient(90deg, rgba(32,18,10,0.0) 0%, rgba(32,18,10,0.3) 60%, rgba(32,18,10,0.5) 100%);
   z-index: 25;
   cursor: pointer;
 }
 .drawer-scrim.left {
-  background: linear-gradient(270deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.35) 60%, rgba(0,0,0,0.55) 100%);
+  background: linear-gradient(270deg, rgba(32,18,10,0.0) 0%, rgba(32,18,10,0.3) 60%, rgba(32,18,10,0.5) 100%);
 }
 
 /* "Hand" inset — repeated thrice in the round-result modal + selectors */
 .inset-card {
-  background: linear-gradient(180deg, rgba(28,16,10,0.6), rgba(15,8,4,0.7));
-  border: 1px solid rgba(218,165,32,0.3);
+  background: linear-gradient(180deg, rgba(236,222,196,0.85), rgba(226,208,176,0.9));
+  border: 1px solid rgba(122,83,44,0.35);
   border-radius: 0.75rem;
 }
 
 /* Score number colour helpers */
-.score-pos-soft { color: #a3d68a; }
-.score-neg-soft { color: #e8a097; }
-.score-nil-soft { color: #fde9b8; }
+.score-pos-soft { color: #4c7a2f; }
+.score-neg-soft { color: #a5372b; }
+.score-nil-soft { color: #3b2314; }
 
 /* Disconnect banner */
 .disconnect-banner {
-  background: rgba(120,53,15,0.92);
-  border: 1px solid rgba(202,138,4,0.4);
-  color: #fde68a;
+  background: rgba(142, 43, 35, 0.94);
+  border: 1px solid rgba(255, 226, 190, 0.4);
+  color: #fdf2df;
 }
 
-/* Menu drawer item — leather button look */
+/* Menu drawer item — parchment button */
 .menu-drawer-item {
-  background: linear-gradient(180deg, rgba(74,46,26,0.85), rgba(44,26,16,0.85));
-  border: 1px solid rgba(218,165,32,0.4);
-  color: #fde9b8;
-  box-shadow: 0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,220,170,0.1);
+  background: linear-gradient(180deg, rgba(255,250,238,0.85), rgba(238,221,189,0.9));
+  border: 1px solid rgba(122,83,44,0.42);
+  color: #3b2314;
+  box-shadow: 0 2px 0 rgba(122,83,44,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
 }
 
-/* Brass "Last Trick" button (was inline in ActionPanel) */
+/* Honey-gold "Last Trick" button (was inline in ActionPanel) */
 .last-trick-btn {
-  background: linear-gradient(180deg, #f0c75a 0%, #b8821b 100%);
-  color: #3a2410;
+  background: linear-gradient(180deg, #e3b04b 0%, #c08a26 100%);
+  color: #3b2314;
   box-shadow:
-    0 3px 0 rgba(80,50,10,0.6),
-    0 6px 22px rgba(0,0,0,0.45),
+    0 3px 0 rgba(110,70,15,0.55),
+    0 6px 18px rgba(90,60,20,0.3),
     inset 0 1px 0 rgba(255,255,255,0.4);
-  border: 1px solid rgba(255,244,200,0.5);
+  border: 1px solid rgba(120,80,30,0.55);
 }
 
 /* Trump pill sparkle — gold shimmer animation */
 @keyframes trumpSparkle {
-  0%, 100% { box-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 14px rgba(240,199,90,0.25), inset 0 1px 0 rgba(255,220,170,0.2); }
-  50%      { box-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 22px rgba(240,199,90,0.55), inset 0 1px 0 rgba(255,255,220,0.35); }
+  0%, 100% { box-shadow: 0 2px 0 rgba(110,70,15,0.35), 0 0 14px rgba(227,176,75,0.3), inset 0 1px 0 rgba(255,255,255,0.35); }
+  50%      { box-shadow: 0 2px 0 rgba(110,70,15,0.35), 0 0 22px rgba(227,176,75,0.6), inset 0 1px 0 rgba(255,255,240,0.5); }
 }
 .trump-sparkle { animation: trumpSparkle 2.4s ease-in-out infinite; }
 
-/* Tumbleweed roll — used on round-end "you scored negative" */
+/* Rolling jug — used on round-end "you scored negative" (was tumbleweed) */
 @keyframes tumbleRoll {
   0%   { left: -180px; transform: rotate(0deg); }
   100% { left: 110%;   transform: rotate(720deg); }
@@ -464,41 +494,41 @@ body {
 }
 .pin-shake { animation: pinShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 
-/* PIN keypad button (leather pill matching .menu-drawer-item). One class so
+/* PIN keypad button (parchment chip matching .menu-drawer-item). One class so
    every digit + backspace key shares colour, border, and the press feel. */
 .pin-key {
-  background: linear-gradient(180deg, rgba(74,46,26,0.92), rgba(44,26,16,0.92));
-  border: 1px solid rgba(218,165,32,0.4);
-  color: #fde9b8;
+  background: linear-gradient(180deg, rgba(255,250,238,0.92), rgba(238,221,189,0.94));
+  border: 1px solid rgba(122,83,44,0.45);
+  color: #3b2314;
   box-shadow:
-    0 2px 0 rgba(0,0,0,0.5),
-    inset 0 1px 0 rgba(255,220,170,0.12);
-  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+    0 2px 0 rgba(122,83,44,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.6);
   cursor: pointer;
   transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 .pin-key:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(96,62,38,0.95), rgba(58,34,22,0.95));
-  border-color: rgba(240,199,90,0.7);
+  background: linear-gradient(180deg, rgba(255,252,244,0.98), rgba(244,230,200,0.98));
+  border-color: rgba(142,43,35,0.6);
 }
 .pin-key:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow:
-    0 1px 0 rgba(0,0,0,0.5),
-    inset 0 1px 2px rgba(0,0,0,0.4);
-  background: linear-gradient(180deg, rgba(58,34,22,0.95), rgba(38,22,14,0.95));
+    0 1px 0 rgba(122,83,44,0.3),
+    inset 0 1px 2px rgba(122,83,44,0.3);
+  background: linear-gradient(180deg, rgba(238,221,189,0.95), rgba(228,208,172,0.95));
 }
 
 /* Landscape-rotate prompt (mobile) */
 .rotate-banner {
   position: fixed; inset: 0;
-  background: linear-gradient(180deg, #1c100a, #2a1810);
+  background: linear-gradient(180deg, #f6ead0, #e7d2ac);
   display: flex; align-items: center; justify-content: center;
   z-index: 9000;
-  color: #fde9b8;
-  font-family: 'Rye', 'Roboto Slab', Georgia, serif;
+  color: #3b2314;
+  font-family: 'Noto Serif Georgian', 'Roboto Slab', Georgia, serif;
+  box-shadow: inset 0 0 0 6px rgba(58, 36, 24, 0.9);
 }
 @media (orientation: landscape), (min-width: 600px) {
   .rotate-banner { display: none; }

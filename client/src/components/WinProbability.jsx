@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import { useGame } from '../context/GameContext'
 import { GAME_TYPES } from '../constants/gameTypes'
 
-// Same western tri-color used by ScoreChart, indexed by sorted seat order.
-const COLORS = ['#f0c75a', '#a3d68a', '#d4574d']
+// Same duqani tri-color used by ScoreChart, indexed by sorted seat order.
+const COLORS = ['#8e2b23', '#4c7a2f', '#1f4e79']
 
 /**
  * Live win-probability bars for the current game.
@@ -83,19 +83,19 @@ export default function WinProbability() {
   return (
     <div className="rounded-xl p-4"
          style={{
-           background: 'linear-gradient(180deg, #4a2e1a 0%, #2c1a10 100%)',
-           border: '1px solid rgba(218,165,32,0.4)',
-           boxShadow: '0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,220,170,0.1)',
+           background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
+           border: '1px solid rgba(122,83,44,0.4)',
+           boxShadow: '0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
          }}>
       <h3 className="text-sm font-western uppercase tracking-wider mb-3"
-          style={{ color: '#fde9b8' }}>Win Chance</h3>
+          style={{ color: '#3b2314' }}>მოგების შანსი</h3>
       <div className="flex flex-col gap-2.5">
         {probs.map(({ player, prob, color }) => (
           <div key={player.seat} className="flex items-center gap-2">
             <div className="w-20 shrink-0 text-xs font-typewriter truncate"
-                 style={{ color: '#f5e9cf' }}>{player.name}</div>
+                 style={{ color: '#3b2314' }}>{player.name}</div>
             <div className="flex-1 h-3 rounded-full overflow-hidden"
-                 style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(218,165,32,0.25)' }}>
+                 style={{ background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.25)' }}>
               <div className="h-full rounded-full transition-all duration-500"
                    style={{ width: `${(prob * 100).toFixed(1)}%`, background: color }} />
             </div>
