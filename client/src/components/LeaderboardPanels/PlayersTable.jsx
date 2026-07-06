@@ -32,7 +32,7 @@ export default function PlayersTable({ aggregated }) {
                   </div>
                 </td>
                 <td className="px-3 py-2 text-center font-mono">{a.gamesPlayed}</td>
-                <td className="px-3 py-2 text-center font-mono text-yellow-400 font-bold">{a.wins}</td>
+                <td className="px-3 py-2 text-center font-mono font-bold" style={{ color: '#8e2b23' }}>{a.wins}</td>
                 <td className={`px-3 py-2 text-center font-mono font-semibold ${cls}`}>
                   {a.totalScore > 0 ? '+' : ''}{a.totalScore}
                 </td>

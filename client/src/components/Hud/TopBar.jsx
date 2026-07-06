@@ -1,5 +1,6 @@
+import { useRef, useState } from 'react'
 import {
-  Menu, ChevronDown, MessageCircle, Settings, SignalHigh, Star,
+  Menu, Copy, Check, MessageCircle, Settings, SignalHigh, Star,
 } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
 import { getGameType } from '../../constants/gameTypes'
@@ -28,6 +29,29 @@ export default function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
   const gt = getGameType(chosenGameType)
   const TypeIcon = gt?.Icon
 
+  // Tap-to-copy on the room-code pill, with a brief "copied" confirmation.
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef(null)
+  const copyRoomCode = () => {
+    if (!roomCode) return
+    const done = () => {
+      setCopied(true)
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 1600)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(roomCode).then(done).catch(() => { /* ignore */ })
+    } else {
+      // Legacy fallback for non-secure contexts
+      const ta = document.createElement('textarea')
+      ta.value = roomCode
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy'); done() } catch { /* ignore */ }
+      document.body.removeChild(ta)
+    }
+  }
+
   return (
     <div className="absolute top-0 inset-x-0 z-20 px-3 lg:px-4 pt-3 lg:pt-4 flex items-start justify-between gap-2 pointer-events-none">
       {/* Left: menu + room name */}
@@ -35,12 +59,17 @@ export default function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
         <Pill onClick={onToggleMenu} className="px-2 lg:px-3" title="მენიუ">
           <Menu size={16} />
         </Pill>
-        <Pill className="min-w-0 lg:min-w-[180px] justify-between">
+        <Pill onClick={copyRoomCode} className="min-w-0 lg:min-w-[180px] justify-between"
+              title="კოდის კოპირება">
           <div className="flex flex-col items-start leading-tight min-w-0">
-            <span className="text-[9px] lg:text-[10px] uppercase tracking-widest text-amber-dim">ოთახი</span>
+            <span className="text-[9px] lg:text-[10px] uppercase tracking-widest text-amber-dim">
+              {copied ? 'დაკოპირდა ✓' : 'ოთახი'}
+            </span>
             <span className="text-xs lg:text-sm font-bold truncate max-w-[5.5rem] lg:max-w-none">{roomCode || 'კლასიკური ოთახი'}</span>
           </div>
-          <ChevronDown size={12} className="text-amber-dim shrink-0" />
+          {copied
+            ? <Check size={12} className="shrink-0" style={{ color: '#4c7a2f' }} />
+            : <Copy size={12} className="text-amber-dim shrink-0" />}
         </Pill>
       </div>
 

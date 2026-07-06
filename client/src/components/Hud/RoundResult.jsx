@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti'
 import { ArrowRight } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
 import { getGameType } from '../../constants/gameTypes'
+import { quoteForRound } from '../../constants/quotes'
 
 const scoreCol = (v) =>
   v > 0 ? 'score-pos-soft' : v < 0 ? 'score-neg-soft' : 'text-cream-soft'
@@ -15,8 +16,10 @@ const scoreCol = (v) =>
 export default function RoundResult() {
   const {
     round, chosenGameType, roundScores, cumulativeScores, players,
-    isCreator, nextRound, leaderSeat, mySeat,
+    isCreator, nextRound, leaderSeat, mySeat, roomCode,
   } = useGame()
+  // Same sentence that hung over the table during this round.
+  const quote = quoteForRound(roomCode, round)
   const lastRound  = roundScores[roundScores.length - 1]
   const gt         = getGameType(chosenGameType)
   const TypeIcon   = gt?.Icon
@@ -114,6 +117,19 @@ export default function RoundResult() {
             })}
           </div>
         </div>
+
+        {quote && (
+          <div className="mb-2 lg:mb-4 px-2">
+            <p className="font-handwritten text-sm lg:text-lg leading-snug"
+               style={{ color: '#5a3620' }}>
+              „{quote.text}“
+            </p>
+            <p className="mt-0.5 text-[9px] lg:text-[11px] font-typewriter uppercase tracking-widest"
+               style={{ color: 'rgba(142,43,35,0.7)' }}>
+              — {quote.author}
+            </p>
+          </div>
+        )}
 
         {isCreator ? (
           <button

@@ -23,7 +23,9 @@ export default function PhaserGame({ gameState, onCardPlay }) {
       parent: containerRef.current,
       width: SCENE_W,
       height: SCENE_H,
-      backgroundColor: '#0a0a0a',
+      // Parchment, matching the table art — shows only for the frame or two
+      // before the felt image paints, so it must not flash dark.
+      backgroundColor: '#e9d7b6',
       scene: [PreloadScene, GameScene],
       scale: {
         mode: Phaser.Scale.FIT,
@@ -119,10 +121,25 @@ export default function PhaserGame({ gameState, onCardPlay }) {
   }, [playSound])
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0"
-      style={{ background: '#0a0a0a' }}
-    />
+    // The canvas keeps its 1100×700 aspect (Scale.FIT), so on viewports with
+    // a different ratio there are bars beside/above it. Instead of black,
+    // fill the whole wrapper with a blurred, slightly-scaled copy of the
+    // same table art — the bars read as ambient continuation of the felt
+    // and the table appears to cover 100% × 100% on every device.
+    <div className="absolute inset-0 overflow-hidden" style={{ background: '#e9d7b6' }}>
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: "url('/table-felt.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(12px) brightness(0.96)',
+          // Overscan past the edges so the blur doesn't fringe to transparent.
+          transform: 'scale(1.08)',
+        }}
+      />
+      <div ref={containerRef} className="absolute inset-0" />
+    </div>
   )
 }

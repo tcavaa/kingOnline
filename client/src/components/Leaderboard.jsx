@@ -48,7 +48,7 @@ export default function Leaderboard({ onBack }) {
           <h1 className="text-3xl sm:text-4xl font-western inline-flex items-center gap-3"
               style={{ color: '#8e2b23', textShadow: '0 4px 24px rgba(58,36,24,0.25), 0 2px 0 rgba(255,255,255,0.55)' }}>
             <Trophy size={32} className="parade-pulse"
-                    style={{ color: '#b98a2f', filter: 'drop-shadow(0 0 14px rgba(185,138,47,0.55))' }} />
+                    style={{ color: '#6f4e1e', fill: 'rgba(111,78,30,0.25)', filter: 'drop-shadow(0 1px 2px rgba(58,36,24,0.35))' }} />
             დიდების დარბაზი
           </h1>
           <span aria-hidden className="w-[88px]" />

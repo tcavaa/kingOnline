@@ -63,7 +63,7 @@ function MiniCard({ card, selected, restricted, onClick, isCenter }) {
       {isCenter && !selected && (
         <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-western shadow"
              style={{ background: '#c47a3a', color: '#3b2314', border: '1px solid #8b3a2e' }}>
-          N
+          პ
         </div>
       )}
     </button>
@@ -75,7 +75,7 @@ export default function DiscardSelector() {
 
   const restrictionType =
     chosenGameType === 'K' || chosenGameType === 'H' ? 'გულებს' :
-    chosenGameType === 'Q' ? 'ქალებს' :
+    chosenGameType === 'Q' ? 'დამებს' :
     chosenGameType === 'J' ? 'ვალეტებს' : null
 
   const centerKeys  = new Set((lastCenterCards || []).map(cardKey))
@@ -163,7 +163,7 @@ export default function DiscardSelector() {
              style={{ color: 'rgba(59,35,20,0.7)' }}>
           <div className="flex items-center gap-2">
             <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', border: '2px solid #c47a3a' }} />
-            <span>შუიდან</span>
+            <span>პრიკუპიდან</span>
           </div>
           <div className="flex items-center gap-2">
             <div style={{ width: 16, height: 24, borderRadius: 4, background: '#fffaf0', border: '2.5px solid #8e2b23' }} />

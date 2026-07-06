@@ -3,6 +3,32 @@
    working; only the visual language changed. */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Georgian:wght@400;600;700;900&family=Noto+Sans+Georgian:wght@400;500;700&family=Special+Elite&display=swap');
 
+/* Handwritten Georgian (BPG fonts, GPL) — used for the per-round poet
+   quotes on the table and the round-end modal. Self-hosted: Google Fonts
+   has no handwriting-style Georgian family. Irubaqidze is the calligraphic
+   primary; Ingiri is the rounded-informal fallback. */
+@font-face {
+  font-family: 'Elguja';
+  src: url('/fonts/elguja.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BPG Irubaqidze';
+  src: url('/fonts/bpg-irubaqidze.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BPG Ingiri';
+  src: url('/fonts/bpg-ingiri.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -110,6 +136,9 @@ body {
 }
 .font-slab {
   font-family: 'Noto Sans Georgian', 'Roboto Slab', Georgia, serif;
+}
+.font-handwritten {
+  font-family: 'Elguja', 'BPG Irubaqidze', 'BPG Ingiri', 'Noto Serif Georgian', Georgia, serif;
 }
 
 /* ── Dark wood (procedural, no asset needed) ───────────────────────────────── */

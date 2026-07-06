@@ -56,7 +56,7 @@ export default function LifetimeCardStats({ players }) {
                   <span className="text-sm font-black text-ink">{p.name}</span>
                 </div>
                 <Stat icon={Crown}   label="გულის მეფე ♥"   value={s.kingsOfHearts} />
-                <Stat icon={Diamond} label="აღებული ქალები" value={s.queens} />
+                <Stat icon={Diamond} label="აღებული დამები" value={s.queens} />
                 <Stat icon={Spade}   label="აღებული ვალეტები"  value={s.jacks} />
                 <Stat icon={Heart}   label="აღებული გულები" value={s.hearts} />
                 <div className="border-t mt-2 pt-2 text-[10px] font-typewriter text-cream-dim"

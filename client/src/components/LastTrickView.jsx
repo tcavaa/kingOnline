@@ -41,9 +41,9 @@ export default function LastTrickView({ onClose }) {
     return (
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-western uppercase tracking-wider"
-            style={{ color: '#3b2314' }}>ბოლო აღება</h3>
+            style={{ color: '#3b2314' }}>ბოლოს გასული</h3>
         <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
-          ჯერ აღება არ ყოფილა.
+          ჯერ მინუსი არ ყოფილა.
         </p>
       </div>
     )
@@ -56,7 +56,7 @@ export default function LastTrickView({ onClose }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-western uppercase tracking-wider"
-            style={{ color: '#3b2314' }}>ბოლო აღება</h3>
+            style={{ color: '#3b2314' }}>ბოლოს გასული</h3>
         {onClose && (
           <button onClick={onClose}
                   className="hover:opacity-80"

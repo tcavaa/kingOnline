@@ -716,6 +716,47 @@ export function GameProvider({ children }) {
       }, 2500)
     })
 
+    // ── Voice messages (ephemeral) ──────────────────────────────────────
+    // The server relays the raw audio bytes; we wrap them in an object URL
+    // and drop them into the same chat list as text messages. Nothing is
+    // persisted — a refresh loses the clips, by design.
+    socket.on('voice-message', (msg) => {
+      try {
+        if (!msg || !msg.audio) return
+        const blob = new Blob([msg.audio], { type: msg.mime || 'audio/webm' })
+        const url = URL.createObjectURL(blob)
+        const entry = {
+          type: 'voice',
+          url,
+          duration: msg.duration || 0,
+          seat: msg.seat,
+          name: msg.name,
+          avatar: msg.avatar || null,
+          at: msg.at || Date.now(),
+        }
+        setChatMessages(prev => {
+          const next = [...prev, entry]
+          // Release object URLs of clips that scroll out of the 50-message
+          // window, otherwise every voice message leaks its blob.
+          const dropped = next.length > 50 ? next.slice(0, next.length - 50) : []
+          dropped.forEach(m => {
+            if (m.type === 'voice' && m.url) URL.revokeObjectURL(m.url)
+          })
+          return next.slice(-50)
+        })
+        // Flash a mic bubble above the sender's avatar on the table.
+        setChatBubbles(prev => ({ ...prev, [msg.seat]: { message: '🎤 ხმოვანი' } }))
+        if (bubbleTimers.current[msg.seat]) clearTimeout(bubbleTimers.current[msg.seat])
+        bubbleTimers.current[msg.seat] = setTimeout(() => {
+          setChatBubbles(prev => {
+            const next = { ...prev }
+            delete next[msg.seat]
+            return next
+          })
+        }, 4000)
+      } catch { /* malformed clip — ignore */ }
+    })
+
     // ── Chat ────────────────────────────────────────────────────────────
     socket.on('chat-message', (msg) => {
       setChatMessages(prev => [...prev.slice(-49), msg])
@@ -889,6 +930,22 @@ export function GameProvider({ children }) {
     if (!message || !message.trim()) return
     socketRef.current?.emit('chat-message', { message: message.trim() })
   }, [])
+  // Ship a recorded clip to the room. 400 KB matches the server's hard cap.
+  const sendVoice      = useCallback(async (blob, duration = 0) => {
+    if (!blob || !blob.size) return
+    if (blob.size > 400 * 1024) {
+      addToast('ჩანაწერი ძალიან დიდი გამოვიდა.', 'error')
+      return
+    }
+    try {
+      const buf = await blob.arrayBuffer()
+      socketRef.current?.emit('voice-message', {
+        audio: buf,
+        mime: blob.type || 'audio/webm',
+        duration,
+      })
+    } catch { /* ignore */ }
+  }, [addToast])
   const playSound      = useCallback((soundId, targetSeat = null) => {
     socketRef.current?.emit('play-sound', { soundId, targetSeat })
   }, [])
@@ -961,7 +1018,7 @@ export function GameProvider({ children }) {
       lastTrickResult, trickAnimation, playPending,
       roundScores, roundDetails, cumulativeScores, finalResults,
       toasts, disconnectedPlayer, reconnecting, selectedDiscards,
-      chatMessages, chatBubbles, sendChat, playSound,
+      chatMessages, chatBubbles, sendChat, sendVoice, playSound,
       typingSeats, sendTyping,
       quitProposal, proposeQuit, voteQuit,
       publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,

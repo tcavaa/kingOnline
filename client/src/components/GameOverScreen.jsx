@@ -204,8 +204,8 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                     <p className="text-xs font-black text-white mb-2" style={{ color: '#3b2314' }}>{p.name}</p>
                     <div className="space-y-1 text-[11px]">
                       <Row label="წამყვანი ხელები"  value={s.roundsLed} />
-                      <Row label="აღებები"          value={s.totalTricks} />
-                      <Row label="აღებული ქალები"   value={s.queensTaken} />
+                      <Row label="მინუსები"          value={s.totalTricks} />
+                      <Row label="აღებული დამები"   value={s.queensTaken} />
                       <Row label="აღებული ვალეტები" value={s.jacksTaken} />
                       <Row label="აღებული გულები"   value={s.heartsTaken} />
                       <Row label="აღებული კინგი"    value={s.kingsOfHeartsTaken} />

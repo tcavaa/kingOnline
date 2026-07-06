@@ -5,7 +5,7 @@ const ITEMS = [
   { id: 'scores', Icon: ClipboardList, label: 'ქულების დავთარი'  },
   { id: 'matrix', Icon: Map,           label: 'ნათამაშები ხელები' },
   { id: 'chart',  Icon: LineChart,     label: 'ქულების გრაფიკი'  },
-  { id: 'last',   Icon: Layers,        label: 'ბოლო აღება'   },
+  { id: 'last',   Icon: Layers,        label: 'ბოლოს გასული'   },
 ]
 
 /** Left-side slide-in drawer triggered by the hamburger pill. */

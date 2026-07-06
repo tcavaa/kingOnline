@@ -180,9 +180,6 @@ export default function Lobby({ onOpenLeaderboard }) {
                   <User size={14} />
                   <span className="inline-flex flex-col leading-tight">
                     <span>{active ? 'მოთამაშე' : 'აირჩიე პროფილი'}</span>
-                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-                      {active ? 'PLAYER' : 'PICK YER OUTLAW'}
-                    </span>
                   </span>
                 </h3>
                 <button onClick={() => { setEditing(null); setShowForm(true) }}
@@ -260,9 +257,6 @@ export default function Lobby({ onOpenLeaderboard }) {
                   <Layers size={18} style={{ color: '#8e2b23' }} />
                   <h2 className="text-lg font-western text-ink uppercase inline-flex flex-col leading-tight">
                     <span>გახსენი დუქანი</span>
-                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-                      OPEN SALOON
-                    </span>
                   </h2>
                 </div>
                 <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
@@ -290,9 +284,6 @@ export default function Lobby({ onOpenLeaderboard }) {
                        style={{ opacity: 0.8, filter: 'brightness(1.6)' }} />
                   <span className="inline-flex flex-col items-center leading-tight">
                     <span>დამირიგე</span>
-                    <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-                      DEAL ME IN
-                    </span>
                   </span>
                   <img src="/ornament-2.png" alt=""
                        className="w-5 h-5 object-contain pointer-events-none select-none"
@@ -310,9 +301,6 @@ export default function Lobby({ onOpenLeaderboard }) {
                      style={{ filter: 'drop-shadow(0 1px 2px rgba(58,36,24,0.25))' }} />
                 <h2 className="text-lg font-western text-ink uppercase inline-flex flex-col leading-tight">
                   <span>შედი დუქანში</span>
-                  <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-                    WALK INTO A SALOON
-                  </span>
                 </h2>
               </div>
               <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
@@ -338,9 +326,6 @@ export default function Lobby({ onOpenLeaderboard }) {
                      style={{ opacity: 0.85 }} />
                 <span className="inline-flex flex-col items-center leading-tight">
                   <span>შეუერთდი თამაშს</span>
-                  <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-                    JOIN THE GAME
-                  </span>
                 </span>
                 <img src="/ornament.png" alt=""
                      className="w-5 h-5 object-contain pointer-events-none select-none"

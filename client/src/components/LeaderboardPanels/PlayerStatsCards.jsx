@@ -26,8 +26,8 @@ export default function PlayerStatsCards({ playerList, stats }) {
             </div>
             <Row label="საბოლოო ქულა"     value={(score > 0 ? '+' : '') + score} color={colour} />
             <Row label="წაყვანილი ხელები"      value={s.roundsLed ?? 0} />
-            <Row label="აღებული აღებები"    value={s.totalTricks ?? 0} />
-            <Row label="აღებული ქალები"    value={s.queens ?? 0} />
+            <Row label="აღებული მინუსები"    value={s.totalTricks ?? 0} />
+            <Row label="აღებული დამები"    value={s.queens ?? 0} />
             <Row label="აღებული ვალეტები"     value={s.jacks ?? 0} />
             <Row label="აღებული გულები"    value={s.hearts ?? 0} />
             <Row label="გულის მეფე"  value={s.kingsOfHearts ?? 0} />

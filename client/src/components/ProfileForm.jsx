@@ -205,9 +205,6 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
                className="h-4 w-12 object-contain pointer-events-none select-none"
                style={{ opacity: 0.8 }} />
         </span>
-        <span className="block text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-          SADDLE UP · SAVED OUTLAWS
-        </span>
       </label>
       <div className="flex flex-wrap gap-2">
         {profiles.map(p => {

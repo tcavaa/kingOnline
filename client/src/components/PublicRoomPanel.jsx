@@ -47,9 +47,6 @@ export default function PublicRoomPanel({ active }) {
           <Users size={14} />
           <span className="inline-flex flex-col leading-tight">
             <span>საჯარო ოთახი</span>
-            <span className="text-[9px] font-typewriter tracking-widest" style={{ opacity: 0.55 }}>
-              PUBLIC ROOM
-            </span>
           </span>
         </h2>
         <span className="inline-flex items-center gap-3">
@@ -115,10 +112,6 @@ export default function PublicRoomPanel({ active }) {
                   <div className="text-[11px] font-western uppercase tracking-wide"
                        style={{ color: '#3b2314' }}>
                     თავისუფალი ადგილი
-                  </div>
-                  <div className="text-[8px] font-typewriter tracking-widest"
-                       style={{ color: 'rgba(59,35,20,0.55)' }}>
-                    OPEN SEAT
                   </div>
                   <div className="text-[9px] font-typewriter"
                        style={{ color: 'rgba(59,35,20,0.5)' }}>

@@ -16,6 +16,7 @@ import DisconnectBanner from './Hud/DisconnectBanner'
 import RoundResult      from './Hud/RoundResult'
 import WaitingChip      from './Hud/WaitingChip'
 import QuitModal        from './Hud/QuitModal'
+import { quoteForRound } from '../constants/quotes'
 
 /**
  * Orchestrator for the in-game experience: hosts the Phaser canvas and
@@ -27,8 +28,12 @@ export default function GameLayout() {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, typingSeats, playCard, playPending,
+    trickAnimation, chatBubbles, typingSeats, playCard, playPending, roomCode,
   } = useGame()
+
+  // One famous Georgian line per round — same pick for all three players,
+  // and the round-end modal shows the identical sentence.
+  const roundQuote = quoteForRound(roomCode, round)
 
   const [drawer,      setDrawer]      = useState(null)
   const [menuOpen,    setMenuOpen]    = useState(false)
@@ -126,7 +131,8 @@ export default function GameLayout() {
     // pins the height to what's actually on screen so the table always fits
     // 100%. `safe-area-pad` then keeps HUD elements clear of notch / home-
     // indicator / rounded-corner regions.
-    <div className="fixed top-0 left-0 right-0 h-screen-dvh overflow-hidden bg-black safe-area-pad">
+    <div className="fixed top-0 left-0 right-0 h-screen-dvh overflow-hidden safe-area-pad"
+         style={{ background: '#e9d7b6' }}>
       <PhaserGame gameState={gameState} onCardPlay={handleCardPlay} />
 
       <TopBar
@@ -136,6 +142,23 @@ export default function GameLayout() {
       />
       <ScoreBoardPanel onOpen={() => openDrawer('scores')} />
       <ActionPanel     onLastTrick={() => openDrawer('last')} />
+
+      {/* Per-round poet line, hanging centre-top below the round tracker.
+          Offset clears both the TopBar pills (~56px) and the transient
+          "waiting for X" chip (80–116px) so nothing overlaps. */}
+      {roundQuote && (
+        <div className="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none select-none text-center px-4 hide-on-phone-landscape"
+             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 126px)', maxWidth: 'min(560px, 72vw)' }}>
+          <p className="font-handwritten text-base lg:text-lg leading-snug"
+             style={{ color: 'rgba(90,54,32,0.85)', textShadow: '0 1px 0 rgba(255,244,214,0.35)' }}>
+            „{roundQuote.text}“
+          </p>
+          <p className="text-[9px] font-typewriter uppercase tracking-widest mt-0.5"
+             style={{ color: 'rgba(142,43,35,0.6)' }}>
+            — {roundQuote.author}
+          </p>
+        </div>
+      )}
 
       {/* Sound Board trigger, parked next to the own ("You") avatar. The
           avatar sits bottom-centre, ~10% up from the bottom of the FIT-scaled

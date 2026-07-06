@@ -546,6 +546,38 @@ function registerHandlers(io, socket, gameManager) {
     } catch (err) { /* no-op */ }
   });
 
+  // ─── voice-message ────────────────────────────────────────────────────────
+  // Ephemeral voice clips: the binary payload is relayed as-is to everyone
+  // in the sender's room and never stored — only players connected at that
+  // moment hear it (a refresh loses history, same as chat bubbles).
+  // Size-capped and lightly rate-limited so the pipe can't be flooded.
+  let lastVoiceAt = 0;
+  socket.on('voice-message', ({ audio, mime, duration } = {}) => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return;
+      if (!audio) return;
+      const size = audio.byteLength ?? audio.length ?? 0;
+      if (!size || size > MAX_VOICE_BYTES) return;
+      const now = Date.now();
+      if (now - lastVoiceAt < 800) return; // one clip per ~second per socket
+      lastVoiceAt = now;
+      const room = gameManager.getRoom(mapping.roomCode);
+      if (!room) return;
+      const player = room.players.find((p) => p.seat === mapping.seat);
+      if (!player) return;
+      io.to(mapping.roomCode).emit('voice-message', {
+        seat: player.seat,
+        name: player.name,
+        avatar: player.avatar || null,
+        audio,
+        mime: typeof mime === 'string' ? mime.slice(0, 64) : 'audio/webm',
+        duration: Math.min(Math.max(Number(duration) || 0, 0), 30),
+        at: now,
+      });
+    } catch (err) { /* no-op */ }
+  });
+
   // ─── chat-message ─────────────────────────────────────────────────────────
   socket.on('chat-message', ({ message } = {}) => {
     try {
@@ -705,6 +737,9 @@ function registerHandlers(io, socket, gameManager) {
 
 // How long a quit/surrender proposal waits for votes before auto-expiring.
 const QUIT_VOTE_MS = 30 * 1000;
+
+// Hard cap on a relayed voice clip (≈15s of Opus fits well under this).
+const MAX_VOICE_BYTES = 400 * 1024;
 
 // How long a disconnected player keeps their public-table seat before it's
 // swept and offered to the next sitter (long enough to survive a refresh).
