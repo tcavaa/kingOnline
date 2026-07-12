@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Star, Heart, Diamond, Spade, Club } from 'lucide-react'
 import { useGame } from '../context/GameContext'
+import ModalShell from './ModalShell'
 
 const SUITS = [
   { code: 'S', Icon: Spade,   name: 'ყვავი',  color: '#1a1a1a' },
@@ -46,16 +47,10 @@ export default function TrumpSelector() {
   }, [hand])
 
   return (
-    <div
-      className="absolute inset-0 flex items-start justify-center z-30 px-4 py-3 overflow-y-auto"
-      style={{
-        background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
-        backdropFilter: 'blur(6px)',
-      }}
+    <ModalShell
+      className="items-start z-30 px-4 py-3 overflow-y-auto"
+      panelClassName="max-w-xl p-5 my-auto"
     >
-      <div
-        className="w-full max-w-xl rounded-2xl p-5 my-auto western-panel"
-      >
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1.5">
             <Star size={20} style={{ color: '#8e2b23' }} fill="#8e2b23" />
@@ -130,11 +125,8 @@ export default function TrumpSelector() {
         <div className="flex gap-2">
           <button
             onClick={() => selectTrump(null)}
-            className="flex-1 py-2.5 rounded-xl text-sm font-western uppercase tracking-wider transition-all active:scale-95"
+            className="casino-btn-secondary flex-1 py-2.5 rounded-xl text-sm font-western uppercase tracking-wider transition-all active:scale-95"
             style={{
-              background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
-              border: '1px solid rgba(122,83,44,0.4)',
-              color: '#3b2314',
               boxShadow: '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
               textShadow: '0 1px 0 rgba(255,255,255,0.45)',
             }}
@@ -155,7 +147,6 @@ export default function TrumpSelector() {
             {picked ? `დაადასტურე კოზირი — ${SUITS.find(s => s.code === picked)?.name}` : 'აირჩიე კოზირის ფერი'}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }

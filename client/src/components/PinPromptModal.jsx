@@ -174,12 +174,7 @@ export default function PinPromptModal({ profile, onSuccess, onCancel }) {
         <div className="flex gap-2 mt-4">
           {onCancel && (
             <button type="button" onClick={onCancel}
-                    className="flex-1 py-2 rounded-xl font-western uppercase text-xs tracking-wider"
-                    style={{
-                      background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
-                      border: '1px solid rgba(122,83,44,0.4)',
-                      color: '#3b2314',
-                    }}>
+                    className="casino-btn-secondary flex-1 py-2 rounded-xl font-western uppercase text-xs tracking-wider">
               გაუქმება
             </button>
           )}

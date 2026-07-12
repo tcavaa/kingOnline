@@ -5,15 +5,17 @@ import { useGame } from '../context/GameContext'
 import { getGameType } from '../constants/gameTypes'
 import { SuitIcon } from './Icons'
 import ScoreChart from './ScoreChart'
+import StatRow from './StatRow'
 import AchievementBadges from './AchievementBadges'
 import { computePerGameAchievements, countCodes } from '../utils/achievements'
+import { scoreColorClass } from '../utils/scoreColor'
 
 const RANK_ICON = [Trophy, Award, Medal]
 const RANK_COLOR = ['#b8860b', '#8c8f96', '#a0642d']
 
 export default function GameOverScreen({ onOpenLeaderboard }) {
   const { finalResults, players, roundScores, roundDetails, mySeat,
-          rematch, requestRematch } = useGame()
+          rematch, requestRematch, leaveRoom } = useGame()
 
   // Set of seats (in the OLD room) who have clicked Play Again.
   const joinedSet = useMemo(
@@ -116,10 +118,30 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
   return (
     <div className="saloon-bg min-h-screen flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-3xl">
+        {/* კინგი wordmark, same as the homepage — clicking it goes home. */}
+        <button
+          onClick={leaveRoom}
+          title="მთავარ გვერდზე დაბრუნება"
+          className="block mx-auto mb-5 text-center select-none transition-all active:scale-95 hover:opacity-90"
+        >
+          <h1 className="text-4xl font-western"
+              style={{
+                color: '#8e2b23',
+                textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(58,36,24,0.25), 0 0 36px rgba(142,43,35,0.18)',
+                letterSpacing: '0.08em',
+              }}>
+            კინგი
+          </h1>
+          <div className="mt-0.5 text-[9px] uppercase tracking-[0.4em] font-western"
+               style={{ color: 'rgba(142,43,35,0.85)' }}>
+            ✦ &nbsp; დუქნის კარტის თამაში &nbsp; ✦
+          </div>
+        </button>
+
         {/* Hero podium banner with the winner overlaid */}
         <div className="relative rounded-2xl overflow-hidden mb-6"
              style={{ aspectRatio: '1280 / 720', border: '1px solid rgba(240,165,0,0.25)' }}>
-          <img src="/trophy-podium.png" alt=""
+          <img src="/trophy-podium.webp" alt=""
                className="absolute inset-0 w-full h-full object-cover parade-pulse" />
           <div className="absolute inset-0"
                style={{ background: 'linear-gradient(180deg, rgba(13,10,26,0) 45%, rgba(13,10,26,0.92) 100%)' }} />
@@ -203,14 +225,14 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                        style={{ background: 'rgba(236,222,196,0.85)', border: '1px solid rgba(122,83,44,0.3)' }}>
                     <p className="text-xs font-black text-white mb-2" style={{ color: '#3b2314' }}>{p.name}</p>
                     <div className="space-y-1 text-[11px]">
-                      <Row label="წამყვანი ხელები"  value={s.roundsLed} />
-                      <Row label="მინუსები"          value={s.totalTricks} />
-                      <Row label="აღებული დამები"   value={s.queensTaken} />
-                      <Row label="აღებული ვალეტები" value={s.jacksTaken} />
-                      <Row label="აღებული გულები"   value={s.heartsTaken} />
-                      <Row label="აღებული კინგი"    value={s.kingsOfHeartsTaken} />
-                      <Row label="საუკეთესო ხელი"   value={best}  color="#4c7a2f" />
-                      <Row label="ყველაზე ცუდი ხელი" value={worst} color="#a5372b" />
+                      <StatRow label="წამყვანი ხელები"  value={s.roundsLed} />
+                      <StatRow label="მინუსები"          value={s.totalTricks} />
+                      <StatRow label="აღებული დამები"   value={s.queensTaken} />
+                      <StatRow label="აღებული ვალეტები" value={s.jacksTaken} />
+                      <StatRow label="აღებული გულები"   value={s.heartsTaken} />
+                      <StatRow label="აღებული კინგი"    value={s.kingsOfHeartsTaken} />
+                      <StatRow label="საუკეთესო ხელი"   value={best}  color="#4c7a2f" />
+                      <StatRow label="ყველაზე ცუდი ხელი" value={worst} color="#a5372b" />
                     </div>
                   </div>
                 )
@@ -280,7 +302,7 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                           const v = rs.scores?.[p.seat] ?? 0
                           return (
                             <td key={p.seat} className={`px-3 py-2 text-center font-mono font-semibold
-                              ${v > 0 ? 'score-pos-soft' : v < 0 ? 'score-neg-soft' : 'text-cream-dim'}`}
+                              ${scoreColorClass(v)}`}
                                 style={{ color: v > 0 ? '#4c7a2f' : v < 0 ? '#a5372b' : 'rgba(59,35,20,0.45)' }}>
                               {v > 0 ? '+' : ''}{v}
                             </td>
@@ -340,11 +362,4 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
   )
 }
 
-function Row({ label, value, color }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span style={{ color: 'rgba(142,43,35,0.7)' }}>{label}</span>
-      <span className="font-mono font-bold" style={{ color: color || '#3b2314' }}>{value}</span>
-    </div>
-  )
-}
+

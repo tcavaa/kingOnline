@@ -201,7 +201,7 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
              style={{ color: 'rgba(142,43,35,0.75)' }}>
         <span className="inline-flex items-center gap-2">
           შენახული პროფილები
-          <img src="/line-ornament.png" alt=""
+          <img src="/line-ornament.webp" alt=""
                className="h-4 w-12 object-contain pointer-events-none select-none"
                style={{ opacity: 0.8 }} />
         </span>
@@ -240,7 +240,7 @@ export function ProfilePicker({ profiles = [], value, onChange, onEdit }) {
                       className="text-[10px] font-typewriter normal-case tracking-normal hover:underline"
                       style={{ color: active ? '#8e2b23' : 'rgba(142,43,35,0.85)' }}>შეცვლა</span>
               )}
-              <img src="/ornament.png" alt=""
+              <img src="/ornament.webp" alt=""
                    className="w-3.5 h-3.5 object-contain pointer-events-none select-none"
                    style={{ opacity: active ? 0.95 : 0.6 }} />
             </button>

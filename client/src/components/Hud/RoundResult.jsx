@@ -4,9 +4,11 @@ import { ArrowRight } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
 import { getGameType } from '../../constants/gameTypes'
 import { quoteForRound } from '../../constants/quotes'
+import ModalShell from '../ModalShell'
+import { scoreColorClass } from '../../utils/scoreColor'
 
 const scoreCol = (v) =>
-  v > 0 ? 'score-pos-soft' : v < 0 ? 'score-neg-soft' : 'text-cream-soft'
+  scoreColorClass(v, 'text-cream-soft')
 
 /**
  * The big "Round X Settled" modal. Adds a single juice trick — a confetti
@@ -43,27 +45,28 @@ export default function RoundResult() {
 
   const sortedPlayers = [...players].sort((a, b) => a.seat - b.seat)
 
+  // Rolling jug reaches in from the left when this player scored negative.
+  const jugOverlay = myDelta < 0 ? (
+    <svg viewBox="0 0 64 64" className="tumbleweed" aria-hidden="true">
+      <g stroke="#9c7242" strokeWidth="2" fill="none" strokeLinecap="round">
+        <circle cx="32" cy="32" r="26" stroke="#7d5c33" />
+        <path d="M8 32 L56 32 M32 8 L32 56 M14 14 L50 50 M50 14 L14 50" />
+        <path d="M20 12 Q32 32 12 44" />
+        <path d="M44 12 Q32 32 52 44" />
+        <path d="M12 20 Q32 32 44 52" />
+      </g>
+    </svg>
+  ) : null
+
   return (
     // Compact modal designed to fit a landscape phone (≈430 px tall, less
-    // ~80 px for the Safari URL bar). The Layers icon and verbose paddings
-    // from the original design are gone; the two score panels are tight
-    // single-row grids. On lg+ viewports the modal breathes out a bit via
-    // the `lg:` paddings/fonts.
-    <div className="absolute inset-0 z-40 flex items-center justify-center p-2 lg:p-4 pointer-events-auto western-backdrop overflow-y-auto">
-      {/* Tumbleweed reaches in from the left when this player scored negative. */}
-      {myDelta < 0 && (
-        <svg viewBox="0 0 64 64" className="tumbleweed" aria-hidden="true">
-          <g stroke="#9c7242" strokeWidth="2" fill="none" strokeLinecap="round">
-            <circle cx="32" cy="32" r="26" stroke="#7d5c33" />
-            <path d="M8 32 L56 32 M32 8 L32 56 M14 14 L50 50 M50 14 L14 50" />
-            <path d="M20 12 Q32 32 12 44" />
-            <path d="M44 12 Q32 32 52 44" />
-            <path d="M12 20 Q32 32 44 52" />
-          </g>
-        </svg>
-      )}
-
-      <div className="w-full max-w-sm rounded-2xl p-3 lg:p-6 text-center western-panel my-auto">
+    // ~80 px for the Safari URL bar). The two score panels are tight
+    // single-row grids; on lg+ viewports the modal breathes out via the
+    // `lg:` paddings/fonts.
+    <ModalShell
+      className="items-center z-40 p-2 lg:p-4 pointer-events-auto overflow-y-auto"
+      overlay={jugOverlay}
+      panelClassName="max-w-sm p-3 lg:p-6 text-center my-auto">
         <h2 className="text-sm lg:text-xl font-western uppercase tracking-wider text-cream"
             style={{ textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
           ხელი {round} დასრულდა
@@ -141,7 +144,6 @@ export default function RoundResult() {
         ) : (
           <p className="text-[11px] lg:text-sm font-typewriter text-cream-soft">ველოდებით დამრიგებელს…</p>
         )}
-      </div>
-    </div>
+    </ModalShell>
   )
 }

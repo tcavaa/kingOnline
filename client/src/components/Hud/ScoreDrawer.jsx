@@ -1,9 +1,14 @@
+import { lazy, Suspense } from 'react'
 import { X } from 'lucide-react'
 import ScoreTable     from '../ScoreTable'
-import ScoreChart     from '../ScoreChart'
 import GameTypeMatrix from '../GameTypeMatrix'
 import LastTrickView  from '../LastTrickView'
 import WinProbability from '../WinProbability'
+
+// ScoreChart is the only recharts consumer inside the game screen — loading
+// it lazily keeps the ~80 kB (gzip) recharts chunk out of the GameLayout
+// bundle until the player actually opens the chart tab.
+const ScoreChart = lazy(() => import('../ScoreChart'))
 
 const TITLES = {
   scores: 'ქულების დავთარი',
@@ -21,9 +26,11 @@ const TITLES = {
  */
 export default function ScoreDrawer({ panel, onClose }) {
   if (!panel) return null
-  // 'scores' is the wide one (~26rem ≈ 416px). The other panels stay at the
-  // original 20rem ≈ 320px.
-  const widthClass = panel === 'scores' ? 'w-[26rem] max-w-[92vw]' : 'w-80 max-w-[92vw]'
+  // 'scores' and 'matrix' both host 3-player tables — at 320px the third
+  // player's column fell off the edge, so they get the wide (~26rem) drawer.
+  const widthClass = (panel === 'scores' || panel === 'matrix')
+    ? 'w-[26rem] max-w-[95vw]'
+    : 'w-80 max-w-[92vw]'
   return (
     <>
       {/* Backdrop scrim — clicking anywhere outside the drawer closes it. */}
@@ -38,7 +45,16 @@ export default function ScoreDrawer({ panel, onClose }) {
           {panel === 'scores' && <ScoreTable />}
           {panel === 'scores' && <WinProbability />}
           {panel === 'matrix' && <GameTypeMatrix />}
-          {panel === 'chart'  && <ScoreChart />}
+          {panel === 'chart'  && (
+            <Suspense fallback={
+              <div className="text-center text-xs font-typewriter py-6"
+                   style={{ color: 'rgba(59,35,20,0.55)' }}>
+                იტვირთება…
+              </div>
+            }>
+              <ScoreChart />
+            </Suspense>
+          )}
           {panel === 'last'   && <LastTrickView />}
         </div>
       </div>

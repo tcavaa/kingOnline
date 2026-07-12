@@ -1,10 +1,15 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { EventBus } from '../game/EventBus'
 import { saveGame } from '../lib/leaderboard'
 import { API_BASE } from '../lib/api'
+import { voicePlayer } from '../lib/voicePlayer'
 
 const GameContext = createContext(null)
+// Chat traffic (messages, table bubbles, typing pings) changes at keystroke
+// frequency. It lives in its own context so that churn re-renders only the
+// 2-3 chat consumers instead of every useGame() component + the canvas.
+const ChatContext = createContext(null)
 
 // ── Hand sorting ──────────────────────────────────────────────────────────────
 const RANK_ORDER = ['A', 'K', 'Q', 'J', '10', '9', '8', '7']
@@ -181,7 +186,10 @@ export function GameProvider({ children }) {
       // socket-layer id unchanged while still resolving the correct file
       // path here (and is a no-op for the plain lowercase ids).
       const a = new Audio(`/sounds/${encodeURIComponent(id)}.mp3`)
-      a.preload = 'auto'
+      // 'none': don't fetch 17 MP3s (~1.2 MB) during page load. The first-
+      // gesture unlock pass below plays each element muted, which triggers
+      // the actual download — same audible behavior, off the critical path.
+      a.preload = 'none'
       a.volume = 0.7
       map[id] = a
     }
@@ -194,27 +202,25 @@ export function GameProvider({ children }) {
     const unlock = () => {
       if (unlocked) return
       unlocked = true
-      // We need to call .play() on each element to convince the browser this
-      // gesture covers them, but .play() is async — there's a window between
-      // it starting and the .then(pause) firing where audio is audibly playing.
-      // Mute the element across that window so the user hears nothing during
-      // the priming pass, then restore the volume once it's safely paused.
+      // Prime every element inside this user gesture so later socket-driven
+      // .play() calls are allowed by the autoplay policy. The elements STAY
+      // muted for the entire priming pass — they are only unmuted inside the
+      // real playback path (the `play-sound` handler). Unmuting here used to
+      // race: a rejected/interrupted prime could flip `muted` back off while
+      // another prime was still playing, occasionally blasting all 17 clips
+      // at once on page load. Priming is also strictly once per session —
+      // no retry loop to interleave with itself.
       Object.values(audioElsRef.current || {}).forEach(a => {
-        const restore = () => {
-          a.pause()
-          a.currentTime = 0
-          a.muted = false
-        }
-        a.muted = true
-        const p = a.play()
-        if (p && typeof p.then === 'function') {
-          p.then(restore).catch(() => {
-            a.muted = false
-            unlocked = false
-          })
-        } else {
-          setTimeout(restore, 0)
-        }
+        try {
+          a.muted = true
+          const stop = () => { a.pause(); a.currentTime = 0 }
+          const p = a.play()
+          if (p && typeof p.then === 'function') {
+            p.then(stop).catch(() => { /* stays muted & idle — never audible */ })
+          } else {
+            setTimeout(stop, 0)
+          }
+        } catch { /* ignore */ }
       })
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown',     unlock)
@@ -325,12 +331,11 @@ export function GameProvider({ children }) {
       setIsCreator(seat === 0)
       if (reconnected) {
         // Server re-bound this socket to the existing seat. Pick the
-        // right screen based on whether the room had already started —
-        // a tab-switch during the lobby should drop us back onto
-        // WaitingRoom, not flash the empty game UI. For an in-game
-        // reconnect, the follow-up `game-state` event will rehydrate
-        // the table from the server's authoritative snapshot.
-        setAppPhase(status === 'waiting' ? 'waiting' : 'game')
+        // right screen based on the room's lifecycle: lobby reconnects go
+        // back to WaitingRoom, finished games go to the results screen
+        // (never the table), and live games rehydrate via the follow-up
+        // `game-state` snapshot.
+        setAppPhase(status === 'waiting' ? 'waiting' : status === 'finished' ? 'gameover' : 'game')
         hadDisconnectRef.current = false
         setReconnecting(false)
       } else {
@@ -659,6 +664,10 @@ export function GameProvider({ children }) {
         try {
           a.pause()
           a.currentTime = 0
+          // Elements are kept muted after the unlock priming pass — unmute
+          // only here, in the real playback path.
+          a.muted = false
+          a.volume = 0.7
           a.play().catch(() => { /* still blocked — needs a fresh gesture */ })
         } catch { /* ignore */ }
       }
@@ -740,7 +749,10 @@ export function GameProvider({ children }) {
           // window, otherwise every voice message leaks its blob.
           const dropped = next.length > 50 ? next.slice(0, next.length - 50) : []
           dropped.forEach(m => {
-            if (m.type === 'voice' && m.url) URL.revokeObjectURL(m.url)
+            // Never yank the blob out from under a clip that's mid-play.
+            if (m.type === 'voice' && m.url && voicePlayer.playingUrl() !== m.url) {
+              URL.revokeObjectURL(m.url)
+            }
           })
           return next.slice(-50)
         })
@@ -803,7 +815,32 @@ export function GameProvider({ children }) {
     })
 
     socket.on('game-state', (state) => {
-      setAppPhase('game')
+      // A snapshot of a FINISHED game must never drag the user back onto
+      // the table. Late snapshots arrive after game over (visibility-resume
+      // resync, a socket blip reconnect, the error-path resync) — route
+      // them to the game-over screen instead, rebuilding finalResults from
+      // the snapshot if this client never saw the live `game-over` event
+      // (e.g. a refresh on the results screen).
+      if (state.phase === 'game_over') {
+        setFinalResults(prev => {
+          if (prev) return prev
+          const fs = state.cumulativeScores || {}
+          let winnerSeat = 0
+          for (let s = 1; s < 3; s++) {
+            if ((fs[s] ?? -Infinity) > (fs[winnerSeat] ?? -Infinity)) winnerSeat = s
+          }
+          const wp = (state.players || []).find(pl => pl.seat === winnerSeat)
+          return {
+            finalScores: fs,
+            winner: { seat: winnerSeat, name: wp?.name || `მოთამაშე ${winnerSeat}`, score: fs[winnerSeat] ?? 0 },
+            players: state.players || [],
+            roundDetails: state.roundDetails || [],
+          }
+        })
+        setAppPhase('gameover')
+      } else {
+        setAppPhase('game')
+      }
       if (state.players)                       setPlayers(state.players)
       if (state.hand)                          setHand(sortHand(state.hand))
       if (state.phase)                         setGamePhase(state.phase)
@@ -1007,28 +1044,58 @@ export function GameProvider({ children }) {
     })
   }, [])
 
+  // Both context values are memoized so a provider re-render only invalidates
+  // consumers whose slice actually changed. All the callbacks below are
+  // useCallback-stable, so in practice each memo recomputes only when one of
+  // its state fields updates.
+  const chatValue = useMemo(() => ({
+    chatMessages, chatBubbles, typingSeats,
+    sendChat, sendVoice, sendTyping, playSound,
+  }), [
+    chatMessages, chatBubbles, typingSeats,
+    sendChat, sendVoice, sendTyping, playSound,
+  ])
+
+  const gameValue = useMemo(() => ({
+    connected,
+    roomCode, players, mySeat, myName, isCreator,
+    appPhase,
+    gamePhase, round, leaderSeat, chosenGameType, trumpSuit, usedTypes,
+    hand, cardCounts, centerCards, lastCenterCards,
+    currentTrick, ledSuit, trickNumber, currentTurn, tricksTaken,
+    lastTrickResult, trickAnimation, playPending,
+    roundScores, roundDetails, cumulativeScores, finalResults,
+    toasts, disconnectedPlayer, reconnecting, selectedDiscards,
+    quitProposal, proposeQuit, voteQuit,
+    publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
+    rematch, requestRematch,
+    createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
+    playCard, nextRound, leaveRoom, toggleDiscard, addToast,
+  }), [
+    connected,
+    roomCode, players, mySeat, myName, isCreator,
+    appPhase,
+    gamePhase, round, leaderSeat, chosenGameType, trumpSuit, usedTypes,
+    hand, cardCounts, centerCards, lastCenterCards,
+    currentTrick, ledSuit, trickNumber, currentTurn, tricksTaken,
+    lastTrickResult, trickAnimation, playPending,
+    roundScores, roundDetails, cumulativeScores, finalResults,
+    toasts, disconnectedPlayer, reconnecting, selectedDiscards,
+    quitProposal, proposeQuit, voteQuit,
+    publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
+    rematch, requestRematch,
+    createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
+    playCard, nextRound, leaveRoom, toggleDiscard, addToast,
+  ])
+
   return (
-    <GameContext.Provider value={{
-      connected,
-      roomCode, players, mySeat, myName, isCreator,
-      appPhase,
-      gamePhase, round, leaderSeat, chosenGameType, trumpSuit, usedTypes,
-      hand, cardCounts, centerCards, lastCenterCards,
-      currentTrick, ledSuit, trickNumber, currentTurn, tricksTaken,
-      lastTrickResult, trickAnimation, playPending,
-      roundScores, roundDetails, cumulativeScores, finalResults,
-      toasts, disconnectedPlayer, reconnecting, selectedDiscards,
-      chatMessages, chatBubbles, sendChat, sendVoice, playSound,
-      typingSeats, sendTyping,
-      quitProposal, proposeQuit, voteQuit,
-      publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
-      rematch, requestRematch,
-      createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
-      playCard, nextRound, leaveRoom, toggleDiscard, addToast,
-    }}>
-      {children}
+    <GameContext.Provider value={gameValue}>
+      <ChatContext.Provider value={chatValue}>
+        {children}
+      </ChatContext.Provider>
     </GameContext.Provider>
   )
 }
 
 export const useGame = () => useContext(GameContext)
+export const useChat = () => useContext(ChatContext)

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState , memo } from 'react'
 import {
   Menu, Copy, Check, MessageCircle, Settings, SignalHigh, Star,
 } from 'lucide-react'
@@ -24,7 +24,7 @@ const PHASE_LABELS_KA = {
  * Top bar across the canvas: hamburger menu, room name, round / game-type /
  * trump pills, and the chat / settings / latency icons on the right.
  */
-export default function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
+function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
   const { round, chosenGameType, trumpSuit, roomCode, gamePhase } = useGame()
   const gt = getGameType(chosenGameType)
   const TypeIcon = gt?.Icon
@@ -148,3 +148,7 @@ export default function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
     </div>
   )
 }
+
+// Leaf HUD chrome: props are stable callbacks, so memo() shields it from
+// GameLayout's unrelated re-renders (chat traffic, drawer toggles).
+export default memo(TopBar)

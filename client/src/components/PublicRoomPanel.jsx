@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Users } from 'lucide-react'
 import { useGame } from '../context/GameContext'
+import AvatarImg from './AvatarImg'
 
 // Pool the 4 offered reaction emojis are drawn from (re-rolled per sit-down).
 const EMOJI_POOL = ['🍇', '🔥', '😎', '🃏', '💀', '🍺', '🐴', '🌵']
@@ -56,7 +57,7 @@ export default function PublicRoomPanel({ active }) {
               {publicRoom.roomCode}
             </span>
           )}
-          <img src="/ornament-2.png" alt=""
+          <img src="/ornament-2.webp" alt=""
                className="w-8 h-8 object-contain pointer-events-none select-none"
                style={{ opacity: 0.85 }} />
         </span>
@@ -89,11 +90,7 @@ export default function PublicRoomPanel({ active }) {
                         {occ.emoji}
                       </div>
                     )}
-                    <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
-                         style={{ background: '#000', border: '2px solid rgba(142,43,35,0.55)' }}>
-                      <img src={occ.avatar || '/avatar-default.png'} alt=""
-                           className="w-full h-full object-cover" />
-                    </div>
+                    <AvatarImg avatar={occ.avatar} size={48} ring="rgba(142,43,35,0.55)" />
                   </div>
                   <div className="text-[11px] font-western uppercase tracking-wide truncate max-w-full"
                        style={{ color: '#3b2314' }}>
@@ -106,7 +103,7 @@ export default function PublicRoomPanel({ active }) {
                 </>
               ) : (
                 <>
-                  <img src="/seat.png" alt=""
+                  <img src="/seat.webp" alt=""
                        className="w-14 h-14 object-contain pointer-events-none select-none"
                        style={{ filter: 'drop-shadow(0 2px 3px rgba(58,36,24,0.2))' }} />
                   <div className="text-[11px] font-western uppercase tracking-wide"

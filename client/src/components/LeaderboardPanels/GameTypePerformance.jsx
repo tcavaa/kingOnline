@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { GAME_TYPES, getGameType } from '../../constants/gameTypes'
+import { scoreColorClass } from '../../utils/scoreColor'
 
 /**
  * Per-game-type performance for the chosen player.
@@ -72,7 +73,7 @@ export default function GameTypePerformance({ games, players }) {
               const gt = getGameType(r.code)
               const Icon = gt?.Icon
               const avgRounded = Math.round(r.avg * 10) / 10
-              const avgCls = r.avg > 0 ? 'score-pos-soft' : r.avg < 0 ? 'score-neg-soft' : 'text-cream-dim'
+              const avgCls = scoreColorClass(r.avg)
               return (
                 <tr key={r.code} style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                   <td className="px-3 py-2">

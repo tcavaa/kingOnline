@@ -1,32 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
-import { Send, X, MessageCircle, Mic, Trash2, Play, Square } from 'lucide-react'
-import { useGame } from '../context/GameContext'
+import { Send, X, MessageCircle, Mic, Trash2, Play, Square, Smile } from 'lucide-react'
+import { useGame, useChat } from '../context/GameContext'
+import { voicePlayer } from '../lib/voicePlayer'
+import AvatarImg from './AvatarImg'
 
 const MAX_RECORD_MS = 15 * 1000
 
-/** Small play/stop pill for a received voice clip. */
+// Quick-pick emojis for the chat composer.
+const CHAT_EMOJIS = [
+  '😀', '😂', '🤣', '😎', '😉', '😜', '🥳', '😱',
+  '😡', '🤔', '😴', '🥲', '👍', '👎', '👏', '💪',
+  '🙏', '❤️', '💔', '🔥', '🍷', '🍇', '🃏', '🎉',
+]
+
+/**
+ * Small play/stop pill for a received voice clip. Playback is owned by the
+ * module-level voicePlayer, so closing the drawer (unmounting this bubble)
+ * does NOT stop a clip that's mid-play — the bubble just re-syncs its
+ * play/stop icon from the player when it mounts again.
+ */
 function VoiceBubble({ url, duration, mine }) {
-  const [playing, setPlaying] = useState(false)
-  const audioRef = useRef(null)
-
-  const toggle = () => {
-    if (!audioRef.current) {
-      const a = new Audio(url)
-      a.onended = () => setPlaying(false)
-      audioRef.current = a
-    }
-    if (playing) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-      setPlaying(false)
-    } else {
-      audioRef.current.play().catch(() => { /* blocked — needs a gesture */ })
-      setPlaying(true)
-    }
-  }
-
-  // Stop playback if the bubble unmounts (drawer closed / message pruned).
-  useEffect(() => () => { audioRef.current?.pause() }, [])
+  const [playingUrl, setPlayingUrl] = useState(() => voicePlayer.playingUrl())
+  useEffect(() => voicePlayer.subscribe(setPlayingUrl), [])
+  const playing = playingUrl === url
+  const toggle = () => voicePlayer.toggle(url)
 
   const accent = mine ? '#fdf2df' : '#8e2b23'
   return (
@@ -44,9 +41,16 @@ function VoiceBubble({ url, duration, mine }) {
 }
 
 export default function ChatOverlay({ open, onClose }) {
-  const { chatMessages, sendChat, sendVoice, mySeat, players, typingSeats, sendTyping, addToast } = useGame()
+  const { mySeat, players, addToast } = useGame()
+  const { chatMessages, sendChat, sendVoice, typingSeats, sendTyping } = useChat()
   const [text, setText] = useState('')
+  const [emojiOpen, setEmojiOpen] = useState(false)
   const listRef = useRef(null)
+
+  const addEmoji = (e) => {
+    setText(t => (t.length + e.length <= 240 ? t + e : t))
+    sendTyping()
+  }
 
   // ── Voice recording ─────────────────────────────────────────────────────
   const [recording, setRecording] = useState(false)
@@ -120,6 +124,7 @@ export default function ChatOverlay({ open, onClose }) {
     if (!text.trim()) return
     sendChat(text)
     setText('')
+    setEmojiOpen(false)
   }
 
   return (
@@ -158,12 +163,11 @@ export default function ChatOverlay({ open, onClose }) {
         {chatMessages.map((m, i) => {
           const isMine = m.seat === mySeat
           return (
-            <div key={i} className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
-              <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                   style={{ background: '#000', border: '1.5px solid rgba(142,43,35,0.55)' }}>
-                <img src={m.avatar || '/avatar-default.png'} alt=""
-                     className="w-full h-full object-cover" />
-              </div>
+            // Keyed by sender+timestamp: the list is a sliding 50-message
+            // window, so index keys would re-bind DOM to the wrong message
+            // every time the oldest entry is pruned.
+            <div key={`${m.seat}:${m.at ?? i}`} className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
+              <AvatarImg avatar={m.avatar} size={28} ring="rgba(142,43,35,0.55)" />
               <div className={`max-w-[75%] rounded-lg px-3 py-1.5 text-[12px] leading-snug font-typewriter ${isMine ? '' : ''}`}
                    style={{
                      background: isMine
@@ -190,11 +194,7 @@ export default function ChatOverlay({ open, onClose }) {
         })}
         {typingPlayers.map(p => (
           <div key={`typing-${p.seat}`} className="flex gap-2">
-            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                 style={{ background: '#000', border: '1.5px solid rgba(142,43,35,0.55)' }}>
-              <img src={p.avatar || '/avatar-default.png'} alt=""
-                   className="w-full h-full object-cover" />
-            </div>
+            <AvatarImg avatar={p.avatar} size={28} ring="rgba(142,43,35,0.55)" />
             <div className="rounded-lg px-3 py-1.5 text-[12px] leading-snug font-typewriter"
                  style={{
                    background: 'linear-gradient(180deg, rgba(245,233,207,0.95), rgba(220,200,165,0.92))',
@@ -212,11 +212,37 @@ export default function ChatOverlay({ open, onClose }) {
         ))}
       </div>
 
+      {emojiOpen && !recording && (
+        <div className="px-3 pb-1 pt-2 grid grid-cols-8 gap-1"
+             style={{ borderTop: '1px solid rgba(122,83,44,0.32)', background: 'rgba(255,250,238,0.55)' }}>
+          {CHAT_EMOJIS.map(e => (
+            <button key={e} type="button" onClick={() => addEmoji(e)}
+                    className="h-8 rounded-md text-lg leading-none flex items-center justify-center transition-all active:scale-90 hover:bg-black/5">
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={submit} className="p-3 flex gap-2"
             style={{
-              borderTop: '1px solid rgba(122,83,44,0.32)',
+              borderTop: emojiOpen && !recording ? 'none' : '1px solid rgba(122,83,44,0.32)',
               background: 'linear-gradient(0deg, rgba(122,83,44,0.1), transparent)',
             }}>
+        {!recording && (
+          <button type="button" onClick={() => setEmojiOpen(o => !o)}
+                  title="ემოჯი"
+                  className="px-2.5 rounded-lg inline-flex items-center justify-center transition-all active:scale-95"
+                  style={{
+                    background: emojiOpen
+                      ? 'linear-gradient(180deg, rgba(142,43,35,0.18), rgba(142,43,35,0.1))'
+                      : 'linear-gradient(180deg, rgba(255,250,238,0.9), rgba(238,221,189,0.92))',
+                    border: emojiOpen ? '1px solid rgba(142,43,35,0.55)' : '1px solid rgba(122,83,44,0.45)',
+                    color: '#8e2b23',
+                  }}>
+            <Smile size={16} />
+          </button>
+        )}
         {recording ? (
           <div className="casino-input flex-1 px-3 py-2 text-sm flex items-center justify-between">
             <span className="inline-flex items-center gap-2 font-typewriter" style={{ color: '#a5372b' }}>

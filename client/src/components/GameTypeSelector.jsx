@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Spade, AlertTriangle, Check, ArrowRight } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import { GAME_TYPES } from '../constants/gameTypes'
+import ModalShell from './ModalShell'
 
 const SUIT_SYMBOLS = { H: '♥', D: '♦', S: '♠', C: '♣' }
 const isRed = s => s === 'H' || s === 'D'
@@ -45,16 +46,10 @@ export default function GameTypeSelector() {
     // .hide-on-phone-landscape CSS rule) — the type code + name + payout
     // are enough to make a decision, and the description duplicates the
     // name almost verbatim ("Avoid Hearts (-5 each)" for "No Hearts").
-    <div
-      className="absolute inset-0 flex items-start lg:items-center justify-center z-30 px-2 py-1.5 lg:px-4 lg:py-3 overflow-y-auto"
-      style={{
-        background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
-        backdropFilter: 'blur(6px)',
-      }}
+    <ModalShell
+      className="items-start lg:items-center z-30 px-2 py-1.5 lg:px-4 lg:py-3 overflow-y-auto"
+      panelClassName="max-w-2xl p-2.5 lg:p-5 my-auto"
     >
-      <div
-        className="w-full max-w-2xl rounded-2xl p-2.5 lg:p-5 my-auto western-panel"
-      >
         <div className="mb-1.5 lg:mb-4">
           <div className="flex items-center gap-2">
             <Spade size={16} style={{ color: '#8e2b23' }} fill="#8e2b23" />
@@ -187,7 +182,6 @@ export default function GameTypeSelector() {
             <span>აირჩიე თამაში გასაგრძელებლად</span>
           )}
         </button>
-      </div>
-    </div>
+    </ModalShell>
   )
 }

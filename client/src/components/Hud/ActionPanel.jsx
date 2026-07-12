@@ -1,7 +1,8 @@
+import { memo } from 'react'
 import { Layers } from 'lucide-react'
 
 /** Bottom-right: brushed-brass "Last Trick" call-to-action. */
-export default function ActionPanel({ onLastTrick }) {
+function ActionPanel({ onLastTrick }) {
   return (
     // On phone landscape we bump the bottom-right inset (`bottom-3 right-3`)
     // a little further from the screen edge so the rounded screen corner
@@ -21,3 +22,7 @@ export default function ActionPanel({ onLastTrick }) {
     </div>
   )
 }
+
+// Leaf HUD chrome: props are stable callbacks, so memo() shields it from
+// GameLayout's unrelated re-renders (chat traffic, drawer toggles).
+export default memo(ActionPanel)

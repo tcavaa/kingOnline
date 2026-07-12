@@ -35,7 +35,7 @@ export default function Leaderboard({ onBack }) {
       {/* Hero podium banner */}
       <div className="w-full max-w-3xl mb-5 relative rounded-2xl overflow-hidden"
            style={{ aspectRatio: '1280 / 480', border: '1px solid rgba(122,83,44,0.25)' }}>
-        <img src="/trophy-podium.png" alt=""
+        <img src="/trophy-podium.webp" alt=""
              className="absolute inset-0 w-full h-full object-cover object-[center_42%]" />
         <div className="absolute inset-0"
              style={{ background: 'linear-gradient(180deg, rgba(246,234,208,0) 35%, rgba(246,234,208,0.9) 100%)' }} />

@@ -1,6 +1,7 @@
 import { Trash2, Ban, Star, Check, ArrowRight } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import { SuitLabel } from './Icons'
+import ModalShell from './ModalShell'
 
 const SUIT_SYMBOLS = { H: '♥', D: '♦', S: '♠', C: '♣' }
 const isRed = s => s === 'H' || s === 'D'
@@ -86,12 +87,9 @@ export default function DiscardSelector() {
   const canConfirm  = selectedDiscards.length === 2 && !bothCenterPicked
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-30 p-4"
-         style={{
-           background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
-           backdropFilter: 'blur(8px)',
-         }}>
-      <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl p-6 western-panel">
+    <ModalShell
+      className="items-center z-30 p-4"
+      panelClassName="max-w-2xl max-h-[95vh] overflow-y-auto p-6">
 
         {/* Header */}
         <div className="mb-5">
@@ -196,7 +194,6 @@ export default function DiscardSelector() {
             <ArrowRight size={16} />
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }

@@ -1,3 +1,4 @@
+import { scoreColorClass } from '../../utils/scoreColor'
 /** Running cumulative score per round (the Tally Trail table). */
 export default function ProgressionTable({ rows, players }) {
   return (
@@ -15,7 +16,7 @@ export default function ProgressionTable({ rows, players }) {
               <td className="px-3 py-2 font-mono text-amber-dim">{r.round}</td>
               {players.map(p => {
                 const v = r[p.seat] ?? 0
-                const cls = v > 0 ? 'score-pos-soft' : v < 0 ? 'score-neg-soft' : 'text-cream-dim'
+                const cls = scoreColorClass(v)
                 return (
                   <td key={p.seat} className={`px-3 py-2 text-center font-mono font-semibold ${cls}`}>
                     {v > 0 ? '+' : ''}{v}

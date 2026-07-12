@@ -7,6 +7,7 @@ import {
 import ProfileForm, { ProfilePicker } from './ProfileForm'
 import PinPromptModal from './PinPromptModal'
 import PublicRoomPanel from './PublicRoomPanel'
+import AvatarImg from './AvatarImg'
 
 function StarBar({ children }) {
   return (
@@ -192,10 +193,7 @@ export default function Lobby({ onOpenLeaderboard }) {
               {active ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl"
                      style={{ background: 'rgba(142,43,35,0.07)', border: '1px solid rgba(122,83,44,0.3)' }}>
-                  <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
-                       style={{ background: '#000', border: '2px solid rgba(142,43,35,0.55)' }}>
-                    <img src={active.avatar || '/avatar-default.png'} alt="" className="w-full h-full object-cover" />
-                  </div>
+                  <AvatarImg avatar={active.avatar} size={48} ring="rgba(142,43,35,0.55)" />
                   <div className="flex-1">
                     <div className="text-sm font-bold font-western inline-flex items-center gap-1.5"
                          style={{ color: '#3b2314' }}>
@@ -265,9 +263,9 @@ export default function Lobby({ onOpenLeaderboard }) {
               </div>
               {/* Old-Tbilisi balcony house with a wine table in front */}
               <div className="relative flex-shrink-0 w-28 h-24 pointer-events-none select-none">
-                <img src="/home.png" alt=""
+                <img src="/home.webp" alt=""
                      className="absolute inset-0 w-full h-full object-contain" />
-                <img src="/wine.png" alt=""
+                <img src="/wine.webp" alt=""
                      className="absolute -bottom-2 -left-5 w-16 h-16 object-contain"
                      style={{ filter: 'drop-shadow(0 2px 3px rgba(58,36,24,0.3))' }} />
               </div>
@@ -279,13 +277,13 @@ export default function Lobby({ onOpenLeaderboard }) {
             >
               {publicSeat !== null ? 'ზიხარ საჯარო მაგიდასთან' : (
                 <span className="inline-flex items-center justify-center gap-3">
-                  <img src="/ornament-2.png" alt=""
+                  <img src="/ornament-2.webp" alt=""
                        className="w-5 h-5 object-contain pointer-events-none select-none"
                        style={{ opacity: 0.8, filter: 'brightness(1.6)' }} />
                   <span className="inline-flex flex-col items-center leading-tight">
                     <span>დამირიგე</span>
                   </span>
-                  <img src="/ornament-2.png" alt=""
+                  <img src="/ornament-2.webp" alt=""
                        className="w-5 h-5 object-contain pointer-events-none select-none"
                        style={{ opacity: 0.8, filter: 'brightness(1.6)' }} />
                 </span>
@@ -296,7 +294,7 @@ export default function Lobby({ onOpenLeaderboard }) {
           <div className="western-panel p-6 flex flex-col">
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-1">
-                <img src="/door.png" alt=""
+                <img src="/door.webp" alt=""
                      className="w-11 h-11 object-contain pointer-events-none select-none flex-shrink-0"
                      style={{ filter: 'drop-shadow(0 1px 2px rgba(58,36,24,0.25))' }} />
                 <h2 className="text-lg font-western text-ink uppercase inline-flex flex-col leading-tight">
@@ -321,13 +319,13 @@ export default function Lobby({ onOpenLeaderboard }) {
               className="casino-btn-gold w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
             >
               <span className="inline-flex items-center justify-center gap-3">
-                <img src="/ornament.png" alt=""
+                <img src="/ornament.webp" alt=""
                      className="w-5 h-5 object-contain pointer-events-none select-none"
                      style={{ opacity: 0.85 }} />
                 <span className="inline-flex flex-col items-center leading-tight">
                   <span>შეუერთდი თამაშს</span>
                 </span>
-                <img src="/ornament.png" alt=""
+                <img src="/ornament.webp" alt=""
                      className="w-5 h-5 object-contain pointer-events-none select-none"
                      style={{ opacity: 0.85 }} />
               </span>
@@ -337,7 +335,7 @@ export default function Lobby({ onOpenLeaderboard }) {
       )}
 
       <div className="relative z-10 mt-8 max-w-xl w-full">
-        <img src="/line-ornament.png" alt=""
+        <img src="/line-ornament.webp" alt=""
              className="mx-auto mb-1 h-8 object-contain pointer-events-none select-none"
              style={{ opacity: 0.9 }} />
         <StarBar>სმა-ჭამა — დიდად შესარგი ✦ შოთა რუსთაველი</StarBar>

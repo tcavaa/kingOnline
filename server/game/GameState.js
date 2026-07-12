@@ -568,10 +568,10 @@ class GameState {
 
   /**
    * Returns a state snapshot for a given player's seat.
-   * Hand/center visibility:
-   *  - Round 1, type_selection, non-leader: hand hidden (sees own card count only) and centerCards hidden
-   *  - Other type_selection: leader sees own hand, centerCards hidden from leader, visible to others
-   *  - After type_selection: hand visible to owner; centerCards already merged into leader's hand
+   * Hand/center visibility (identical in every round, including the 1st):
+   *  - Own hand always visible to its owner.
+   *  - centerCards (prikup) hidden from the leader during type_selection;
+   *    visible to the other players until merged into the leader's hand.
    */
   getStateForPlayer(seat) {
     const cardCounts = {};
@@ -580,26 +580,9 @@ class GameState {
     }
 
     const isLeader = seat === this.leaderSeat;
-    const round1Hidden =
-      this.round === 1 &&
-      this.phase === 'type_selection' &&
-      !isLeader;
-
-    let handToSend;
-    if (round1Hidden) {
-      handToSend = [];
-    } else {
-      handToSend = this.hands[seat] || [];
-    }
-
-    let centerToSend;
-    if (this.phase === 'type_selection' && isLeader) {
-      centerToSend = [];
-    } else if (round1Hidden) {
-      centerToSend = [];
-    } else {
-      centerToSend = this.centerCards;
-    }
+    const handToSend = this.hands[seat] || [];
+    const centerToSend =
+      this.phase === 'type_selection' && isLeader ? [] : this.centerCards;
 
     return {
       round: this.round,

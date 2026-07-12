@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import AvatarImg from './AvatarImg'
 import { Swords } from 'lucide-react'
+import { scoreColorClass } from '../../utils/scoreColor'
 
 /**
  * "You vs Ramaz" panel: select a player from the dropdown and see your record
@@ -96,7 +97,7 @@ export default function HeadToHeadPanel({ games, players }) {
           <tbody>
             {mine.map(row => {
               const delta = row.total
-              const cls = delta > 0 ? 'score-pos-soft' : delta < 0 ? 'score-neg-soft' : 'text-cream-dim'
+              const cls = scoreColorClass(delta)
               return (
                 <tr key={row.other} style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                   <td className="px-3 py-2">

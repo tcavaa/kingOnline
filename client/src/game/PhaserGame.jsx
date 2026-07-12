@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import Phaser from 'phaser'
-import { useGame } from '../context/GameContext'
+import { useChat } from '../context/GameContext'
 import { PreloadScene } from './scenes/PreloadScene'
 import { GameScene, SCENE_W, SCENE_H } from './scenes/GameScene'
 import { EventBus }     from './EventBus'
 
-export default function PhaserGame({ gameState, onCardPlay }) {
+function PhaserGame({ gameState, onCardPlay }) {
   const containerRef = useRef(null)
   const gameRef      = useRef(null)
   // Latest snapshot we tried to push into Phaser. The scene re-broadcasts
@@ -13,7 +13,7 @@ export default function PhaserGame({ gameState, onCardPlay }) {
   // ref so the table renders immediately on a refresh/rejoin instead of
   // staying blank until the next state-update arrives.
   const lastStateRef = useRef(null)
-  const { playSound } = useGame()
+  const { playSound } = useChat()
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return
@@ -131,7 +131,7 @@ export default function PhaserGame({ gameState, onCardPlay }) {
         aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "url('/table-felt.png')",
+          backgroundImage: "url('/table-felt.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           filter: 'blur(12px) brightness(0.96)',
@@ -143,3 +143,8 @@ export default function PhaserGame({ gameState, onCardPlay }) {
     </div>
   )
 }
+
+// gameState is memoized upstream (GameLayout) and onCardPlay is
+// useCallback-stable, so memo() makes unrelated GameLayout renders
+// (drawer/menu/chat toggles) skip this component entirely.
+export default memo(PhaserGame)

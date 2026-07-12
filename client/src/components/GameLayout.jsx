@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useGame } from '../context/GameContext'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useGame, useChat } from '../context/GameContext'
 import { EventBus } from '../game/EventBus'
 import PhaserGame       from '../game/PhaserGame'
 import GameTypeSelector from './GameTypeSelector'
@@ -28,8 +28,9 @@ export default function GameLayout() {
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
-    trickAnimation, chatBubbles, typingSeats, playCard, playPending, roomCode,
+    trickAnimation, playCard, playPending, roomCode,
   } = useGame()
+  const { chatBubbles, typingSeats } = useChat()
 
   // One famous Georgian line per round — same pick for all three players,
   // and the round-end modal shows the identical sentence.
@@ -40,8 +41,12 @@ export default function GameLayout() {
   const [chatOpen,    setChatOpen]    = useState(false)
   const [confirmQuit, setConfirmQuit] = useState(null) // null | 'round' | 'game'
 
-  const openDrawer  = (id) => setDrawer(prev => prev === id ? null : id)
-  const closeDrawer = () => setDrawer(null)
+  const openDrawer  = useCallback((id) => setDrawer(prev => prev === id ? null : id), [])
+  const closeDrawer = useCallback(() => setDrawer(null), [])
+  const toggleMenu  = useCallback(() => setMenuOpen(o => !o), [])
+  const toggleChat  = useCallback(() => setChatOpen(o => !o), [])
+  const openScores  = useCallback(() => openDrawer('scores'), [openDrawer])
+  const openLast    = useCallback(() => openDrawer('last'), [openDrawer])
 
   const handleMenuPick = (id) => {
     if (id === 'quitRound')      setConfirmQuit('round')
@@ -52,17 +57,27 @@ export default function GameLayout() {
   // Table-side typing indicator: seats typing in chat get a "…" bubble above
   // their avatar via the same canvas bubble pipeline as real messages — a
   // real message (spread last) always wins over the typing placeholder.
-  const bubblesWithTyping = {
+  const bubblesWithTyping = useMemo(() => ({
     ...Object.fromEntries(Object.keys(typingSeats || {}).map(s => [s, { message: '• • •' }])),
     ...chatBubbles,
-  }
+  }), [typingSeats, chatBubbles])
 
-  const gameState = {
+  // Memoized so PhaserGame's `useEffect([gameState])` — which triggers a full
+  // scene teardown/redraw via EventBus — fires only when the game state
+  // actually changed, not on every unrelated GameLayout render (drawer
+  // toggles, quote changes, chat traffic). setState always produces fresh
+  // objects for real updates, so no legitimate emit is ever skipped.
+  const gameState = useMemo(() => ({
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, chatBubbles: bubblesWithTyping, playPending,
-  }
+  }), [
+    hand, cardCounts, centerCards, currentTrick, ledSuit,
+    trickNumber, currentTurn, tricksTaken, mySeat, players,
+    leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
+    trickAnimation, bubblesWithTyping, playPending,
+  ])
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
 
@@ -136,12 +151,12 @@ export default function GameLayout() {
       <PhaserGame gameState={gameState} onCardPlay={handleCardPlay} />
 
       <TopBar
-        onToggleMenu={() => setMenuOpen(o => !o)}
-        onToggleScores={() => openDrawer('scores')}
-        onToggleChat={() => setChatOpen(o => !o)}
+        onToggleMenu={toggleMenu}
+        onToggleScores={openScores}
+        onToggleChat={toggleChat}
       />
-      <ScoreBoardPanel onOpen={() => openDrawer('scores')} />
-      <ActionPanel     onLastTrick={() => openDrawer('last')} />
+      <ScoreBoardPanel onOpen={openScores} />
+      <ActionPanel     onLastTrick={openLast} />
 
       {/* Per-round poet line, hanging centre-top below the round tracker.
           Offset clears both the TopBar pills (~56px) and the transient

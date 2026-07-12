@@ -1,9 +1,11 @@
+import { memo } from 'react'
 import { ClipboardList } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
 import { Pill } from './Pill'
+import { scoreColorClass } from '../../utils/scoreColor'
 
 /** Bottom-left: Score Board pill + 3-player mini score panel. */
-export default function ScoreBoardPanel({ onOpen }) {
+function ScoreBoardPanel({ onOpen }) {
   const { players, cumulativeScores } = useGame()
   const sorted = [...players].sort((a, b) => a.seat - b.seat)
 
@@ -17,7 +19,7 @@ export default function ScoreBoardPanel({ onOpen }) {
         <div className="flex items-center gap-2 lg:gap-3">
           {sorted.map(p => {
             const score = cumulativeScores[p.seat] ?? 0
-            const colour = score > 0 ? 'score-pos-soft' : score < 0 ? 'score-neg-soft' : 'score-nil-soft'
+            const colour = scoreColorClass(score, 'score-nil-soft')
             return (
               <div key={p.seat} className="flex flex-col items-center min-w-0">
                 {/* Cap the name width so a single overlong handle can't blow
@@ -35,3 +37,7 @@ export default function ScoreBoardPanel({ onOpen }) {
     </div>
   )
 }
+
+// Leaf HUD chrome: props are stable callbacks, so memo() shields it from
+// GameLayout's unrelated re-renders (chat traffic, drawer toggles).
+export default memo(ScoreBoardPanel)

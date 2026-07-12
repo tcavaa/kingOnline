@@ -1,13 +1,7 @@
 import AvatarImg from './AvatarImg'
+import StatRow from '../StatRow'
 
-function Row({ label, value, color }) {
-  return (
-    <div className="flex items-center justify-between gap-2 text-[11px]">
-      <span className="text-amber-dim">{label}</span>
-      <span className="font-mono font-bold" style={{ color: color || '#3b2314' }}>{value}</span>
-    </div>
-  )
-}
+
 
 /** Per-player stat cards inside a single game's detail. */
 export default function PlayerStatsCards({ playerList, stats }) {
@@ -24,13 +18,13 @@ export default function PlayerStatsCards({ playerList, stats }) {
               <AvatarImg avatar={p.avatar} size={32} />
               <span className="text-sm font-black text-ink">{p.name}</span>
             </div>
-            <Row label="საბოლოო ქულა"     value={(score > 0 ? '+' : '') + score} color={colour} />
-            <Row label="წაყვანილი ხელები"      value={s.roundsLed ?? 0} />
-            <Row label="აღებული მინუსები"    value={s.totalTricks ?? 0} />
-            <Row label="აღებული დამები"    value={s.queens ?? 0} />
-            <Row label="აღებული ვალეტები"     value={s.jacks ?? 0} />
-            <Row label="აღებული გულები"    value={s.hearts ?? 0} />
-            <Row label="გულის მეფე"  value={s.kingsOfHearts ?? 0} />
+            <StatRow className="text-[11px]" label="საბოლოო ქულა"     value={(score > 0 ? '+' : '') + score} color={colour} />
+            <StatRow className="text-[11px]" label="წაყვანილი ხელები"      value={s.roundsLed ?? 0} />
+            <StatRow className="text-[11px]" label="აღებული მინუსები"    value={s.totalTricks ?? 0} />
+            <StatRow className="text-[11px]" label="აღებული დამები"    value={s.queens ?? 0} />
+            <StatRow className="text-[11px]" label="აღებული ვალეტები"     value={s.jacks ?? 0} />
+            <StatRow className="text-[11px]" label="აღებული გულები"    value={s.hearts ?? 0} />
+            <StatRow className="text-[11px]" label="გულის მეფე"  value={s.kingsOfHearts ?? 0} />
           </div>
         )
       })}

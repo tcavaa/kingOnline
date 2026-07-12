@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Volume2, X } from 'lucide-react'
-import { useGame } from '../../context/GameContext'
+import { useGame, useChat } from '../../context/GameContext'
 import { SOUNDS } from '../../constants/sounds'
 
 // Touch devices only: on desktop the compact in-canvas avatar buttons are
@@ -24,7 +24,8 @@ function isTouchDevice() {
  * it with the ✕ or by tapping the backdrop.
  */
 export default function SoundBoard() {
-  const { playSound, mySeat } = useGame()
+  const { mySeat } = useGame()
+  const { playSound } = useChat()
   const [open, setOpen] = useState(false)
   const [flash, setFlash] = useState(null)
   const [touch] = useState(isTouchDevice)

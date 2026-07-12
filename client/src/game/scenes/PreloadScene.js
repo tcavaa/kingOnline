@@ -6,8 +6,8 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('card-back-raw',  '/card-back.png')
-    this.load.image('table-felt',     '/table-felt.png')
+    this.load.image('card-back-raw',  '/card-back.webp')
+    this.load.image('table-felt',     '/table-felt.webp')
     this.load.image('avatar-default', '/avatar-default.png')
   }
 

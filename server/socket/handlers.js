@@ -226,21 +226,6 @@ function registerHandlers(io, socket, gameManager) {
         lastCenterCards: gs.lastCenterCards,
       });
 
-      // Round 1: non-leaders had their hands AND the 2 center cards hidden
-      // during type_selection. Now reveal everything.
-      if (gs.round === 1) {
-        const cardCounts = {};
-        for (let s = 0; s < 3; s++) cardCounts[s] = gs.hands[s].length;
-        for (const player of room.players) {
-          if (player.seat !== gs.leaderSeat) {
-            io.to(player.id).emit('hand-revealed', {
-              hand: gs.hands[player.seat],
-              cardCounts,
-              centerCards: gs.lastCenterCards || [],
-            });
-          }
-        }
-      }
     } catch (err) {
       emitError(err.message);
     }
@@ -797,17 +782,16 @@ function _emitHandDealt(io, room, gameState, roomCode) {
   for (let s = 0; s < 3; s++) cardCounts[s] = gameState.hands[s].length;
   for (const player of room.players) {
     const isLeader = player.seat === gameState.leaderSeat;
-    // Round 1: non-leaders see no cards (and no center) until leader picks game type
-    const round1Hidden = gameState.round === 1 && !isLeader;
-    const handToSend = round1Hidden ? [] : gameState.hands[player.seat];
-    const centerToSend = isLeader ? [] : (round1Hidden ? [] : gameState.centerCards);
     io.to(player.id).emit('hand-dealt', {
-      hand: handToSend,
-      centerCards: centerToSend,
+      // Every round (including the 1st): players see their own hand right
+      // away, and non-leaders see the 2 prikup cards while the leader is
+      // choosing. Only the leader is kept blind to the prikup until it's
+      // merged into their hand.
+      hand: gameState.hands[player.seat],
+      centerCards: isLeader ? [] : gameState.centerCards,
       leaderSeat: gameState.leaderSeat,
       round: gameState.round,
       cardCounts,
-      hidden: round1Hidden,
     });
   }
 }

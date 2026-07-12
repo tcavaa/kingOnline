@@ -28,6 +28,9 @@ export default function GameTypeMatrix() {
           თითოეული მოთამაშე ცხრავე თამაშს ირჩევს (3 წრე × 3 მოთამაშე)
         </p>
       </div>
+      {/* overflow-x safety net: on very narrow phones the 3 player columns
+          can still exceed even the widened drawer — scroll instead of clip. */}
+      <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead style={{ background: 'rgba(142,43,35,0.07)' }}>
           <tr>
@@ -94,6 +97,7 @@ export default function GameTypeMatrix() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

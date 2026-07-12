@@ -1,5 +1,6 @@
 import { getGameType } from '../../constants/gameTypes'
 import { SuitIcon } from '../Icons'
+import { scoreColorClass } from '../../utils/scoreColor'
 
 /** Per-round breakdown table inside a single game's detail view. */
 export default function RoundBreakdownTable({ details, playerList }) {
@@ -43,7 +44,7 @@ export default function RoundBreakdownTable({ details, playerList }) {
                   </td>
                   {playerList.map(p => {
                     const v = d.scores?.[p.seat] ?? 0
-                    const cls = v > 0 ? 'score-pos-soft' : v < 0 ? 'score-neg-soft' : 'text-cream-dim'
+                    const cls = scoreColorClass(v)
                     return (
                       <td key={p.seat} className={`px-3 py-2 text-center font-mono font-semibold ${cls}`}>
                         {v > 0 ? '+' : ''}{v}

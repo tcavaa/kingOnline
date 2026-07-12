@@ -1,5 +1,6 @@
 import { Flag, DoorOpen, Check, X } from 'lucide-react'
 import { useGame } from '../../context/GameContext'
+import ModalShell from '../ModalShell'
 
 /**
  * Quit-round / surrender coordination UI. Three faces:
@@ -39,14 +40,7 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
         : `${proposerName}-ს უნდა ამ ხელის დათმობა — მთელი -40 მას ჩაეწერება და მაგიდა შემდეგ ხელზე გადავა.`
 
     return (
-      <div
-        className="absolute inset-0 flex items-center justify-center z-40 px-4"
-        style={{
-          background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        <div className="w-full max-w-sm rounded-2xl p-4 lg:p-5 western-panel">
+      <ModalShell className="items-center z-40 px-4" panelClassName="max-w-sm p-4 lg:p-5">
           <div className="flex items-center gap-2 mb-2">
             <Icon size={18} style={{ color: '#8e2b23' }} />
             <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
@@ -65,18 +59,12 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
             </button>
             <button
               onClick={() => voteQuit(false)}
-              className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 inline-flex items-center justify-center gap-1.5"
-              style={{
-                background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
-                border: '1px solid rgba(122,83,44,0.35)',
-                color: '#3b2314',
-              }}
+              className="casino-btn-secondary flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95 inline-flex items-center justify-center gap-1.5"
             >
               <X size={14} /> უარი
             </button>
           </div>
-        </div>
-      </div>
+      </ModalShell>
     )
   }
 
@@ -92,14 +80,7 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
       : 'ამ ხელის მთელი -40 შენ ჩაგეწერება და მაგიდა შემდეგ ხელზე გადავა. ორივე მოთამაშე უნდა დათანხმდეს.'
 
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center z-40 px-4"
-      style={{
-        background: 'radial-gradient(ellipse at center, rgba(58,36,24,0.72) 0%, rgba(32,18,10,0.88) 100%)',
-        backdropFilter: 'blur(4px)',
-      }}
-    >
-      <div className="w-full max-w-sm rounded-2xl p-4 lg:p-5 western-panel">
+    <ModalShell className="items-center z-40 px-4" panelClassName="max-w-sm p-4 lg:p-5">
         <div className="flex items-center gap-2 mb-2">
           <Icon size={18} style={{ color: '#8e2b23' }} />
           <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
@@ -118,17 +99,11 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
           </button>
           <button
             onClick={onCloseConfirm}
-            className="flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95"
-            style={{
-              background: 'linear-gradient(180deg, rgba(248,239,221,0.95), rgba(236,217,182,0.95))',
-              border: '1px solid rgba(122,83,44,0.35)',
-              color: '#3b2314',
-            }}
+            className="casino-btn-secondary flex-1 py-2 rounded-lg font-western uppercase text-[11px] lg:text-sm tracking-wider transition-all active:scale-95"
           >
             გაუქმება
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }
