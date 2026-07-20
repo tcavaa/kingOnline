@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Layers, Trophy, User, Plus, LogOut, Lock } from 'lucide-react'
+import { Layers, Trophy, User, Plus, LogOut, Lock, Dices } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 import {
   listProfiles, getActiveProfileId, clearActiveProfile, markProfileVerified,
 } from '../lib/profiles'
+import { api } from '../lib/api'
 import ProfileForm, { ProfilePicker } from './ProfileForm'
 import PinPromptModal from './PinPromptModal'
 import PublicRoomPanel from './PublicRoomPanel'
@@ -40,6 +41,13 @@ export default function Lobby({ onOpenLeaderboard }) {
   // into `activeId`.
   const [pinPending, setPinPending] = useState(null)
 
+  // Which kind of game "Create Room" makes: casual ('public') or
+  // 'championship' (counts toward seasons, 2/day per player).
+  const [createMode, setCreateMode] = useState('public')
+  // Today's championship quota for the locked-in profile — null while
+  // loading/unknown. Refetched whenever the active profile changes.
+  const [quota, setQuota] = useState(null)
+
   // Load profiles from the server every time the lobby mounts. We
   // intentionally do NOT auto-pick the first one — on a fresh visit, the
   // user has to actively choose (and unlock) someone.
@@ -74,6 +82,26 @@ export default function Lobby({ onOpenLeaderboard }) {
   useEffect(() => { reload() }, [reload])
 
   const active = activeId ? profiles.find(p => p.id === activeId) : null
+
+  // Championship quota for the active profile. Refetched on profile switch;
+  // a failed fetch just hides the counter (server still enforces the limit).
+  useEffect(() => {
+    let cancelled = false
+    setQuota(null)
+    if (!active?.name) return undefined
+    api.getChampionshipQuota(active.name)
+      .then(q => { if (!cancelled) setQuota(q) })
+      .catch(() => { /* counter hidden; server-side check still applies */ })
+    return () => { cancelled = true }
+  }, [active?.name])
+
+  const quotaSpent = quota != null && quota.remaining <= 0
+
+  // If the championship option is selected but the quota runs out (or the
+  // profile switches to someone who spent theirs), fall back to casual.
+  useEffect(() => {
+    if (createMode === 'championship' && quotaSpent) setCreateMode('public')
+  }, [createMode, quotaSpent])
 
   const onProfileSaved = async (saved) => {
     await reload()
@@ -112,7 +140,7 @@ export default function Lobby({ onOpenLeaderboard }) {
   // socket call directly.
   const handleCreate = () => {
     if (!active) return
-    createRoom(active.name, active.avatar)
+    createRoom(active.name, active.avatar, createMode)
   }
 
   const handleJoin = () => {
@@ -241,8 +269,9 @@ export default function Lobby({ onOpenLeaderboard }) {
       </div>
 
       {!showForm && !loading && (
-        <div className="relative z-10 w-full max-w-xl mb-5">
-          <PublicRoomPanel active={active} />
+        <div className="relative z-10 w-full max-w-xl mb-5 flex flex-col gap-5">
+          <PublicRoomPanel active={active} mode="championship" quota={quota} />
+          <PublicRoomPanel active={active} mode="public" />
         </div>
       )}
 
@@ -270,6 +299,49 @@ export default function Lobby({ onOpenLeaderboard }) {
                      style={{ filter: 'drop-shadow(0 2px 3px rgba(58,36,24,0.3))' }} />
               </div>
             </div>
+
+            {/* Championship vs casual — every new room is one or the other. */}
+            <div className="mb-3">
+              <label className="block text-xs mb-1.5 uppercase font-western tracking-widest"
+                     style={{ color: 'rgba(142,43,35,0.7)' }}>თამაშის ტიპი</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreateMode('public')}
+                  className="rounded-lg px-2 py-2 text-xs font-typewriter inline-flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                  style={{
+                    background: createMode === 'public' ? 'rgba(142,43,35,0.12)' : 'rgba(122,83,44,0.07)',
+                    border: createMode === 'public' ? '1px solid rgba(142,43,35,0.65)' : '1px solid rgba(122,83,44,0.3)',
+                    color: '#3b2314',
+                    fontWeight: createMode === 'public' ? 700 : 400,
+                  }}
+                >
+                  <Dices size={13} /> უბრალო
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !quotaSpent && setCreateMode('championship')}
+                  disabled={quotaSpent}
+                  title={quotaSpent ? 'დღის ლიმიტი ამოიწურა' : undefined}
+                  className="rounded-lg px-2 py-2 text-xs font-typewriter inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:cursor-not-allowed"
+                  style={{
+                    background: createMode === 'championship' ? 'rgba(184,134,11,0.15)' : 'rgba(122,83,44,0.07)',
+                    border: createMode === 'championship' ? '1px solid rgba(184,134,11,0.7)' : '1px solid rgba(122,83,44,0.3)',
+                    color: quotaSpent ? 'rgba(59,35,20,0.4)' : '#3b2314',
+                    fontWeight: createMode === 'championship' ? 700 : 400,
+                    opacity: quotaSpent ? 0.6 : 1,
+                  }}
+                >
+                  <Trophy size={13} style={{ color: quotaSpent ? 'rgba(184,134,11,0.4)' : '#b8860b' }} /> ლიგა
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.5)' }}>
+                {createMode === 'championship'
+                  ? <>ითვლება სეზონის ჩემპიონატში{quota != null && <> · დღეს დარჩა: <strong style={{ color: quotaSpent ? '#a5372b' : '#4c7a2f' }}>{quota.remaining}/{quota.limit}</strong></>}</>
+                  : <>მეგობრული თამაში — ჩემპიონატში არ ითვლება{quotaSpent && ' (ლიგის ლიმიტი დღეს ამოიწურა)'}</>}
+              </p>
+            </div>
+
             <button
               onClick={handleCreate}
               disabled={!connected || !active || publicSeat !== null}

@@ -155,11 +155,11 @@ export function computePerGameAchievements(players, rounds) {
     }
   })
 
-  // Final scores & winner.
+  // Final scores & winners (a tie on the top score crowns several seats).
   const finalScores = {}
   seats.forEach(s => { finalScores[s] = running[s] })
-  let winner = seats[0]
-  seats.forEach(s => { if (finalScores[s] > finalScores[winner]) winner = s })
+  const bestScore = Math.max(...seats.map(s => finalScores[s]))
+  const winnerSeats = seats.filter(s => finalScores[s] === bestScore)
 
   seats.forEach(s => {
     if (plusPerfect[s].P1 && plusPerfect[s].P2 && plusPerfect[s].P3) result[s].push('PLUS_PERFECTIONIST')
@@ -168,15 +168,20 @@ export function computePerGameAchievements(players, rounds) {
     if (neverBelow[s]) result[s].push('NEVER_BELOW_ZERO')
   })
 
-  // UNDERDOG — winner spent strictly more rounds in last place than anyone else.
-  const others = seats.filter(s => s !== winner)
-  const maxOtherLast = others.length ? Math.max(...others.map(s => lastPlaceCount[s])) : 0
-  if (lastPlaceCount[winner] > maxOtherLast) result[winner].push('UNDERDOG')
+  // UNDERDOG — a winner who spent strictly more rounds in last place than
+  // every non-winner. Checked per tied winner.
+  for (const winner of winnerSeats) {
+    const others = seats.filter(s => !winnerSeats.includes(s))
+    const maxOtherLast = others.length ? Math.max(...others.map(s => lastPlaceCount[s])) : 0
+    if (others.length && lastPlaceCount[winner] > maxOtherLast) result[winner].push('UNDERDOG')
+  }
 
-  // RUNAWAY_WIN — 100+ point margin over 2nd place.
+  // RUNAWAY_WIN — 100+ point margin over 2nd place. Impossible on a tie
+  // (the margin between tied winners is 0), so only a sole winner earns it.
   const sorted = seats.slice().sort((a, b) => finalScores[b] - finalScores[a])
-  if (sorted.length >= 2 && finalScores[sorted[0]] - finalScores[sorted[1]] >= 100) {
-    result[winner].push('RUNAWAY_WIN')
+  if (winnerSeats.length === 1 && sorted.length >= 2 &&
+      finalScores[sorted[0]] - finalScores[sorted[1]] >= 100) {
+    result[winnerSeats[0]].push('RUNAWAY_WIN')
   }
 
   return result
@@ -232,7 +237,11 @@ export function computeAllLifetimeAchievements(games = []) {
     let streak = 0
     let maxStreak = 0
     for (const g of mine) {
-      if (g.winner?.name === name) {
+      // Tie-aware: shared top scores count as wins for everyone involved.
+      const winnerNames = Array.isArray(g.winners) && g.winners.length
+        ? g.winners.map(w => w?.name)
+        : [g.winner?.name]
+      if (winnerNames.includes(name)) {
         wins++
         streak++
         if (streak > maxStreak) maxStreak = streak

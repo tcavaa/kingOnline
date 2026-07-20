@@ -39,7 +39,8 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
   useEffect(() => {
     if (playedRef.current || !finalResults) return
     playedRef.current = true
-    const iWon = finalResults.winner?.seat === mySeat
+    const winnersArr = finalResults.winners?.length ? finalResults.winners : [finalResults.winner].filter(Boolean)
+    const iWon = winnersArr.some(w => w?.seat === mySeat)
     const colors = ['#8e2b23', '#e3b04b', '#4c7a2f', '#c08a26', '#a5372b']
     confetti({
       particleCount: iWon ? 240 : 100,
@@ -65,7 +66,11 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
     )
   }
 
-  const { winner, finalScores, players: fp } = finalResults
+  const { winner, finalScores, players: fp, mode } = finalResults
+  // Ties crown everyone on the top score; single wins are a 1-element list.
+  const winners = finalResults.winners?.length ? finalResults.winners : [winner].filter(Boolean)
+  const winnerSeats = new Set(winners.map(w => w.seat))
+  const isTie = winnerSeats.size > 1
   const playerList = (fp || players).slice().sort((a, b) => a.seat - b.seat)
   const allPlayers = (fp || players).slice().sort((a, b) =>
     (finalScores?.[b.seat] ?? 0) - (finalScores?.[a.seat] ?? 0)
@@ -147,14 +152,24 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                style={{ background: 'linear-gradient(180deg, rgba(13,10,26,0) 45%, rgba(13,10,26,0.92) 100%)' }} />
           <div className="absolute inset-x-0 bottom-0 px-6 py-6 text-center">
             <p className="text-xs uppercase tracking-[0.35em] mb-2"
-               style={{ color: 'rgba(255,255,255,0.65)' }}>გამარჯვებული</p>
-            <h1 className="text-4xl sm:text-5xl font-black mb-2"
+               style={{ color: 'rgba(255,255,255,0.65)' }}>
+              {isTie ? '🤝 ფრეა — გამარჯვებულები' : 'გამარჯვებული'}
+            </p>
+            <h1 className={`${isTie ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl'} font-black mb-2`}
                 style={{ color: '#f0a500', textShadow: '0 4px 28px rgba(0,0,0,0.85), 0 0 36px rgba(240,165,0,0.45)', fontFamily: 'Georgia, serif' }}>
-              {winner?.name}
+              {winners.map(w => w.name).join(' & ')}
             </h1>
-            <div className="inline-block rounded-xl px-5 py-1.5 text-sm font-bold backdrop-blur-md"
-                 style={{ background: 'rgba(240,165,0,0.18)', border: '1px solid rgba(240,165,0,0.45)', color: '#fbe7a3' }}>
-              საბოლოო ქულა: {finalScores?.[winner?.seat] > 0 ? '+' : ''}{finalScores?.[winner?.seat] ?? 0}
+            <div className="inline-flex items-center gap-2 flex-wrap justify-center">
+              <div className="inline-block rounded-xl px-5 py-1.5 text-sm font-bold backdrop-blur-md"
+                   style={{ background: 'rgba(240,165,0,0.18)', border: '1px solid rgba(240,165,0,0.45)', color: '#fbe7a3' }}>
+                საბოლოო ქულა: {finalScores?.[winner?.seat] > 0 ? '+' : ''}{finalScores?.[winner?.seat] ?? 0}
+              </div>
+              {mode && (
+                <div className="inline-block rounded-xl px-4 py-1.5 text-xs font-bold backdrop-blur-md"
+                     style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)' }}>
+                  {mode === 'championship' ? '🏆 ლიგა' : '🎲 უბრალო'}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -172,7 +187,7 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                 <div key={p.seat} className="flex items-center gap-4 px-5 py-4"
                      style={{
                        borderBottom: idx < allPlayers.length - 1 ? '1px solid rgba(122,83,44,0.12)' : 'none',
-                       background: idx === 0 ? 'rgba(142,43,35,0.07)' : 'transparent',
+                       background: winnerSeats.has(p.seat) ? 'rgba(142,43,35,0.07)' : 'transparent',
                      }}>
                   <div className="w-8 flex items-center justify-center">
                     {RankIcon ? <RankIcon size={24} style={{ color: RANK_COLOR[idx] }} /> : null}
@@ -180,10 +195,10 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white" style={{ color: '#3b2314' }}>{p.name}</span>
-                      {p.seat === winner?.seat && (
+                      {winnerSeats.has(p.seat) && (
                         <span className="text-[10px] rounded-full px-2 py-0.5 font-bold"
                               style={{ background: 'rgba(142,43,35,0.1)', color: '#8e2b23', border: '1px solid rgba(142,43,35,0.3)' }}>
-                          გამარჯვებული
+                          {isTie ? '🤝 გამარჯვებული (ფრე)' : 'გამარჯვებული'}
                         </span>
                       )}
                       {joinedSet.has(p.seat) && (

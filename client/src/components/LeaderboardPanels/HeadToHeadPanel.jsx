@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import AvatarImg from './AvatarImg'
 import { Swords } from 'lucide-react'
 import { scoreColorClass } from '../../utils/scoreColor'
+import { isWinnerName } from '../../lib/leaderboard'
 
 /**
  * "You vs Ramaz" panel: select a player from the dropdown and see your record
@@ -31,8 +32,9 @@ function buildH2H(games) {
         row.bTotal += bScore
         if (aScore > row.aBest) row.aBest = aScore
         if (bScore > row.bBest) row.bBest = bScore
-        if (g.winner?.name === row.a)      row.aWins += 1
-        else if (g.winner?.name === row.b) row.bWins += 1
+        // Tie-aware: a shared top score means both names take a win.
+        if (isWinnerName(g, row.a)) row.aWins += 1
+        if (isWinnerName(g, row.b)) row.bWins += 1
         map.set(key, row)
       }
     }

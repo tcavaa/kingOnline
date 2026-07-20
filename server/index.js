@@ -159,9 +159,18 @@ app.post('/api/profiles/:id/verify-pin', async (req, res) => {
   } catch (err) { sendErr(res, err); }
 });
 
+// Normalise a `?mode=` query into 'championship' | 'public' | 'all'.
+// Internal endpoints default to 'all' (King Online's own leaderboard shows
+// everything); the public API defaults to 'championship' (see below).
+function parseMode(value, fallback) {
+  return value === 'championship' || value === 'public' || value === 'all'
+    ? value
+    : fallback;
+}
+
 // ─── Leaderboard (read-only + append) ───────────────────────────────────────
 app.get('/api/games', async (req, res) => {
-  try { res.json(await store.listGames(req.query.limit)); }
+  try { res.json(await store.listGames(req.query.limit, parseMode(req.query.mode, 'all'))); }
   catch (err) { sendErr(res, err); }
 });
 
@@ -190,12 +199,17 @@ app.post('/api/games', async (req, res) => {
 //   • Stripped down payload: removes base64 avatars so the response stays
 //     small enough to be useful (avatars can be 30–40 KB each × 3 players ×
 //     50 games = ~6 MB otherwise).
+//   • CHAMPIONSHIP-ONLY BY DEFAULT: external consumers (the score app's
+//     seasons/analytics) must only count championship games, so `mode`
+//     defaults to 'championship' here. Pass `?mode=public` or `?mode=all`
+//     to opt into casual games.
 //
 // Endpoints:
-//   GET /api/public/games[?limit=N]      list of recent games (most recent first)
+//   GET /api/public/games[?limit=N&mode=championship|public|all]
 //   GET /api/public/games/:id            full record for one game
 //   GET /api/public/stats/:name          lifetime counters for a player
 //   GET /api/public/leaderboard          aggregate per-player win/score table
+//   GET /api/public/quota/:name          today's championship quota for a player
 {
   const publicRouter = express.Router();
   publicRouter.use(cors({
@@ -214,7 +228,7 @@ app.post('/api/games', async (req, res) => {
 
   publicRouter.get('/games', async (req, res) => {
     try {
-      const games = await store.listGames(req.query.limit);
+      const games = await store.listGames(req.query.limit, parseMode(req.query.mode, 'championship'));
       const keepAvatars = String(req.query.include || '').includes('avatar');
       res.json(keepAvatars ? games : games.map(stripAvatars));
     } catch (err) { sendErr(res, err); }
@@ -230,12 +244,17 @@ app.post('/api/games', async (req, res) => {
   });
 
   publicRouter.get('/stats/:name', async (req, res) => {
-    try { res.json(await store.getLifetimeStats(req.params.name)); }
+    try { res.json(await store.getLifetimeStats(req.params.name, parseMode(req.query.mode, 'championship'))); }
     catch (err) { sendErr(res, err); }
   });
 
-  publicRouter.get('/leaderboard', async (_req, res) => {
-    try { res.json(await store.getPublicLeaderboard()); }
+  publicRouter.get('/leaderboard', async (req, res) => {
+    try { res.json(await store.getPublicLeaderboard(parseMode(req.query.mode, 'championship'))); }
+    catch (err) { sendErr(res, err); }
+  });
+
+  publicRouter.get('/quota/:name', async (req, res) => {
+    try { res.json(await store.getChampionshipQuota(req.params.name)); }
     catch (err) { sendErr(res, err); }
   });
 
@@ -245,9 +264,17 @@ app.post('/api/games', async (req, res) => {
 // ─── Lifetime stats per player name ─────────────────────────────────────────
 app.get('/api/stats/:name', async (req, res) => {
   try {
-    const stats = await store.getLifetimeStats(req.params.name);
+    const stats = await store.getLifetimeStats(req.params.name, parseMode(req.query.mode, 'all'));
     res.json(stats);
   } catch (err) { sendErr(res, err); }
+});
+
+// ─── Championship daily quota ───────────────────────────────────────────────
+// The lobby asks for this to grey out championship options once the player
+// has finished their 2 championship games of the day.
+app.get('/api/quota/:name', async (req, res) => {
+  try { res.json(await store.getChampionshipQuota(req.params.name)); }
+  catch (err) { sendErr(res, err); }
 });
 // NOTE: a `DELETE /api/games` mass-clear endpoint used to live here. It was
 // removed deliberately — there's no auth model for who is allowed to wipe the

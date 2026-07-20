@@ -4,6 +4,7 @@ import {
   CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { Users } from 'lucide-react'
+import { winnersOf, isWinnerName } from '../../lib/leaderboard'
 
 /**
  * Stacked bar chart of pairwise wins between every duo of friends across
@@ -17,15 +18,16 @@ function buildPairData(games) {
   const map = new Map()
   for (const g of games) {
     const players = g.players || []
-    if (players.length < 2 || !g.winner?.name) continue
+    if (players.length < 2 || !winnersOf(g).length) continue
     for (let i = 0; i < players.length; i++) {
       for (let j = i + 1; j < players.length; j++) {
         const A = players[i].name, B = players[j].name
         const [first, second] = [A, B].sort()
         const key = `${first}|${second}`
         const row = map.get(key) || { pair: `${first} vs ${second}`, [first]: 0, [second]: 0 }
-        if (g.winner.name === first)       row[first]  = (row[first]  || 0) + 1
-        else if (g.winner.name === second) row[second] = (row[second] || 0) + 1
+        // Tie-aware: a shared top score credits both sides of the pair.
+        if (isWinnerName(g, first))  row[first]  = (row[first]  || 0) + 1
+        if (isWinnerName(g, second)) row[second] = (row[second] || 0) + 1
         map.set(key, row)
       }
     }

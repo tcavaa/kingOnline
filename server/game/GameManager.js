@@ -27,10 +27,10 @@ class GameManager {
     this.socketRoomMap = new Map();
     // roomCode -> Timeout: pending "delete if still empty" job.
     this.roomGraceTimers = new Map();
-    // The one homepage quick-match room currently collecting players.
-    // Cleared the moment its game starts (or the room dies) so the next
-    // sitter opens a fresh public table. In-memory only.
-    this.publicRoomCode = null;
+    // The homepage quick-match rooms currently collecting players — one per
+    // game mode. Cleared the moment a table's game starts (or the room dies)
+    // so the next sitter opens a fresh table. In-memory only.
+    this.quickMatchCodes = { public: null, championship: null };
   }
 
   // ── persistence ───────────────────────────────────────────────────────────
@@ -45,6 +45,8 @@ class GameManager {
       code: room.code,
       creatorSeat: room.creatorSeat,
       status: room.status,
+      mode: room.mode || 'public',
+      isPublic: !!room.isPublic,
       players: room.players.map((p) => ({
         id: p.id, name: p.name, avatar: p.avatar || null,
         seat: p.seat, connected: !!p.connected,
@@ -59,6 +61,11 @@ class GameManager {
       code: snap.code,
       creatorSeat: snap.creatorSeat ?? 0,
       status: snap.status || 'waiting',
+      // Rows written before game modes existed have no `mode` — they were
+      // all counted as championship games historically, but a *live* legacy
+      // room is safest treated as public so it can't eat a quota slot.
+      mode: snap.mode === 'championship' ? 'championship' : 'public',
+      isPublic: !!snap.isPublic,
       players: snap.players.map((p) => ({
         id: p.id || null, name: p.name, avatar: p.avatar || null,
         seat: p.seat,
@@ -146,7 +153,7 @@ class GameManager {
     return code;
   }
 
-  createRoom(socketId, playerName, avatar = null) {
+  createRoom(socketId, playerName, avatar = null, mode = 'public') {
     const roomCode = this._generateUniqueCode();
     const player = { id: socketId, name: playerName, avatar, seat: 0, connected: true };
     this.rooms.set(roomCode, {
@@ -155,6 +162,9 @@ class GameManager {
       creatorSeat: 0,
       gameState: null,
       status: 'waiting',
+      // 'championship' games count toward the daily quota and feed the
+      // public API / score-app seasons; 'public' games are casual.
+      mode: mode === 'championship' ? 'championship' : 'public',
       // Rematch coordination — populated when a finished room transitions
       // into "waiting for players to click Play Again". Lives only in
       // memory; never persisted.
@@ -394,36 +404,51 @@ class GameManager {
     this.roomGraceTimers.delete(roomCode);
   }
 
-  // ── Public quick-match room ───────────────────────────────────────────────
+  // ── Quick-match rooms (homepage tables) ────────────────────────────────────
   //
-  // The homepage shows one shared "public room" with 3 seats. Sitting joins
-  // (or lazily creates) that room; when the 3rd seat fills the game starts
-  // automatically and the public slot resets for the next trio. Reconnection
-  // reuses the normal name-based joinRoom path, so a refreshed player can be
+  // The homepage shows two shared quick-match tables with 3 seats each — one
+  // casual ("public" mode) and one championship. Sitting joins (or lazily
+  // creates) the table's room; when the 3rd seat fills the game starts
+  // automatically and the slot resets for the next trio. Reconnection reuses
+  // the normal name-based joinRoom path, so a refreshed player can be
   // re-attached to their seat via `rejoin-public`.
 
+  _normalizeQuickMatchMode(mode) {
+    return mode === 'championship' ? 'championship' : 'public';
+  }
+
+  /** The waiting quick-match room for a mode, or null if none/stale. */
+  quickMatchRoom(mode) {
+    const key = this._normalizeQuickMatchMode(mode);
+    const code = this.quickMatchCodes[key];
+    const room = code ? this.rooms.get(code) : null;
+    if (!room || room.status !== 'waiting') return null;
+    return room;
+  }
+
   /**
-   * Seat a socket at the public table. Creates the room on first sit.
+   * Seat a socket at a quick-match table. Creates the room on first sit.
    * Same-name sitters are re-attached to their existing seat (refresh-safe).
    */
-  sitPublic(socketId, playerName, avatar = null, emoji = null) {
-    let code = this.publicRoomCode;
+  sitPublic(socketId, playerName, avatar = null, emoji = null, mode = 'public') {
+    const key = this._normalizeQuickMatchMode(mode);
+    let code = this.quickMatchCodes[key];
     let room = code ? this.rooms.get(code) : null;
     if (!room || room.status !== 'waiting') {
       // Stale pointer (room started, died, or was GC'd) — start fresh.
-      this.publicRoomCode = null;
+      this.quickMatchCodes[key] = null;
       room = null;
       code = null;
     }
 
     let seat;
     if (!room) {
-      const created = this.createRoom(socketId, playerName, avatar);
+      const created = this.createRoom(socketId, playerName, avatar, key);
       code = created.roomCode;
       seat = created.seat;
       room = this.rooms.get(code);
       room.isPublic = true;
-      this.publicRoomCode = code;
+      this.quickMatchCodes[key] = code;
     } else {
       const joined = this.joinRoom(code, socketId, playerName, avatar);
       seat = joined.seat;
@@ -431,18 +456,14 @@ class GameManager {
 
     const player = room.players.find((p) => p.seat === seat);
     if (player && emoji !== undefined) player.emoji = emoji || player.emoji || null;
-    return { roomCode: code, seat };
+    return { roomCode: code, seat, mode: key };
   }
 
-  /** Homepage view of the public table (empty when none is collecting). */
-  publicRoomView() {
-    const code = this.publicRoomCode;
-    const room = code ? this.rooms.get(code) : null;
-    if (!room || room.status !== 'waiting') {
-      return { roomCode: null, seats: [] };
-    }
+  _quickMatchTableView(mode) {
+    const room = this.quickMatchRoom(mode);
+    if (!room) return { roomCode: null, seats: [] };
     return {
-      roomCode: code,
+      roomCode: room.code,
       seats: room.players.map((p) => ({
         seat: p.seat,
         name: p.name,
@@ -453,8 +474,18 @@ class GameManager {
     };
   }
 
+  /** Homepage view of both quick-match tables (empty when not collecting). */
+  publicRoomView() {
+    return {
+      public: this._quickMatchTableView('public'),
+      championship: this._quickMatchTableView('championship'),
+    };
+  }
+
   clearPublicRoom(roomCode) {
-    if (this.publicRoomCode === roomCode) this.publicRoomCode = null;
+    for (const key of Object.keys(this.quickMatchCodes)) {
+      if (this.quickMatchCodes[key] === roomCode) this.quickMatchCodes[key] = null;
+    }
   }
 
   // ── Rematch flow ─────────────────────────────────────────────────────────
@@ -485,8 +516,10 @@ class GameManager {
     let seat;
 
     if (!newRoomCode) {
-      // First click: create a fresh room with this socket as seat 0.
-      const result = this.createRoom(socketId, playerName, avatar);
+      // First click: create a fresh room with this socket as seat 0. The
+      // rematch inherits the finished game's mode (championship rematches
+      // are quota-checked in the socket handler before we get here).
+      const result = this.createRoom(socketId, playerName, avatar, oldRoom.mode);
       newRoomCode = result.roomCode;
       seat = result.seat;
       oldRoom.rematchRoomCode = newRoomCode;

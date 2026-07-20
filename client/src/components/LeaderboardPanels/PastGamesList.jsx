@@ -3,6 +3,21 @@ import { Trophy } from 'lucide-react'
 import AchievementBadges from '../AchievementBadges'
 import { computePerGameAchievements, countCodes } from '../../utils/achievements'
 
+/** Small ლიგა/უბრალო pill shown on each game row (and the detail header). */
+export function GameModeTag({ isChampionship, className = '' }) {
+  const championship = isChampionship !== false // records without the flag are legacy championship games
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold font-typewriter flex-shrink-0 ${className}`}
+      style={championship
+        ? { background: 'rgba(184,134,11,0.14)', border: '1px solid rgba(184,134,11,0.5)', color: '#b8860b' }
+        : { background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.35)', color: '#7a532c' }}
+    >
+      {championship ? <>🏆 ლიგა</> : <>🎲 უბრალო</>}
+    </span>
+  )
+}
+
 /** Clickable list of past games on the main leaderboard. */
 export default function PastGamesList({ loading, games, onSelect }) {
   // Precompute { [gameId]: { [playerName]: { [code]: count } } } once.
@@ -47,7 +62,14 @@ export default function PastGamesList({ loading, games, onSelect }) {
                       style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
                 <Trophy size={18} className="text-amber" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-western uppercase text-cream">გამარჯვებული: {g.winner?.name}</div>
+                  <div className="text-sm font-western uppercase text-cream flex items-center gap-2 flex-wrap">
+                    <span>
+                      {(g.winners?.length ?? 0) > 1
+                        ? <>🤝 ფრე: {g.winners.map(w => w.name).join(' & ')}</>
+                        : <>გამარჯვებული: {g.winner?.name}</>}
+                    </span>
+                    <GameModeTag isChampionship={g.isChampionship} />
+                  </div>
                   <div className="text-[11px] text-cream-dim">
                     {new Date(g.playedAt).toLocaleString()} · {g.players?.length} მოთამაშე
                   </div>

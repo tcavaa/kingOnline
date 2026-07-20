@@ -14,6 +14,12 @@
       "runtimeArgs": ["start"],
       "cwd": "server",
       "port": 3001
+    },
+    {
+      "name": "kingscore",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "../KingScoreApp", "--", "--port", "5174"],
+      "port": 5174
     }
   ]
 }

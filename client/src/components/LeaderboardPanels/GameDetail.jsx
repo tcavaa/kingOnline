@@ -6,6 +6,7 @@ import RoundBreakdownTable from './RoundBreakdownTable'
 import ProgressionTable    from './ProgressionTable'
 import ProgressionChart    from './ProgressionChart'
 import AchievementBadges   from '../AchievementBadges'
+import { GameModeTag }     from './PastGamesList'
 import { computePerGameAchievements, countCodes } from '../../utils/achievements'
 
 /** Detail page for one finished game. */
@@ -64,11 +65,14 @@ export default function GameDetail({ game, onBack }) {
 
   return (
     <div className="w-full max-w-3xl">
-      <button onClick={onBack}
-              className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold"
-              style={{ background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
-        <ArrowLeft size={14} /> უკან ყველა თამაშთან
-      </button>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <button onClick={onBack}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold"
+                style={{ background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
+          <ArrowLeft size={14} /> უკან ყველა თამაშთან
+        </button>
+        <GameModeTag isChampionship={game.isChampionship} />
+      </div>
 
       <PodiumView game={game} sortedPlayers={sortedPlayers} />
 

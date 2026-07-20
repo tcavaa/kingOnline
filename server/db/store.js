@@ -139,7 +139,22 @@ function rowToProfile(row) {
 
 // ─── finished games ──────────────────────────────────────────────────────────
 
-async function listGames(limit = 50) {
+// How many championship games a player may finish per calendar day (server
+// time). Enforced at room creation / join / quick-match sit; also exposed via
+// the quota endpoint so the lobby can grey the championship options out.
+const CHAMPIONSHIP_DAILY_LIMIT = 2;
+
+// `mode` narrows a finished-games query: 'championship' | 'public' | 'all'.
+function modeClause(mode) {
+  if (mode === 'championship') return ' WHERE is_championship = 1';
+  if (mode === 'public')       return ' WHERE is_championship = 0';
+  return '';
+}
+
+const GAME_COLUMNS =
+  'id, played_at, winner_name, winner_seat, winner_score, is_championship, payload';
+
+async function listGames(limit = 50, mode = 'all') {
   // `limit=all` (or any non-numeric truthy string starting with 'a') returns
   // every finished game. Used by the Hall-of-Fame leaderboard so its
   // per-player aggregates and graphs include the full history. All other
@@ -147,15 +162,15 @@ async function listGames(limit = 50) {
   const wantAll = typeof limit === 'string' && limit.toLowerCase().startsWith('a');
   if (wantAll) {
     const [rows] = await pool().query(
-      `SELECT id, played_at, winner_name, winner_seat, winner_score, payload
-       FROM finished_games ORDER BY played_at DESC`
+      `SELECT ${GAME_COLUMNS}
+       FROM finished_games${modeClause(mode)} ORDER BY played_at DESC`
     );
     return rows.map(rowToGame);
   }
   const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
   const [rows] = await pool().query(
-    `SELECT id, played_at, winner_name, winner_seat, winner_score, payload
-     FROM finished_games ORDER BY played_at DESC LIMIT ?`,
+    `SELECT ${GAME_COLUMNS}
+     FROM finished_games${modeClause(mode)} ORDER BY played_at DESC LIMIT ?`,
     [safeLimit]
   );
   return rows.map(rowToGame);
@@ -163,7 +178,7 @@ async function listGames(limit = 50) {
 
 async function getGame(id) {
   const [rows] = await pool().query(
-    `SELECT id, played_at, winner_name, winner_seat, winner_score, payload
+    `SELECT ${GAME_COLUMNS}
      FROM finished_games WHERE id = ? LIMIT 1`,
     [id]
   );
@@ -179,21 +194,37 @@ async function saveFinishedGame(record) {
     ? new Date(record.playedAt)
     : new Date();
 
+  // `winners` covers ties: every player who finished on the top score. The
+  // legacy `winner` (single) columns stay for backward compatibility — they
+  // always hold the first (lowest-seat) winner.
+  const winners = Array.isArray(record.winners) && record.winners.length
+    ? record.winners.map((w) => ({ seat: w.seat ?? 0, name: w.name, score: w.score ?? 0 }))
+    : [{ seat: record.winner.seat ?? 0, name: record.winner.name, score: record.winner.score ?? 0 }];
+
+  // Records that don't carry the flag (older deployed clients) count as
+  // championship — that matches how every pre-flag game was treated.
+  const isChampionship = record.isChampionship === undefined
+    ? 1
+    : (record.isChampionship ? 1 : 0);
+
   const payload = JSON.stringify({
     players: record.players,
     roundDetails: record.roundDetails || [],
+    winners,
+    isTie: winners.length > 1,
   });
 
   await pool().query(
     `INSERT IGNORE INTO finished_games
-       (id, played_at, winner_name, winner_seat, winner_score, payload)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, played_at, winner_name, winner_seat, winner_score, is_championship, payload)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       playedAt,
       record.winner.name,
       record.winner.seat ?? 0,
       record.winner.score ?? 0,
+      isChampionship,
       payload,
     ]
   );
@@ -207,24 +238,34 @@ function rowToGame(row) {
   const playedAt = row.played_at instanceof Date
     ? row.played_at.toISOString()
     : row.played_at;
+  const winner = {
+    name: row.winner_name,
+    seat: row.winner_seat,
+    score: row.winner_score,
+  };
+  // Pre-tie-support rows have no `winners` in the payload — synthesise a
+  // single-entry list from the winner columns so consumers can always rely
+  // on `winners` being present.
+  const winners = Array.isArray(payload.winners) && payload.winners.length
+    ? payload.winners
+    : [winner];
   return {
     id: row.id,
     playedAt,
-    winner: {
-      name: row.winner_name,
-      seat: row.winner_seat,
-      score: row.winner_score,
-    },
+    winner,
+    winners,
+    isTie: winners.length > 1,
+    isChampionship: row.is_championship === undefined ? true : !!row.is_championship,
     players: payload.players || [],
     roundDetails: payload.roundDetails || [],
   };
 }
 
-async function getLifetimeStats(name) {
+async function getLifetimeStats(name, mode = 'all') {
   if (!name) throw new Error('name is required');
   const [rows] = await pool().query(
     `SELECT winner_name, winner_score, payload
-     FROM finished_games`
+     FROM finished_games${modeClause(mode)}`
   );
   const out = {
     name,
@@ -238,7 +279,12 @@ async function getLifetimeStats(name) {
     const me = (payload.players || []).find((p) => p.name === name);
     if (!me) continue;
     out.gamesPlayed += 1;
-    if (row.winner_name === name) out.wins += 1;
+    // Tie-aware: a game may have several winners (payload.winners). Fall
+    // back to the single winner_name column for rows saved before ties.
+    const winnerNames = Array.isArray(payload.winners) && payload.winners.length
+      ? payload.winners.map((w) => w.name)
+      : [row.winner_name];
+    if (winnerNames.includes(name)) out.wins += 1;
     out.totalScore += me.score ?? 0;
     for (const d of payload.roundDetails || []) {
       if (d.leaderSeat === me.seat) out.roundsLed += 1;
@@ -295,8 +341,8 @@ async function listLiveGames() {
  *
  * Returned rows are sorted by wins desc, then total score desc.
  */
-async function getPublicLeaderboard() {
-  const games = await listGames(200);
+async function getPublicLeaderboard(mode = 'all') {
+  const games = await listGames(200, mode);
   const tally = new Map();
   for (const g of games) {
     for (const p of g.players || []) {
@@ -310,7 +356,8 @@ async function getPublicLeaderboard() {
         worstScore: null,
       };
       t.gamesPlayed++;
-      if (g.winner && g.winner.name === p.name) t.wins++;
+      // Tie-aware: every player in `winners` gets the win.
+      if ((g.winners || []).some((w) => w.name === p.name)) t.wins++;
       t.totalScore += p.score || 0;
       if (t.bestScore  === null || (p.score || 0) > t.bestScore)  t.bestScore  = p.score || 0;
       if (t.worstScore === null || (p.score || 0) < t.worstScore) t.worstScore = p.score || 0;
@@ -321,6 +368,36 @@ async function getPublicLeaderboard() {
     .sort((a, b) => (b.wins - a.wins) || (b.totalScore - a.totalScore));
 }
 
+/**
+ * Daily championship quota for one player name (server-local calendar day).
+ * A "played" game is a finished championship game the player participated
+ * in — surrendered games count too, so abandoning a match doesn't refund
+ * the slot.
+ */
+async function getChampionshipQuota(name) {
+  if (!name) throw new Error('name is required');
+  const [rows] = await pool().query(
+    `SELECT payload FROM finished_games
+     WHERE is_championship = 1 AND played_at >= CURDATE()`
+  );
+  const lower = String(name).trim().toLowerCase();
+  let playedToday = 0;
+  for (const row of rows) {
+    let payload = {};
+    try { payload = JSON.parse(row.payload); } catch { continue; }
+    const played = (payload.players || []).some(
+      (p) => String(p.name || '').toLowerCase() === lower
+    );
+    if (played) playedToday += 1;
+  }
+  return {
+    name: String(name).trim(),
+    limit: CHAMPIONSHIP_DAILY_LIMIT,
+    playedToday,
+    remaining: Math.max(0, CHAMPIONSHIP_DAILY_LIMIT - playedToday),
+  };
+}
+
 module.exports = {
   // profiles
   listProfiles, getProfile, upsertProfile, deleteProfile, verifyProfilePin,
@@ -328,6 +405,8 @@ module.exports = {
   listGames, getGame, saveFinishedGame,
   // stats
   getLifetimeStats, getPublicLeaderboard,
+  // championship daily quota
+  getChampionshipQuota, CHAMPIONSHIP_DAILY_LIMIT,
   // live games (mid-flight rooms persisted for crash/rejoin recovery)
   saveLiveGame, loadLiveGame, deleteLiveGame, listLiveGames,
 };

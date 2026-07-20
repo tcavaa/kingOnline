@@ -1,26 +1,52 @@
 'use strict';
 
+const store = require('../db/store');
+
 const playerView = (p) => ({ id: p.id, name: p.name, avatar: p.avatar || null, seat: p.seat });
 const playersView = (players = []) => players.map(playerView);
+
+/**
+ * True when `playerName` has exhausted today's championship quota. Fails
+ * open (returns false) if the DB is unreachable — a broken database should
+ * degrade to "can't record games", not "can't play at all".
+ */
+async function _championshipBlocked(playerName) {
+  try {
+    const quota = await store.getChampionshipQuota(playerName);
+    return quota.remaining <= 0;
+  } catch (err) {
+    console.warn(`[handlers] championship quota check failed for ${playerName}: ${err.message}`);
+    return false;
+  }
+}
+
+const CHAMPIONSHIP_LIMIT_MESSAGE =
+  `Daily championship limit reached (${store.CHAMPIONSHIP_DAILY_LIMIT} games per day). Play a public game instead.`;
 
 function registerHandlers(io, socket, gameManager) {
   const socketId = socket.id;
 
-  function emitError(message) { socket.emit('error', { message }); }
+  function emitError(message, code) { socket.emit('error', { message, code }); }
+  function emitChampionshipLimit() { emitError(CHAMPIONSHIP_LIMIT_MESSAGE, 'CHAMPIONSHIP_LIMIT'); }
 
   // ─── create-room ─────────────────────────────────────────────────────────
-  socket.on('create-room', ({ playerName, avatar } = {}) => {
+  socket.on('create-room', async ({ playerName, avatar, mode } = {}) => {
     try {
       if (!playerName || typeof playerName !== 'string' || !playerName.trim()) {
         return emitError('playerName is required.');
       }
-      const { roomCode, seat } = gameManager.createRoom(socketId, playerName.trim(), avatar || null);
+      const roomMode = mode === 'championship' ? 'championship' : 'public';
+      if (roomMode === 'championship' && await _championshipBlocked(playerName.trim())) {
+        return emitChampionshipLimit();
+      }
+      const { roomCode, seat } = gameManager.createRoom(socketId, playerName.trim(), avatar || null, roomMode);
       socket.join(roomCode);
-      socket.emit('room-created', { roomCode, seat });
+      socket.emit('room-created', { roomCode, seat, mode: roomMode });
       const room = gameManager.getRoom(roomCode);
       io.to(roomCode).emit('player-joined', {
         players: playersView(room.players),
         roomCode,
+        mode: room.mode,
       });
     } catch (err) {
       emitError(err.message);
@@ -40,14 +66,29 @@ function registerHandlers(io, socket, gameManager) {
       if (!gameManager.getRoom(rc)) {
         await gameManager.tryLoadFromDB(rc);
       }
+
+      // Championship rooms enforce the daily quota on genuinely NEW sit-downs
+      // only — a reconnect (same name already seated) must never be blocked,
+      // or a mid-game wifi blip would lock a player out of their own table.
+      const targetRoom = gameManager.getRoom(rc);
+      if (targetRoom && targetRoom.mode === 'championship') {
+        const alreadySeated = targetRoom.players.some(
+          (p) => p.name.toLowerCase() === playerName.trim().toLowerCase()
+        );
+        if (!alreadySeated && await _championshipBlocked(playerName.trim())) {
+          return emitChampionshipLimit();
+        }
+      }
+
       const { seat, reconnected, status } = gameManager.joinRoom(rc, socketId, playerName.trim(), avatar || null);
       socket.join(rc);
+      const roomMode = gameManager.getRoom(rc)?.mode || 'public';
 
       if (reconnected) {
         // `status` tells the client which screen to land on — a lobby
         // reconnect should stay on WaitingRoom, an in-game reconnect
         // should rehydrate the table.
-        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status });
+        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status, mode: roomMode });
         const room = gameManager.getRoom(rc);
         const state = gameManager.getStateForPlayer(rc, seat);
         if (state) {
@@ -63,11 +104,12 @@ function registerHandlers(io, socket, gameManager) {
         return;
       }
 
-      socket.emit('room-joined', { roomCode: rc, seat, status });
+      socket.emit('room-joined', { roomCode: rc, seat, status, mode: roomMode });
       const room = gameManager.getRoom(rc);
       io.to(rc).emit('player-joined', {
         players: playersView(room.players),
         roomCode: rc,
+        mode: roomMode,
       });
     } catch (err) {
       emitError(err.message);
@@ -83,19 +125,32 @@ function registerHandlers(io, socket, gameManager) {
     } catch (err) { /* no-op */ }
   });
 
-  // Sit at the homepage public table. The sitter stays on the homepage —
-  // no waiting-room redirect — until the 3rd seat fills, at which point the
-  // game starts automatically for all three and the public slot resets.
-  socket.on('sit-public', ({ playerName, avatar, emoji } = {}) => {
+  // Sit at one of the homepage quick-match tables ('public' by default,
+  // 'championship' when requested). The sitter stays on the homepage — no
+  // waiting-room redirect — until the 3rd seat fills, at which point the
+  // game starts automatically for all three and the table's slot resets.
+  socket.on('sit-public', async ({ playerName, avatar, emoji, mode } = {}) => {
     try {
       if (!playerName || typeof playerName !== 'string' || !playerName.trim()) {
         return emitError('playerName is required.');
       }
+      const tableMode = mode === 'championship' ? 'championship' : 'public';
+      // Quota applies to fresh sit-downs only; re-taking your own seat after
+      // a refresh must always work.
+      if (tableMode === 'championship') {
+        const waitingRoom = gameManager.quickMatchRoom(tableMode);
+        const alreadySeated = !!waitingRoom && waitingRoom.players.some(
+          (p) => p.name.toLowerCase() === playerName.trim().toLowerCase()
+        );
+        if (!alreadySeated && await _championshipBlocked(playerName.trim())) {
+          return emitChampionshipLimit();
+        }
+      }
       const { roomCode, seat } = gameManager.sitPublic(
-        socketId, playerName.trim(), avatar || null, _sanitizeEmoji(emoji)
+        socketId, playerName.trim(), avatar || null, _sanitizeEmoji(emoji), tableMode
       );
       socket.join(roomCode);
-      socket.emit('public-seated', { roomCode, seat });
+      socket.emit('public-seated', { roomCode, seat, mode: tableMode });
       io.emit('public-room', gameManager.publicRoomView());
 
       const room = gameManager.getRoom(roomCode);
@@ -163,10 +218,10 @@ function registerHandlers(io, socket, gameManager) {
       const { seat, status } = gameManager.joinRoom(rc, socketId, name, null);
       socket.join(rc);
       if (status === 'waiting') {
-        socket.emit('public-seated', { roomCode: rc, seat });
+        socket.emit('public-seated', { roomCode: rc, seat, mode: room.mode || 'public' });
         io.emit('public-room', gameManager.publicRoomView());
       } else {
-        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status });
+        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status, mode: room.mode || 'public' });
         const state = gameManager.getStateForPlayer(rc, seat);
         if (state) {
           socket.emit('game-state', { ...state, players: playersView(room.players) });
@@ -594,7 +649,7 @@ function registerHandlers(io, socket, gameManager) {
   // broadcast so non-joiners can render a "wants to play again" badge above
   // each joined seat's avatar — and so non-clickers see the new room code
   // and can hit Play Again themselves.
-  socket.on('request-rematch', ({ playerName, avatar } = {}) => {
+  socket.on('request-rematch', async ({ playerName, avatar } = {}) => {
     try {
       const oldMapping = gameManager.getMappingBySocketId(socketId);
       if (!oldMapping) return emitError('You are not in a room.');
@@ -608,6 +663,14 @@ function registerHandlers(io, socket, gameManager) {
       const useName   = (typeof playerName === 'string' && playerName.trim()) || fallbackPlayer?.name;
       const useAvatar = avatar || fallbackPlayer?.avatar || null;
       if (!useName) return emitError('Player name unavailable.');
+
+      // A championship rematch is a brand-new championship game — the one
+      // that just finished already counts, so after a player's 2nd game of
+      // the day this correctly refuses (they can still rematch publicly by
+      // creating a room from the lobby).
+      if (oldRoom.mode === 'championship' && await _championshipBlocked(useName.trim())) {
+        return emitChampionshipLimit();
+      }
 
       const result = gameManager.requestRematch(socketId, useName.trim(), useAvatar);
       if (result.error) return emitError(result.error);
@@ -756,17 +819,54 @@ function _finishGame(io, room, roomCode, gameManager, extra = {}) {
   const gs = room.gameState;
   const finalScores = { ...gs.cumulativeScores };
   let bestScore = null;
-  let winnerSeat = null;
   for (let s = 0; s < 3; s++) {
     if (bestScore === null || finalScores[s] > bestScore) {
       bestScore = finalScores[s];
-      winnerSeat = s;
     }
   }
-  const winnerPlayer = room.players.find((p) => p.seat === winnerSeat);
+  // Everyone on the top score is a winner — a tie crowns them all. `winner`
+  // (the lowest-seat one) is kept alongside `winners` for older consumers.
+  const winners = [0, 1, 2]
+    .filter((s) => finalScores[s] === bestScore)
+    .map((s) => ({
+      seat: s,
+      name: room.players.find((p) => p.seat === s)?.name || 'Unknown',
+      score: bestScore,
+    }));
+  const winner = winners[0];
+  const isTie = winners.length > 1;
+  const mode = room.mode === 'championship' ? 'championship' : 'public';
+
+  // Server-authoritative save, fired before the broadcast so it (almost
+  // always) beats the clients' backup POST /api/games to the INSERT IGNORE.
+  // The id is derived from data all three clients also see, so whichever
+  // write lands first the row is identical — except only the server knows
+  // the room's true mode, hence saving here instead of trusting clients.
+  const scorePart = [0, 1, 2]
+    .map((s) => finalScores[s] ?? 0)
+    .join('.')
+    .replace(/-/g, 'n');
+  const sharedId = `g_${roomCode}_${winner.seat}_${scorePart}`;
+  store.saveFinishedGame({
+    id: sharedId,
+    players: room.players.map((p) => ({
+      seat: p.seat, name: p.name, avatar: p.avatar || null,
+      score: finalScores[p.seat] ?? 0,
+    })),
+    winner,
+    winners,
+    isChampionship: mode === 'championship',
+    roundDetails: gs.roundDetails || [],
+  }).catch((err) => {
+    console.warn(`[handlers] saving finished game ${sharedId} failed: ${err.message}`);
+  });
+
   io.to(roomCode).emit('game-over', {
     finalScores,
-    winner: { seat: winnerSeat, name: winnerPlayer ? winnerPlayer.name : 'Unknown', score: bestScore },
+    winner,
+    winners,
+    isTie,
+    mode,
     players: playersView(room.players),
     roundDetails: gs.roundDetails,
     ...extra,

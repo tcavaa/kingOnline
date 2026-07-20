@@ -59,6 +59,30 @@ CREATE TABLE IF NOT EXISTS finished_games (
   INDEX idx_finished_played_at (played_at)
 ) ENGINE=InnoDB;
 
+-- Championship flag. Games played in a "championship" room count toward the
+-- daily per-player championship quota and are the only games exposed by the
+-- public API by default (the score app's seasons are built from them).
+-- Existing rows default to 1 — every game recorded before the flag existed
+-- was counted by the score app, so they stay "championship" for continuity.
+DROP PROCEDURE IF EXISTS _king_add_is_championship;
+DELIMITER //
+CREATE PROCEDURE _king_add_is_championship()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME   = 'finished_games'
+       AND COLUMN_NAME  = 'is_championship'
+  ) THEN
+    ALTER TABLE finished_games
+      ADD COLUMN is_championship TINYINT(1) NOT NULL DEFAULT 1 AFTER winner_score,
+      ADD INDEX idx_finished_championship (is_championship, played_at);
+  END IF;
+END //
+DELIMITER ;
+CALL _king_add_is_championship();
+DROP PROCEDURE _king_add_is_championship;
+
 -- ─── live_games ─────────────────────────────────────────────────────────────
 -- Snapshot of every in-flight room. Updated after every state-changing
 -- action (join, play, discard, next round, etc.) so a server restart or a

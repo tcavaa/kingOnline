@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, Play, User } from 'lucide-react'
+import { Check, Copy, Play, User, Trophy, Dices } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 
 function Dots() {
@@ -16,8 +16,9 @@ function Dots() {
 const SEAT_COLOR = ['#8e2b23', '#7a532c', '#4c7a2f']
 
 export default function WaitingRoom() {
-  const { roomCode, players, mySeat, isCreator, startGame } = useGame()
+  const { roomCode, players, mySeat, isCreator, startGame, roomMode } = useGame()
   const [copied, setCopied] = useState(false)
+  const isChampionship = roomMode === 'championship'
 
   const copyCode = async () => {
     try { await navigator.clipboard.writeText(roomCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }
@@ -42,6 +43,16 @@ export default function WaitingRoom() {
           <p className="text-sm font-typewriter mt-1" style={{ color: 'rgba(59,35,20,0.55)' }}>
             გაუზიარე კოდი 2 მეგობარს
           </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-typewriter font-bold"
+               style={{
+                 background: isChampionship ? 'rgba(184,134,11,0.14)' : 'rgba(122,83,44,0.1)',
+                 border: isChampionship ? '1px solid rgba(184,134,11,0.55)' : '1px solid rgba(122,83,44,0.35)',
+                 color: isChampionship ? '#b8860b' : '#3b2314',
+               }}>
+            {isChampionship
+              ? <><Trophy size={11} /> ლიგის თამაში — ითვლება სეზონში</>
+              : <><Dices size={11} /> უბრალო თამაში</>}
+          </div>
         </div>
 
         {/* Room code card */}

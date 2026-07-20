@@ -5,6 +5,8 @@ A real-time, three-player [King](https://en.wikipedia.org/wiki/King_%28card_game
 ## Features
 
 - **3-player real-time multiplayer** over Socket.IO, with optimistic plays + server-authoritative state.
+- **Championship vs public games** — every room (created or quick-match) is either 🏆 *championship* or 🎲 *public/casual*. Championship games are capped at **2 per player per calendar day** (enforced server-side on create / join / quick-match sit / rematch), feed the public API by default, and are the only games counted in the score app's seasons. Public games are still recorded, just not season-eligible.
+- **Ties share the win** — every player who finishes on the top score is a winner (`winners` array in `game-over`, the API, stats and the leaderboard).
 - **Profiles with PIN protection** — each profile is locked to a 4-digit PIN that's hashed on the server.
 - **Persistent live games** — rooms are snapshot to MySQL, so a server restart doesn't kill an in-progress match.
 - **Silent reconnect** — a player whose socket drops auto-rejoins their seat without refreshing; rooms are kept in memory for a 90-second grace window after the last player goes offline.
@@ -43,6 +45,18 @@ mysql -u king -p king_card_game < server/db/schema.sql
 ```
 
 `schema.sql` is idempotent — re-run it any time, it will only add columns that don't yet exist.
+
+> **Upgrading an existing deployment:** re-run `schema.sql` once to add
+> `finished_games.is_championship` (existing rows default to championship so
+> historical games keep counting in the score app's seasons).
+
+### Public API modes
+
+`GET /api/public/games`, `/api/public/leaderboard` and `/api/public/stats/:name`
+return **championship games only** by default. Pass `?mode=public` or
+`?mode=all` to include casual games. `GET /api/public/quota/:name` returns the
+player's remaining championship games for today
+(`{ name, limit, playedToday, remaining }`).
 
 ## 2) Server
 

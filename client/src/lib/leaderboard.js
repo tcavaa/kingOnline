@@ -7,6 +7,20 @@ import { api } from './api'
 export const listGames = (limit = 50) => api.listGames(limit)
 export const saveGame  = (record)     => api.saveGame(record)
 
+/**
+ * Every winner of a game — ties produce several. Older records only carry
+ * the single `winner`, so fall back to a 1-element list.
+ */
+export function winnersOf(game) {
+  if (Array.isArray(game?.winners) && game.winners.length) return game.winners
+  return game?.winner ? [game.winner] : []
+}
+
+/** Did `name` win this game (including shared/tied wins)? */
+export function isWinnerName(game, name) {
+  return winnersOf(game).some(w => w?.name === name)
+}
+
 /** Aggregate stats per player name across the supplied games array. */
 export function aggregatePlayers(games = []) {
   const tally = new Map()
@@ -19,7 +33,7 @@ export function aggregatePlayers(games = []) {
         bestScore: -Infinity, worstScore: Infinity,
       }
       t.gamesPlayed++
-      if (g.winner?.name === p.name) t.wins++
+      if (isWinnerName(g, p.name)) t.wins++
       t.totalScore += p.score ?? 0
       if ((p.score ?? 0) > t.bestScore)  t.bestScore  = p.score
       if ((p.score ?? 0) < t.worstScore) t.worstScore = p.score

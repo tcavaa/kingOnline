@@ -87,10 +87,17 @@ export function GameProvider({ children }) {
   // `publicSeat` is OUR seat there (null = not sitting); while seated the
   // user stays on the lobby screen — the game only starts (and appPhase
   // flips) when the server sees the 3rd seat fill.
-  const [publicRoom, setPublicRoom] = useState({ roomCode: null, seats: [] })
+  // Two homepage quick-match tables — one casual, one championship.
+  const EMPTY_TABLE = { roomCode: null, seats: [] }
+  const [publicRoom, setPublicRoom] = useState({ public: EMPTY_TABLE, championship: EMPTY_TABLE })
   const [publicSeat, setPublicSeat] = useState(null)
   const publicSeatRef = useRef(null)
   const setPublicSeatBoth = (v) => { publicSeatRef.current = v; setPublicSeat(v) }
+  // Which quick-match table the seat belongs to ('public' | 'championship').
+  const [publicSeatMode, setPublicSeatMode] = useState(null)
+  // Mode of the room we're currently in ('public' | 'championship') — shown
+  // in the waiting room and on the game-over screen.
+  const [roomMode, setRoomMode] = useState('public')
 
   // ── Quit-round / surrender vote ─────────────────────────────────────────
   // Set while a proposal is waiting on votes:
@@ -314,21 +321,23 @@ export function GameProvider({ children }) {
       }
     })
 
-    socket.on('room-created', ({ roomCode: code, seat }) => {
+    socket.on('room-created', ({ roomCode: code, seat, mode }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(true)
+      setRoomMode(mode === 'championship' ? 'championship' : 'public')
       setAppPhase('waiting')
     })
 
-    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status }) => {
+    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(seat === 0)
+      if (mode) setRoomMode(mode === 'championship' ? 'championship' : 'public')
       if (reconnected) {
         // Server re-bound this socket to the existing seat. Pick the
         // right screen based on the room's lifecycle: lobby reconnects go
@@ -346,19 +355,25 @@ export function GameProvider({ children }) {
     socket.on('player-joined', ({ players: p }) => setPlayers(p))
     socket.on('player-left',   ({ players: p }) => setPlayers(p))
 
-    // ── Public quick-match table ────────────────────────────────────────
+    // ── Quick-match tables (casual + championship) ─────────────────────
     socket.on('public-room', (view = {}) => {
-      const v = {
-        roomCode: view.roomCode || null,
-        seats: Array.isArray(view.seats) ? view.seats : [],
-      }
+      const norm = (t) => ({
+        roomCode: t?.roomCode || null,
+        seats: Array.isArray(t?.seats) ? t.seats : [],
+      })
+      // Legacy single-table payloads (server mid-deploy) land as the casual table.
+      const v = view.public || view.championship
+        ? { public: norm(view.public), championship: norm(view.championship) }
+        : { public: norm(view), championship: { roomCode: null, seats: [] } }
       setPublicRoom(v)
       if (publicSeatRef.current === null) return
-      if (v.roomCode === roomCodeRef.current) {
+      const myTable = [v.public, v.championship].find(t => t.roomCode && t.roomCode === roomCodeRef.current)
+      if (myTable) {
         // Still the same table — but if our seat is gone the server swept
         // us out (disconnect grace expired). Stand down locally.
-        if (!v.seats.some(s => s.seat === publicSeatRef.current)) {
+        if (!myTable.seats.some(s => s.seat === publicSeatRef.current)) {
           setPublicSeatBoth(null)
+          setPublicSeatMode(null)
           roomCodeRef.current = ''
           setRoomCode('')
           setMySeat(null); mySeatRef.current = null
@@ -366,21 +381,25 @@ export function GameProvider({ children }) {
           try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
         }
       } else {
-        // The public lobby moved on — either our table filled and the game
-        // is starting (game-started handles the transition; keep the room
-        // refs for reconnection) or a fresh table opened. Either way we're
-        // no longer "seated on the homepage".
+        // The quick-match lobby moved on — either our table filled and the
+        // game is starting (game-started handles the transition; keep the
+        // room refs for reconnection) or a fresh table opened. Either way
+        // we're no longer "seated on the homepage".
         setPublicSeatBoth(null)
+        setPublicSeatMode(null)
       }
     })
 
-    socket.on('public-seated', ({ roomCode: code, seat }) => {
+    socket.on('public-seated', ({ roomCode: code, seat, mode }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(seat === 0)
       setPublicSeatBoth(seat)
+      const tableMode = mode === 'championship' ? 'championship' : 'public'
+      setPublicSeatMode(tableMode)
+      setRoomMode(tableMode)
       // Survive a refresh: rejoin-public re-attaches by room code + name.
       try {
         localStorage.setItem('king.publicSeat', JSON.stringify({ roomCode: code, name: myNameRef.current }))
@@ -389,6 +408,7 @@ export function GameProvider({ children }) {
 
     socket.on('public-unseated', () => {
       setPublicSeatBoth(null)
+      setPublicSeatMode(null)
       setRoomCode('')
       roomCodeRef.current = ''
       setMySeat(null)
@@ -399,6 +419,7 @@ export function GameProvider({ children }) {
 
     socket.on('public-rejoin-failed', () => {
       setPublicSeatBoth(null)
+      setPublicSeatMode(null)
       try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
     })
 
@@ -599,8 +620,12 @@ export function GameProvider({ children }) {
       }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
     })
 
-    socket.on('game-over', ({ finalScores, winner, players: p, roundDetails: rd, surrenderedBySeat }) => {
-      setFinalResults({ finalScores, winner, players: p, roundDetails: rd })
+    socket.on('game-over', ({ finalScores, winner, winners, isTie, mode, players: p, roundDetails: rd, surrenderedBySeat }) => {
+      // Older server payloads carry only `winner` — normalise so the
+      // game-over screen can always render from `winners`.
+      const winnersList = Array.isArray(winners) && winners.length ? winners : (winner ? [winner] : [])
+      const tie = !!isTie && winnersList.length > 1
+      setFinalResults({ finalScores, winner, winners: winnersList, isTie: tie, mode, players: p, roundDetails: rd })
       if (rd) setRoundDetails(rd)
       setGamePhase('game_over')
       setQuitProposal(null)
@@ -608,11 +633,14 @@ export function GameProvider({ children }) {
       // it pointed at is finished, so a later refresh shouldn't chase it.
       try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
       setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 200)
+      const winnerLabel = winnersList.map(w => w.name).join(' და ')
       if (typeof surrenderedBySeat === 'number') {
         const surrenderName = (p || []).find(pl => pl.seat === surrenderedBySeat)?.name || `მოთამაშე ${surrenderedBySeat}`
-        addToast(`${surrenderName} დანებდა — ${winner.name} იმარჯვებს!`, 'success')
+        addToast(`${surrenderName} დანებდა — ${winnerLabel} იმარჯვებს!`, 'success')
+      } else if (tie) {
+        addToast(`ფრეა! გამარჯვებულები: ${winnerLabel} 🤝`, 'success')
       } else {
-        addToast(`${winner.name} იმარჯვებს!`, 'success')
+        addToast(`${winnerLabel} იმარჯვებს!`, 'success')
       }
 
       // Persist this finished game to the leaderboard. Two layers of dedupe:
@@ -648,6 +676,11 @@ export function GameProvider({ children }) {
           id: sharedId,
           players: playerRecords,
           winner: { seat: winner?.seat, name: winner?.name, score: winner?.score },
+          winners: winnersList,
+          // Old servers don't send `mode` — leave the flag undefined there so
+          // the store applies its legacy default (championship) instead of
+          // mislabelling the game as public.
+          isChampionship: mode ? mode === 'championship' : undefined,
           roundDetails: rd || [],
         })
       } catch { /* ignore network/quota errors */ }
@@ -825,14 +858,19 @@ export function GameProvider({ children }) {
         setFinalResults(prev => {
           if (prev) return prev
           const fs = state.cumulativeScores || {}
-          let winnerSeat = 0
-          for (let s = 1; s < 3; s++) {
-            if ((fs[s] ?? -Infinity) > (fs[winnerSeat] ?? -Infinity)) winnerSeat = s
-          }
-          const wp = (state.players || []).find(pl => pl.seat === winnerSeat)
+          const best = Math.max(...[0, 1, 2].map(s => fs[s] ?? -Infinity))
+          const winnersList = [0, 1, 2]
+            .filter(s => (fs[s] ?? -Infinity) === best)
+            .map(s => ({
+              seat: s,
+              name: (state.players || []).find(pl => pl.seat === s)?.name || `მოთამაშე ${s}`,
+              score: fs[s] ?? 0,
+            }))
           return {
             finalScores: fs,
-            winner: { seat: winnerSeat, name: wp?.name || `მოთამაშე ${winnerSeat}`, score: fs[winnerSeat] ?? 0 },
+            winner: winnersList[0],
+            winners: winnersList,
+            isTie: winnersList.length > 1,
             players: state.players || [],
             roundDetails: state.roundDetails || [],
           }
@@ -885,13 +923,17 @@ export function GameProvider({ children }) {
       }
     })
 
-    socket.on('error', ({ message }) => {
+    socket.on('error', ({ message, code }) => {
       // If a play was in flight and got rejected, the client may have
       // optimistically removed a card — re-sync hand state from the server
       // so the player sees the correct deck again. Always release the lock.
       if (playPendingRef.current) {
         setPlayPendingBoth(false)
         socketRef.current?.emit('request-state')
+      }
+      if (code === 'CHAMPIONSHIP_LIMIT') {
+        addToast('დღის ლიმიტი ამოიწურა — 2 ლიგის თამაში დღეში. ითამაშე უბრალო ოთახში 🎲', 'error')
+        return
       }
       addToast(message, 'error')
     })
@@ -944,11 +986,11 @@ export function GameProvider({ children }) {
     })
   }, [])
 
-  const createRoom = useCallback((name, avatar = null) => {
+  const createRoom = useCallback((name, avatar = null, mode = 'public') => {
     setMyName(name)
     myNameRef.current   = name
     myAvatarRef.current = avatar
-    socketRef.current?.emit('create-room', { playerName: name, avatar })
+    socketRef.current?.emit('create-room', { playerName: name, avatar, mode })
   }, [])
 
   const joinRoom = useCallback((code, name, avatar = null) => {
@@ -998,11 +1040,11 @@ export function GameProvider({ children }) {
   const voteQuit       = useCallback((accept) => { socketRef.current?.emit('vote-quit', { accept }) }, [])
 
   // ── public quick-match actions ──────────────────────────────────────────
-  const sitPublic = useCallback((name, avatar = null, emoji = null) => {
+  const sitPublic = useCallback((name, avatar = null, emoji = null, mode = 'public') => {
     setMyName(name)
     myNameRef.current   = name
     myAvatarRef.current = avatar
-    socketRef.current?.emit('sit-public', { playerName: name, avatar, emoji })
+    socketRef.current?.emit('sit-public', { playerName: name, avatar, emoji, mode })
   }, [])
   const standPublic    = useCallback(() => { socketRef.current?.emit('stand-public') }, [])
   const setPublicEmoji = useCallback((emoji) => { socketRef.current?.emit('set-public-emoji', { emoji }) }, [])
@@ -1032,6 +1074,8 @@ export function GameProvider({ children }) {
     mySeatRef.current = null
     setIsCreator(false)
     setPublicSeatBoth(null)
+    setPublicSeatMode(null)
+    setRoomMode('public')
     try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
   }, [])
 
@@ -1067,7 +1111,8 @@ export function GameProvider({ children }) {
     roundScores, roundDetails, cumulativeScores, finalResults,
     toasts, disconnectedPlayer, reconnecting, selectedDiscards,
     quitProposal, proposeQuit, voteQuit,
-    publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
+    publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
+    roomMode,
     rematch, requestRematch,
     createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
     playCard, nextRound, leaveRoom, toggleDiscard, addToast,
@@ -1082,7 +1127,8 @@ export function GameProvider({ children }) {
     roundScores, roundDetails, cumulativeScores, finalResults,
     toasts, disconnectedPlayer, reconnecting, selectedDiscards,
     quitProposal, proposeQuit, voteQuit,
-    publicRoom, publicSeat, sitPublic, standPublic, setPublicEmoji,
+    publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
+    roomMode,
     rematch, requestRematch,
     createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
     playCard, nextRound, leaveRoom, toggleDiscard, addToast,
