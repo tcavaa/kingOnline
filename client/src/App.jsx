@@ -10,6 +10,14 @@ import RotatePrompt from './components/RotatePrompt'
 const GameLayout     = lazy(() => import('./components/GameLayout'))
 const GameOverScreen = lazy(() => import('./components/GameOverScreen'))
 const Leaderboard    = lazy(() => import('./components/Leaderboard'))
+// ჩეხური დურაკა is a self-contained side game (own socket, own screens).
+const DurakApp       = lazy(() => import('./durak/DurakApp'))
+
+// A live durak session in localStorage means the user refreshed mid-game —
+// reopen the durak section so the seat re-attaches automatically.
+function hasDurakSession() {
+  try { return !!localStorage.getItem('king.durak.session') } catch { return false }
+}
 
 /** Parchment-toned full-screen fallback shown while a lazy chunk loads.
     Background matches the GameLayout wrapper and the Phaser boot color so
@@ -61,7 +69,8 @@ function ToastContainer() {
 
 function AppInner() {
   const { appPhase } = useGame()
-  const [view, setView] = useState('main') // 'main' | 'leaderboard'
+  const [view, setView] = useState(() => (hasDurakSession() ? 'durak' : 'main')) // 'main' | 'leaderboard' | 'durak'
+  const [durakProfile, setDurakProfile] = useState(null)
 
   // Warm the game-screen chunks in the background once the lobby has painted
   // and the main thread is idle: a lobby visitor is about to play, so by the
@@ -91,11 +100,18 @@ function AppInner() {
       <ToastContainer />
       <RotatePrompt />
       <Suspense fallback={<ScreenLoader />}>
-        {view === 'leaderboard' ? (
+        {view === 'durak' ? (
+          <DurakApp profile={durakProfile} onExit={() => setView('main')} />
+        ) : view === 'leaderboard' ? (
           <Leaderboard onBack={() => setView('main')} />
         ) : (
           <>
-            {appPhase === 'lobby'    && <Lobby onOpenLeaderboard={() => setView('leaderboard')} />}
+            {appPhase === 'lobby'    && (
+              <Lobby
+                onOpenLeaderboard={() => setView('leaderboard')}
+                onOpenDurak={(profile) => { setDurakProfile(profile); setView('durak') }}
+              />
+            )}
             {appPhase === 'waiting'  && <WaitingRoom />}
             {appPhase === 'game'     && <GameLayout />}
             {appPhase === 'gameover' && <GameOverScreen onOpenLeaderboard={() => setView('leaderboard')} />}

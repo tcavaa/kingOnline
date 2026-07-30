@@ -18,7 +18,7 @@ function StarBar({ children }) {
   )
 }
 
-export default function Lobby({ onOpenLeaderboard }) {
+export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
   const { createRoom, joinRoom, connected, publicSeat } = useGame()
 
   const [profiles, setProfiles] = useState([])
@@ -272,6 +272,32 @@ export default function Lobby({ onOpenLeaderboard }) {
         <div className="relative z-10 w-full max-w-xl mb-5 flex flex-col gap-5">
           <PublicRoomPanel active={active} mode="championship" quota={quota} />
           <PublicRoomPanel active={active} mode="public" />
+
+          {/* ჩეხური დურაკა — separate side game, own rooms & rules */}
+          {onOpenDurak && (
+            <div className="western-panel p-5"
+                 style={{ border: '1px solid rgba(31,61,46,0.5)', boxShadow: '0 0 24px rgba(31,61,46,0.1)' }}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-western text-ink uppercase mb-1"
+                      style={{ color: '#1f3d2e' }}>
+                    ჩეხური დურაკა
+                  </h2>
+                  <p className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                    სხვა თამაში — 2–6 მოთამაშე · 36 კარტი · ბოლო დარჩენილი იგებს
+                  </p>
+                </div>
+                <button
+                  onClick={() => onOpenDurak(active)}
+                  disabled={!connected || !active || publicSeat !== null}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: '#1f3d2e', border: '2px solid rgba(20,40,30,0.6)', color: '#f4e8cf' }}
+                >
+                  შესვლა
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

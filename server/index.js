@@ -11,6 +11,8 @@ const cors    = require('cors');
 
 const GameManager      = require('./game/GameManager');
 const registerHandlers = require('./socket/handlers');
+const DurakManager     = require('./durak/DurakManager');
+const registerDurakHandlers = require('./durak/handlers');
 const store            = require('./db/store');
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -335,9 +337,13 @@ const io = new Server(server, {
 });
 
 const gameManager = new GameManager();
+// ჩეხური დურაკა lives in its own in-memory manager with `durak:*`-prefixed
+// events — fully isolated from the King game (no DB, no shared state).
+const durakManager = new DurakManager();
 
 io.on('connection', (socket) => {
   registerHandlers(io, socket, gameManager);
+  registerDurakHandlers(io, socket, durakManager);
 });
 
 // Restore in-flight rooms from MySQL on boot so a deploy/restart doesn't kill
