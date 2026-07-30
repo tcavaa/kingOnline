@@ -1,6 +1,7 @@
 'use strict';
 
 const DurakGame = require('./DurakGame');
+const store = require('../db/store');
 const {
   MIN_PLAYERS, MAX_PLAYERS,
   DEFAULT_TARGET_SCORE, MIN_TARGET_SCORE, MAX_TARGET_SCORE,
@@ -36,6 +37,94 @@ class DurakManager {
     let target = Number(targetScore);
     if (!Number.isFinite(target)) target = DEFAULT_TARGET_SCORE;
     return Math.round(Math.min(MAX_TARGET_SCORE, Math.max(MIN_TARGET_SCORE, target)));
+  }
+
+  // ── persistence (same crash-recovery story as the King rooms) ─────────────
+
+  _roomSnapshot(room) {
+    return {
+      code: room.code,
+      targetScore: room.targetScore,
+      creatorSeat: room.creatorSeat,
+      isPublic: !!room.isPublic,
+      status: room.status,
+      players: room.players.map((p) => ({
+        name: p.name, avatar: p.avatar || null, seat: p.seat,
+      })),
+      game: room.game ? room.game.serialize() : null,
+    };
+  }
+
+  _roomFromSnapshot(snap) {
+    if (!snap || !Array.isArray(snap.players)) return null;
+    return {
+      code: snap.code,
+      targetScore: this._clampTarget(snap.targetScore),
+      creatorSeat: snap.creatorSeat ?? 0,
+      isPublic: !!snap.isPublic,
+      status: snap.status || 'waiting',
+      players: snap.players.map((p) => ({
+        // No live socket after a restart — everyone reattaches by name.
+        id: null, name: p.name, avatar: p.avatar || null, seat: p.seat, connected: false,
+      })),
+      game: snap.game ? DurakGame.fromSnapshot(snap.game) : null,
+    };
+  }
+
+  /** Fire-and-forget snapshot to MySQL (losing one snapshot is recoverable). */
+  persistRoom(code) {
+    const room = this.rooms.get(code);
+    if (!room) {
+      store.deleteDurakLiveGame(code).catch(() => {});
+      return;
+    }
+    store.saveDurakLiveGame(code, this._roomSnapshot(room)).catch((err) => {
+      console.warn(`[durak] persist ${code} failed: ${err.message}`);
+    });
+  }
+
+  /** Rejoin recovery: pull a room MySQL still remembers back into memory. */
+  async tryLoadFromDB(code) {
+    if (this.rooms.has(code)) return this.rooms.get(code);
+    let snap;
+    try { snap = await store.loadDurakLiveGame(code); }
+    catch (err) {
+      console.warn(`[durak] tryLoadFromDB ${code} failed: ${err.message}`);
+      return null;
+    }
+    if (!snap) return null;
+    const room = this._roomFromSnapshot(snap);
+    if (!room) return null;
+    this.rooms.set(code, room);
+    if (room.isPublic && room.status === 'waiting' && !this.publicRoomCode) {
+      this.publicRoomCode = code;
+    }
+    console.log(`[durak] Hydrated room ${code} from DB (status=${room.status})`);
+    return room;
+  }
+
+  /** Boot-time restore so a deploy/restart doesn't kill in-flight matches. */
+  async hydrateAll() {
+    let entries;
+    try { entries = await store.listDurakLiveGames(); }
+    catch (err) {
+      console.warn(`[durak] hydrateAll failed: ${err.message}`);
+      return 0;
+    }
+    let loaded = 0;
+    for (const { roomCode, snapshot } of entries) {
+      if (this.rooms.has(roomCode)) continue;
+      const room = this._roomFromSnapshot(snapshot);
+      if (!room) continue;
+      this.rooms.set(roomCode, room);
+      if (room.isPublic && room.status === 'waiting' && !this.publicRoomCode) {
+        this.publicRoomCode = roomCode;
+      }
+      this.maybeArmGc(roomCode);
+      loaded += 1;
+    }
+    if (loaded > 0) console.log(`[durak] Hydrated ${loaded} live room(s) from DB.`);
+    return loaded;
   }
 
   createRoom(socketId, playerName, avatar, targetScore, isPublic = false) {
@@ -249,6 +338,7 @@ class DurakManager {
       if (r && !r.players.some((p) => p.connected)) {
         this.rooms.delete(code);
         this.clearPublicPointer(code);
+        store.deleteDurakLiveGame(code).catch(() => {});
       }
       this.gcTimers.delete(code);
     }, EMPTY_ROOM_TTL_MS);

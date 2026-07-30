@@ -567,19 +567,8 @@ body {
   background: linear-gradient(180deg, rgba(238,221,189,0.95), rgba(228,208,172,0.95));
 }
 
-/* Landscape-rotate prompt (mobile) */
-.rotate-banner {
-  position: fixed; inset: 0;
-  background: linear-gradient(180deg, #f6ead0, #e7d2ac);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 9000;
-  color: #3b2314;
-  font-family: 'Noto Serif Georgian', 'Roboto Slab', Georgia, serif;
-  box-shadow: inset 0 0 0 6px rgba(58, 36, 24, 0.9);
-}
-@media (orientation: landscape), (min-width: 600px) {
-  .rotate-banner { display: none; }
-}
+/* (The old portrait-blocking "rotate your phone" banner is gone — the game
+   is playable in both orientations.) */
 
 /* ── Phone-landscape compact HUD ──────────────────────────────────────────
    iPhones in landscape are only ~430 px tall. The default HUD pills

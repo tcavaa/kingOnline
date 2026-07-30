@@ -181,7 +181,25 @@ export function DurakProvider({ profile, children }) {
       addToast(message, 'error')
     })
 
+    // Mobile browsers throttle background tabs hard — when the tab comes
+    // back, ask for the authoritative snapshot (same safety net as King).
+    let lastResyncAt = 0
+    const onResumeVisibility = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'visible') return
+      if (!readDurakSession()) return
+      const now = Date.now()
+      if (now - lastResyncAt < 1000) return
+      lastResyncAt = now
+      socket.emit('durak:state')
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onResumeVisibility)
+    }
+
     return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onResumeVisibility)
+      }
       socket.removeAllListeners()
       socket.disconnect()
       socketRef.current = null

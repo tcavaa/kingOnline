@@ -17,7 +17,8 @@ function registerDurakHandlers(io, socket, durak) {
   const emitPublic = () => io.emit('durak:public-room', durak.publicRoomView());
 
   // Send the personalised game state to every seated (connected) player,
-  // plus the room roster. Called after anything changes.
+  // plus the room roster. Called after anything changes — which also makes
+  // it the single choke-point for persisting the room snapshot to MySQL.
   function broadcast(room) {
     if (!room) return;
     const view = durak.roomView(room);
@@ -32,6 +33,7 @@ function registerDurakHandlers(io, socket, durak) {
     }
     // Keep room.status in sync with the match phase for join gating.
     if (room.game && room.game.phase === 'match_end') room.status = 'match_end';
+    durak.persistRoom(room.code);
   }
 
   socket.on('durak:create', ({ playerName, avatar, targetScore } = {}) => {
@@ -47,15 +49,19 @@ function registerDurakHandlers(io, socket, durak) {
     } catch (err) { fail(err.message); }
   });
 
-  socket.on('durak:join', ({ roomCode, playerName, avatar } = {}) => {
+  socket.on('durak:join', async ({ roomCode, playerName, avatar } = {}) => {
     try {
       if (!roomCode || typeof roomCode !== 'string') return fail('roomCode is required.');
       if (!playerName || typeof playerName !== 'string' || !playerName.trim()) {
         return fail('playerName is required.');
       }
-      const result = durak.joinRoom(
-        roomCode.trim().toUpperCase(), socketId, playerName.trim(), avatar || null
-      );
+      const code = roomCode.trim().toUpperCase();
+      // Rejoin recovery: the server may have restarted since the room was
+      // created — rehydrate it from MySQL before falling back to "not found".
+      if (!durak.getRoom(code)) {
+        await durak.tryLoadFromDB(code);
+      }
+      const result = durak.joinRoom(code, socketId, playerName.trim(), avatar || null);
       if (result.error) return fail(result.error);
       socket.emit('durak:joined', {
         roomCode: result.room.code, seat: result.seat, reconnected: !!result.reconnected,
@@ -264,6 +270,7 @@ function registerDurakHandlers(io, socket, durak) {
       const result = durak.leaveRoom(socketId);
       socket.emit('durak:left');
       if (result && result.room) broadcast(result.room);
+      else if (result && result.roomCode) durak.persistRoom(result.roomCode); // deletes the DB row
       emitPublic();
     } catch (err) { /* no-op */ }
   });

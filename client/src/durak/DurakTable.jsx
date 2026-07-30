@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, RotateCcw, Trophy, Eye, Copy, Check,
   ScrollText, MessageSquare, LogOut, Flag, X,
@@ -142,7 +142,7 @@ function ScoreDrawer({ open, onClose, players, game }) {
 
 export default function DurakTable({ onExit }) {
   const {
-    room, game, mySeat, chatMessages,
+    room, game, mySeat, chatMessages, typingSeats,
     playCard, drawCard, takePenalty, pass, sayKarta, chooseSuit,
     nextHand, rematch, endMatch, leaveRoom,
   } = useDurak()
@@ -150,6 +150,31 @@ export default function DurakTable({ onExit }) {
   const [drawer, setDrawer] = useState(null) // null | 'score' | 'chat'
   const [copied, setCopied] = useState(false)
   const [seenChatCount, setSeenChatCount] = useState(0)
+  // Hand-end flow: a short "round done" stamp first (so everyone sees the
+  // final card on the table), the results modal 4 seconds later.
+  const [resultsVisible, setResultsVisible] = useState(false)
+  const [stampVisible, setStampVisible] = useState(false)
+  const prevPhaseRef = useRef(game.phase)
+
+  useEffect(() => {
+    const prev = prevPhaseRef.current
+    prevPhaseRef.current = game.phase
+    if (game.phase === 'hand_end' || game.phase === 'match_end') {
+      if (prev === 'playing') {
+        setStampVisible(true)
+        setResultsVisible(false)
+        const t = setTimeout(() => { setStampVisible(false); setResultsVisible(true) }, 4000)
+        return () => clearTimeout(t)
+      }
+      // Rejoining straight into a finished hand — no ceremony, show results.
+      setResultsVisible(true)
+      setStampVisible(false)
+    } else {
+      setResultsVisible(false)
+      setStampVisible(false)
+    }
+    return undefined
+  }, [game.phase])
 
   const players = room.players
   const nameOf = (seat) => players.find((p) => p.seat === seat)?.name || `#${seat}`
@@ -290,7 +315,11 @@ export default function DurakTable({ onExit }) {
                    border: isTurn ? '2px solid rgba(31,61,46,0.75)' : '1px solid rgba(122,83,44,0.3)',
                    opacity: out ? 0.5 : 1,
                  }}>
-              {bubbles[p.seat] && <div className="durak-bubble">{bubbles[p.seat].message}</div>}
+              {bubbles[p.seat]
+                ? <div className="durak-bubble">{bubbles[p.seat].message}</div>
+                : typingSeats[p.seat]
+                  ? <div className="durak-bubble"><span className="animate-pulse tracking-widest">● ● ●</span></div>
+                  : null}
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <AvatarImg avatar={p.avatar} size={30} ring={isTurn ? 'rgba(31,61,46,0.8)' : 'rgba(122,83,44,0.4)'} />
@@ -470,7 +499,30 @@ export default function DurakTable({ onExit }) {
         <SuitPickerModal title="პირველი კარტი დამაა — აირჩიე ფერი" onPick={chooseSuit} />
       )}
 
-      {(game.phase === 'hand_end' || game.phase === 'match_end') && game.lastResults && (
+      {/* "Round done" stamp — the table (and the winning card) stay visible
+          for a beat before the results modal takes over. */}
+      {stampVisible && game.lastResults && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center pointer-events-none px-4">
+          <div className="durak-stamp px-8 py-5 rounded-2xl text-center"
+               style={{
+                 background: 'linear-gradient(180deg, rgba(31,61,46,0.95), rgba(20,40,30,0.95))',
+                 border: '3px solid rgba(227,176,75,0.8)',
+                 boxShadow: '0 14px 44px rgba(20,12,8,0.55), inset 0 1px 0 rgba(255,255,255,0.2)',
+               }}>
+            <div className="text-3xl mb-1">🏆</div>
+            <div className="text-xl font-western uppercase tracking-wider" style={{ color: '#f4e8cf' }}>
+              {game.phase === 'match_end'
+                ? `${nameOf(game.matchWinner)} მოიგო მატჩი!`
+                : `${nameOf(game.lastResults.winnerSeat)} იგებს ხელს!`}
+            </div>
+            <div className="mt-1 text-[11px] font-typewriter" style={{ color: 'rgba(244,232,207,0.7)' }}>
+              ქულები ითვლება…
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(game.phase === 'hand_end' || game.phase === 'match_end') && game.lastResults && resultsVisible && (
         <div className="fixed inset-0 z-40 flex items-center justify-center px-4"
              style={{ background: 'rgba(20,12,8,0.6)', backdropFilter: 'blur(4px)' }}>
           <div className="western-panel p-6 w-full max-w-md">

@@ -368,6 +368,43 @@ async function getPublicLeaderboard(mode = 'all') {
     .sort((a, b) => (b.wins - a.wins) || (b.totalScore - a.totalScore));
 }
 
+// ─── durak live games (in-flight ჩეხური დურაკა rooms) ───────────────────────
+
+async function saveDurakLiveGame(roomCode, snapshot) {
+  if (!roomCode || !snapshot) return;
+  await pool().query(
+    `INSERT INTO durak_live_games (room_code, state_json) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE state_json = VALUES(state_json)`,
+    [roomCode, JSON.stringify(snapshot)]
+  );
+}
+
+async function loadDurakLiveGame(roomCode) {
+  const [rows] = await pool().query(
+    'SELECT state_json FROM durak_live_games WHERE room_code = ? LIMIT 1',
+    [roomCode]
+  );
+  if (!rows.length) return null;
+  try { return JSON.parse(rows[0].state_json); }
+  catch { return null; }
+}
+
+async function deleteDurakLiveGame(roomCode) {
+  await pool().query('DELETE FROM durak_live_games WHERE room_code = ?', [roomCode]);
+}
+
+async function listDurakLiveGames() {
+  const [rows] = await pool().query(
+    'SELECT room_code, state_json FROM durak_live_games ORDER BY updated_at DESC'
+  );
+  const out = [];
+  for (const r of rows) {
+    try { out.push({ roomCode: r.room_code, snapshot: JSON.parse(r.state_json) }); }
+    catch { /* ignore malformed row */ }
+  }
+  return out;
+}
+
 /**
  * Daily championship quota for one player name (server-local calendar day).
  * A "played" game is a finished championship game the player participated
@@ -409,4 +446,6 @@ module.exports = {
   getChampionshipQuota, CHAMPIONSHIP_DAILY_LIMIT,
   // live games (mid-flight rooms persisted for crash/rejoin recovery)
   saveLiveGame, loadLiveGame, deleteLiveGame, listLiveGames,
+  // durak live games
+  saveDurakLiveGame, loadDurakLiveGame, deleteDurakLiveGame, listDurakLiveGames,
 };

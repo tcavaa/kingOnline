@@ -419,6 +419,65 @@ class DurakGame {
     return { ok: true };
   }
 
+  // ── persistence ────────────────────────────────────────────────────────────
+
+  /** Plain-JSON snapshot of the whole match (events excluded — transient). */
+  serialize() {
+    return {
+      seats: this.seats,
+      targetScore: this.targetScore,
+      scores: this.scores,
+      eliminated: this.eliminated,
+      phase: this.phase,
+      handNumber: this.handNumber,
+      matchWinner: this.matchWinner,
+      lastResults: this.lastResults,
+      history: this.history,
+      hands: this.hands,
+      drawPile: this.drawPile,
+      discard: this.discard,
+      currentSeat: this.currentSeat,
+      dealerSeat: this.dealerSeat,
+      pendingDraw: this.pendingDraw,
+      requestedSuit: this.requestedSuit,
+      awaitingSuitFrom: this.awaitingSuitFrom,
+      drawnThisTurn: this.drawnThisTurn,
+      playedThisTurn: this.playedThisTurn,
+      saidKarta: this.saidKarta,
+      finishOrder: this.finishOrder,
+      sixFinisher: this.sixFinisher,
+    };
+  }
+
+  static fromSnapshot(snap) {
+    if (!snap || !Array.isArray(snap.seats)) return null;
+    const game = new DurakGame(snap.seats.map((s) => ({ seat: s })), snap.targetScore);
+    Object.assign(game, {
+      scores: snap.scores || {},
+      eliminated: snap.eliminated || {},
+      phase: snap.phase || 'idle',
+      handNumber: snap.handNumber || 0,
+      matchWinner: snap.matchWinner ?? null,
+      lastResults: snap.lastResults ?? null,
+      history: snap.history || [],
+      hands: snap.hands || {},
+      drawPile: snap.drawPile || [],
+      discard: snap.discard || [],
+      currentSeat: snap.currentSeat ?? null,
+      dealerSeat: snap.dealerSeat ?? null,
+      pendingDraw: snap.pendingDraw || 0,
+      requestedSuit: snap.requestedSuit ?? null,
+      awaitingSuitFrom: snap.awaitingSuitFrom ?? null,
+      drawnThisTurn: !!snap.drawnThisTurn,
+      playedThisTurn: snap.playedThisTurn ?? null,
+      saidKarta: snap.saidKarta || {},
+      finishOrder: snap.finishOrder || [],
+      sixFinisher: snap.sixFinisher ?? null,
+    });
+    game.events = [];
+    return game;
+  }
+
   // ── views ──────────────────────────────────────────────────────────────────
 
   stateFor(seat) {

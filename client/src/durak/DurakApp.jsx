@@ -7,25 +7,48 @@ import { unlockDurakSounds } from './sounds'
 import './durak.css'
 
 const TOAST_STYLES = {
-  error:   { bg: 'rgba(111,31,26,0.96)',  color: '#fdf2df' },
-  warning: { bg: 'rgba(192,138,38,0.96)', color: '#3b2314' },
-  info:    { bg: 'rgba(248,239,221,0.97)', color: '#3b2314' },
+  error:   { bg: 'linear-gradient(180deg, #a03428, #6f1f1a)',  color: '#fdf2df', icon: '💥' },
+  warning: { bg: 'linear-gradient(180deg, #e3b04b, #c08a26)',  color: '#2b1a08', icon: '⚠️' },
+  info:    { bg: 'linear-gradient(180deg, #fdf6e5, #f0e2c4)',  color: '#3b2314', icon: '🃏' },
 }
 
+/**
+ * Game announcements. Centered under the opponents' row (above the table
+ * cards) so they never cover the chat / score-sheet / exit buttons.
+ */
 function DurakToasts() {
   const { toasts } = useDurak()
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"
+         style={{ top: '27%', maxWidth: '90vw' }}>
       {toasts.map((t) => {
         const s = TOAST_STYLES[t.type] ?? TOAST_STYLES.info
         return (
           <div key={t.id}
-               className="toast-enter px-4 py-2.5 rounded-xl shadow-2xl text-sm font-medium max-w-xs"
-               style={{ background: s.bg, color: s.color, border: '1px solid rgba(255,255,255,0.25)' }}>
+               className="durak-toast-pop inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold"
+               style={{
+                 background: s.bg, color: s.color,
+                 border: '2px solid rgba(255,255,255,0.5)',
+                 boxShadow: '0 6px 22px rgba(20,12,8,0.4), inset 0 1px 0 rgba(255,255,255,0.35)',
+               }}>
+            <span className="text-base leading-none">{s.icon}</span>
             {t.message}
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/** Small banner while the socket is re-establishing mid-game. */
+function ReconnectBanner() {
+  const { connected, phase } = useDurak()
+  if (connected || phase !== 'room') return null
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-typewriter font-bold"
+         style={{ background: 'rgba(111,31,26,0.95)', color: '#fdf2df', border: '1px solid rgba(255,226,190,0.45)' }}>
+      <span className="w-2 h-2 rounded-full bg-red-300 animate-pulse" />
+      კავშირი აღდგება…
     </div>
   )
 }
@@ -295,9 +318,9 @@ function DurakWaiting({ onExit }) {
 function DurakInner({ onExit }) {
   const { phase, room } = useDurak()
 
-  if (phase !== 'room' || !room) return (<><DurakToasts /><DurakLobby onExit={onExit} /></>)
-  if (room.status === 'waiting') return (<><DurakToasts /><DurakWaiting onExit={onExit} /></>)
-  return (<><DurakToasts /><DurakTable onExit={onExit} /></>)
+  if (phase !== 'room' || !room) return (<><DurakToasts /><ReconnectBanner /><DurakLobby onExit={onExit} /></>)
+  if (room.status === 'waiting') return (<><DurakToasts /><ReconnectBanner /><DurakWaiting onExit={onExit} /></>)
+  return (<><DurakToasts /><ReconnectBanner /><DurakTable onExit={onExit} /></>)
 }
 
 /**

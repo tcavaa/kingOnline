@@ -83,6 +83,17 @@ DELIMITER ;
 CALL _king_add_is_championship();
 DROP PROCEDURE _king_add_is_championship;
 
+-- ─── durak_live_games ───────────────────────────────────────────────────────
+-- Snapshot of every in-flight ჩეხური დურაკა room, same crash/rejoin recovery
+-- story as live_games below: updated after every state-changing action,
+-- removed when the room dies.
+CREATE TABLE IF NOT EXISTS durak_live_games (
+  room_code   VARCHAR(8)    NOT NULL PRIMARY KEY,
+  state_json  MEDIUMTEXT    NOT NULL,
+  updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_durak_live_updated (updated_at)
+) ENGINE=InnoDB;
+
 -- ─── live_games ─────────────────────────────────────────────────────────────
 -- Snapshot of every in-flight room. Updated after every state-changing
 -- action (join, play, discard, next round, etc.) so a server restart or a

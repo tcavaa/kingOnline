@@ -2,7 +2,6 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
 import Lobby        from './components/Lobby'
 import WaitingRoom  from './components/WaitingRoom'
-import RotatePrompt from './components/RotatePrompt'
 
 // Heavy screens are code-split so the lobby doesn't pay for them up front:
 // GameLayout drags in Phaser (~1.5 MB), GameOverScreen pulls canvas-confetti
@@ -98,7 +97,6 @@ function AppInner() {
     <div className="min-h-screen text-ink"
          style={{ background: '#3a2418', minHeight: '100dvh' }}>
       <ToastContainer />
-      <RotatePrompt />
       <Suspense fallback={<ScreenLoader />}>
         {view === 'durak' ? (
           <DurakApp profile={durakProfile} onExit={() => setView('main')} />

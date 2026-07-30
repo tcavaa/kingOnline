@@ -352,6 +352,9 @@ io.on('connection', (socket) => {
 gameManager.hydrateAll().catch((err) => {
   console.warn('[server] hydrateAll failed:', err.message);
 });
+durakManager.hydrateAll().catch((err) => {
+  console.warn('[server] durak hydrateAll failed:', err.message);
+});
 
 server.listen(PORT, () => {
   console.log(`[server] King Card Game server listening on port ${PORT}`);

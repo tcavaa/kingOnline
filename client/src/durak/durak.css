@@ -60,6 +60,24 @@
   border: 5px solid transparent; border-top-color: rgba(255, 250, 235, 0.97);
 }
 
+/* Joyful bouncy pop for the centered game announcements. */
+@keyframes durakToastPop {
+  0%   { opacity: 0; transform: translateY(-14px) scale(0.6) rotate(-3deg); }
+  60%  { opacity: 1; transform: translateY(2px) scale(1.06) rotate(1.5deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+.durak-toast-pop { animation: durakToastPop 0.38s cubic-bezier(0.25, 1.2, 0.4, 1) backwards; }
+
+/* "Round done" stamp slams onto the table, wobbles, and settles. */
+@keyframes durakStampIn {
+  0%   { opacity: 0; transform: scale(1.9) rotate(-9deg); }
+  55%  { opacity: 1; transform: scale(0.94) rotate(2deg); }
+  75%  { transform: scale(1.04) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.durak-stamp { animation: durakStampIn 0.5s cubic-bezier(0.3, 1.1, 0.4, 1) backwards; }
+
 @media (prefers-reduced-motion: reduce) {
-  .durak-deal-in, .durak-play-in, .durak-turn-pulse { animation: none !important; }
+  .durak-deal-in, .durak-play-in, .durak-turn-pulse,
+  .durak-toast-pop, .durak-stamp { animation: none !important; }
 }
