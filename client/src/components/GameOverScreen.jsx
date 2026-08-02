@@ -67,14 +67,17 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
   }
 
   const { winner, finalScores, players: fp, mode } = finalResults
+  // Spin King matches are decided by chips; the classic points ride along
+  // as flavor only, so every ranking/score readout switches to the stacks.
+  const isSpinKing = finalResults.gameKind === 'spinking'
+  const chipsMap = finalResults.chips || {}
+  const resultOf = (seat) => isSpinKing ? (chipsMap[seat] ?? 0) : (finalScores?.[seat] ?? 0)
   // Ties crown everyone on the top score; single wins are a 1-element list.
   const winners = finalResults.winners?.length ? finalResults.winners : [winner].filter(Boolean)
   const winnerSeats = new Set(winners.map(w => w.seat))
   const isTie = winnerSeats.size > 1
   const playerList = (fp || players).slice().sort((a, b) => a.seat - b.seat)
-  const allPlayers = (fp || players).slice().sort((a, b) =>
-    (finalScores?.[b.seat] ?? 0) - (finalScores?.[a.seat] ?? 0)
-  )
+  const allPlayers = (fp || players).slice().sort((a, b) => resultOf(b.seat) - resultOf(a.seat))
   const details = roundDetails && roundDetails.length ? roundDetails : (finalResults.roundDetails || [])
 
   const stats = useMemo(() => {
@@ -162,12 +165,14 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
             <div className="inline-flex items-center gap-2 flex-wrap justify-center">
               <div className="inline-block rounded-xl px-5 py-1.5 text-sm font-bold backdrop-blur-md"
                    style={{ background: 'rgba(240,165,0,0.18)', border: '1px solid rgba(240,165,0,0.45)', color: '#fbe7a3' }}>
-                საბოლოო ქულა: {finalScores?.[winner?.seat] > 0 ? '+' : ''}{finalScores?.[winner?.seat] ?? 0}
+                {isSpinKing
+                  ? <>🪙 ჩიპები: {(chipsMap[winner?.seat] ?? 0).toLocaleString()}</>
+                  : <>საბოლოო ქულა: {finalScores?.[winner?.seat] > 0 ? '+' : ''}{finalScores?.[winner?.seat] ?? 0}</>}
               </div>
-              {mode && (
+              {(mode || isSpinKing) && (
                 <div className="inline-block rounded-xl px-4 py-1.5 text-xs font-bold backdrop-blur-md"
                      style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.85)' }}>
-                  {mode === 'championship' ? '🏆 ლიგა' : '🎲 უბრალო'}
+                  {isSpinKing ? '🎰 სპინ კინგი' : mode === 'championship' ? '🏆 ლიგა' : '🎲 უბრალო'}
                 </div>
               )}
             </div>
@@ -177,11 +182,13 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
         <div className="rounded-2xl overflow-hidden mb-5"
              style={{ background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)', border: '1px solid rgba(122,83,44,0.35)' }}>
           <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
-            <h2 className="text-base font-bold text-white" style={{ color: '#3b2314' }}>საბოლოო ქულები</h2>
+            <h2 className="text-base font-bold text-white" style={{ color: '#3b2314' }}>
+              {isSpinKing ? 'საბოლოო ჩიპები' : 'საბოლოო ქულები'}
+            </h2>
           </div>
           <div>
             {allPlayers.map((p, idx) => {
-              const score = finalScores?.[p.seat] ?? 0
+              const score = resultOf(p.seat)
               const RankIcon = RANK_ICON[idx]
               return (
                 <div key={p.seat} className="flex items-center gap-4 px-5 py-4"
@@ -211,8 +218,10 @@ export default function GameOverScreen({ onOpenLeaderboard }) {
                     </div>
                   </div>
                   <div className="text-2xl font-black font-mono"
-                       style={{ color: score > 0 ? '#4c7a2f' : score < 0 ? '#a5372b' : 'rgba(59,35,20,0.45)' }}>
-                    {score > 0 ? '+' : ''}{score}
+                       style={{ color: isSpinKing
+                         ? (score > 0 ? '#b8860b' : 'rgba(59,35,20,0.45)')
+                         : (score > 0 ? '#4c7a2f' : score < 0 ? '#a5372b' : 'rgba(59,35,20,0.45)') }}>
+                    {isSpinKing ? `🪙 ${score.toLocaleString()}` : `${score > 0 ? '+' : ''}${score}`}
                   </div>
                 </div>
               )

@@ -21,6 +21,9 @@ function StarBar({ children }) {
 export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
   const { createRoom, joinRoom, connected, publicSeat } = useGame()
 
+  // Spin King table stake — the chip stack everyone starts the match with.
+  const [spinStack, setSpinStack] = useState(1000)
+
   const [profiles, setProfiles] = useState([])
   // The "locked-in" profile id (the one the user has already verified on
   // this device, persisted in localStorage). Never auto-set by the lobby —
@@ -151,6 +154,13 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
     joinRoom(code, active.name, active.avatar)
   }
 
+  // Spin King rooms are always casual; the server clamps the stack again.
+  const handleCreateSpin = () => {
+    if (!active) return
+    const stack = Math.max(30, Math.min(1000000, Math.round(Number(spinStack) || 1000)))
+    createRoom(active.name, active.avatar, 'public', { gameKind: 'spinking', startingStack: stack })
+  }
+
   return (
     <div className="saloon-bg flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Top-right: Leaderboard */}
@@ -272,6 +282,43 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
         <div className="relative z-10 w-full max-w-xl mb-5 flex flex-col gap-5">
           <PublicRoomPanel active={active} mode="championship" quota={quota} />
           <PublicRoomPanel active={active} mode="public" />
+
+          {/* სპინ კინგი — the chip-betting King variant, same table */}
+          <div className="western-panel p-5"
+               style={{ border: '1px solid rgba(184,134,11,0.55)', boxShadow: '0 0 24px rgba(184,134,11,0.12)' }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-western text-ink uppercase mb-1"
+                    style={{ color: '#8a5a0b' }}>
+                  სპინ კინგი 🎰
+                </h2>
+                <p className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                  კინგი ჩიპებზე — ბორბალი არჩევს თამაშს, პრიკუპი იყიდება, ფსონები იდება.
+                  იგებს ის, ვინც ყველა ჩიპს მოაგროვებს.
+                </p>
+              </div>
+              <div className="flex items-end gap-2 flex-shrink-0">
+                <div>
+                  <label className="block text-[10px] mb-1 uppercase font-western tracking-widest"
+                         style={{ color: 'rgba(138,90,11,0.8)' }}>საწყისი ჩიპები</label>
+                  <input
+                    type="number" min={30} max={1000000} step={50}
+                    value={spinStack}
+                    onChange={e => setSpinStack(e.target.value)}
+                    className="casino-input font-typewriter text-center"
+                    style={{ width: '7.5rem' }}
+                  />
+                </div>
+                <button
+                  onClick={handleCreateSpin}
+                  disabled={!connected || !active || publicSeat !== null}
+                  className="casino-btn-gold px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                >
+                  შექმნა
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* ჩეხური დურაკა — separate side game, own rooms & rules */}
           {onOpenDurak && (

@@ -106,6 +106,32 @@ export function GameProvider({ children }) {
   // or expires server-side.
   const [quitProposal, setQuitProposal] = useState(null)
 
+  // ── Spin King slice ─────────────────────────────────────────────────────
+  // Additive state for the chip-betting variant. King rooms never populate
+  // any of it (gameKind stays 'king'), so every King screen renders exactly
+  // as before. Everything here is fed from `game-state` broadcasts — the
+  // server re-syncs the full per-seat view after each betting action.
+  const [gameKind, setGameKind]           = useState('king')
+  const [startingStack, setStartingStack] = useState(null)
+  const [chips, setChips]                 = useState(null)   // {0,1,2} → stack
+  const [pot, setPot]                     = useState(0)
+  const [ante, setAnte]                   = useState(0)
+  const [zombies, setZombies]             = useState(null)   // {0,1,2} → bool
+  const [auction, setAuction]             = useState(null)   // {bid, highBidder, passed, minNextBid}
+  const [pledge, setPledge]               = useState(null)   // {stake, entries, toAct, cap, minRaise}
+  const [settlement, setSettlement]       = useState(null)   // lastSettlement of the round
+  const [matchWinner, setMatchWinner]     = useState(null)
+  const [prikupCount, setPrikupCount]     = useState(0)
+  const [prikupDead, setPrikupDead]       = useState(false)
+  // Running per-round stat maps (queens/jacks/hearts/K♥/trick winners) —
+  // they drive the live pledge-progress plaques on the Spin King table.
+  const [roundStats, setRoundStats]       = useState(null)
+  // Previous pot/chips snapshot for diffing — a pot increase paired with a
+  // stack decrease means chips physically moved to the table, which the
+  // canvas animates as a chip flight.
+  const prevPotRef   = useRef(null)
+  const prevChipsRef = useRef(null)
+
   const playersRef = useRef(players)
   const mySeatRef  = useRef(null)
   const trickTimers = useRef([])
@@ -154,11 +180,14 @@ export function GameProvider({ children }) {
   // flicker for the person actually thinking). The timer is re-armed every
   // time the turn changes; a normal hand-off clears it long before it fires.
   useEffect(() => {
-    // Who must act right now: the current player while a trick is in progress,
-    // or the leader during the per-round decision phases.
-    const ACTIVE_PHASES = ['playing', 'type_selection', 'trump_selection', 'discard']
+    // Who must act right now: the current player while a trick is in progress
+    // (or a Spin King bet is open), or the leader during the per-round
+    // decision phases. In Spin King the "leader" of trump/discard is the
+    // auction winner — the server's leaderSeat already points at them.
+    const ACTIVE_PHASES = ['playing', 'type_selection', 'trump_selection', 'discard', 'auction', 'pledge']
     if (!ACTIVE_PHASES.includes(gamePhase)) return
-    const actorSeat = gamePhase === 'playing' ? currentTurn : leaderSeat
+    const TURN_PHASES = ['playing', 'auction', 'pledge']
+    const actorSeat = TURN_PHASES.includes(gamePhase) ? currentTurn : leaderSeat
     if (actorSeat === null || actorSeat === undefined || actorSeat === mySeat) return
     const t = setTimeout(() => {
       socketRef.current?.emit('request-state')
@@ -321,23 +350,29 @@ export function GameProvider({ children }) {
       }
     })
 
-    socket.on('room-created', ({ roomCode: code, seat, mode }) => {
+    socket.on('room-created', ({ roomCode: code, seat, mode, gameKind: gk, startingStack: ss }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(true)
       setRoomMode(mode === 'championship' ? 'championship' : 'public')
+      setGameKind(gk === 'spinking' ? 'spinking' : 'king')
+      setStartingStack(gk === 'spinking' ? (ss || null) : null)
       setAppPhase('waiting')
     })
 
-    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode }) => {
+    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode, gameKind: gk, startingStack: ss }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(seat === 0)
       if (mode) setRoomMode(mode === 'championship' ? 'championship' : 'public')
+      if (gk) {
+        setGameKind(gk === 'spinking' ? 'spinking' : 'king')
+        setStartingStack(gk === 'spinking' ? (ss || null) : null)
+      }
       if (reconnected) {
         // Server re-bound this socket to the existing seat. Pick the
         // right screen based on the room's lifecycle: lobby reconnects go
@@ -352,8 +387,17 @@ export function GameProvider({ children }) {
       }
     })
 
-    socket.on('player-joined', ({ players: p }) => setPlayers(p))
+    socket.on('player-joined', ({ players: p, gameKind: gk, startingStack: ss }) => {
+      setPlayers(p)
+      // Keep late joiners' waiting room in sync with the table's kind/stack.
+      if (gk === 'spinking' && ss) setStartingStack(ss)
+    })
     socket.on('player-left',   ({ players: p }) => setPlayers(p))
+
+    // Spin King: the creator adjusted the chip stack in the waiting room.
+    socket.on('starting-stack-updated', ({ startingStack: ss }) => {
+      if (ss) setStartingStack(ss)
+    })
 
     // ── Quick-match tables (casual + championship) ─────────────────────
     socket.on('public-room', (view = {}) => {
@@ -444,6 +488,15 @@ export function GameProvider({ children }) {
       // THIS room is the only thing that should populate it.
       setRematch({ newRoomCode: null, joinedOldSeats: [] })
       setQuitProposal(null)
+      // Spin King per-match state — the opening `game-state` broadcast
+      // repopulates chips/pot/spin for spinking tables.
+      setSettlement(null)
+      setMatchWinner(null)
+      setAuction(null)
+      setPledge(null)
+      setRoundStats(null)
+      prevPotRef.current = null
+      prevChipsRef.current = null
     })
 
     socket.on('hand-dealt', ({ hand: h, centerCards: cc, leaderSeat: ls, round: r, cardCounts: counts }) => {
@@ -462,6 +515,7 @@ export function GameProvider({ children }) {
       setLastCenterCards([])
       setTrickAnimation(null)
       setPlayPendingBoth(false)
+      setRoundStats(null)
       clearTrickTimers()
     })
 
@@ -540,7 +594,7 @@ export function GameProvider({ children }) {
       }
     })
 
-    socket.on('trick-complete', ({ winnerSeat, trick, trickNumber: tn, nextTurn, tricksTaken: tt, cardCounts: cc }) => {
+    socket.on('trick-complete', ({ winnerSeat, trick, trickNumber: tn, nextTurn, tricksTaken: tt, cardCounts: cc, queensTaken, jacksTaken, heartsTaken, kingOfHeartsTakenBy, trickWinners }) => {
       // Show the full 3-card trick on the table for a moment, then animate
       // toward the winner, then clear.
       setCurrentTrick(trick)
@@ -575,10 +629,40 @@ export function GameProvider({ children }) {
         setTrickNumber(tn + 1)
         setCurrentTurn(nextTurn)
         setTrickAnimation(null)
+        // Advance the pledge-progress stats together with tricksTaken so
+        // the table plaques tick over as the trick lands on its winner.
+        if (queensTaken) {
+          setRoundStats({
+            queensTaken, jacksTaken, heartsTaken,
+            kingOfHeartsTakenBy: kingOfHeartsTakenBy ?? null,
+            trickWinners: trickWinners || [],
+          })
+        }
       }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
     })
 
-    socket.on('round-complete', ({ winnerSeat, trick, scores, cumulativeScores: cs, round: r, gameType, isGameOver, cardCounts: cc, roundDetail, quitBySeat }) => {
+    socket.on('round-complete', ({ winnerSeat, trick, scores, cumulativeScores: cs, round: r, gameType, isGameOver, cardCounts: cc, roundDetail, quitBySeat, settlement: stl, matchWinner: mw }) => {
+      // Spin King: the chip settlement rides on the round-complete event so
+      // the result modal can show payouts the moment the last trick lands.
+      // Chips/pot advance from the settlement itself — the server sends no
+      // state broadcast at round end (it would stomp the trick animation).
+      if (stl) {
+        setSettlement(stl)
+        if (stl.chipsAfter) setChips(stl.chipsAfter)
+        if (typeof stl.potAfter === 'number') setPot(stl.potAfter)
+        if (stl.newZombies?.length) {
+          setZombies(prev => {
+            const next = { ...(prev || { 0: false, 1: false, 2: false }) }
+            stl.newZombies.forEach(s => { next[s] = true })
+            return next
+          })
+        }
+        // Keep the chip-flight diff baseline in step with the settlement so
+        // next round's antes animate the right deltas.
+        if (stl.chipsAfter) prevChipsRef.current = { ...stl.chipsAfter }
+        if (typeof stl.potAfter === 'number') prevPotRef.current = stl.potAfter
+      }
+      if (mw !== undefined) setMatchWinner(mw)
       // Show the last trick of the round briefly, then transition.
       if (trick) {
         setCurrentTrick(trick)
@@ -607,6 +691,15 @@ export function GameProvider({ children }) {
         }
         return
       }
+      // Spin King payout flight: after the final trick lands, the pot's
+      // chips fly to the winners BEFORE the settlement modal dims the
+      // table. Rounds with no payout (rollover/all-fold) skip the pause.
+      const chipMoves = stl
+        ? [0, 1, 2].filter(s => (stl.payouts?.[s] ?? 0) > 0)
+            .map(s => ({ seat: s, amount: stl.payouts[s] }))
+        : []
+      const chipFlightMs = chipMoves.length ? 900 : 0
+
       trickTimers.current.push(setTimeout(() => {
         setTrickAnimation({ winnerSeat, trick: trick || [] })
         EventBus.emit('animate-trick-winner', { winnerSeat, trick: trick || [] })
@@ -615,12 +708,39 @@ export function GameProvider({ children }) {
         setCurrentTrick([])
         setLedSuit(null)
         setTrickAnimation(null)
+        if (chipMoves.length) EventBus.emit('spin-chips-fly', { moves: chipMoves, direction: 'out' })
+      }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
+      trickTimers.current.push(setTimeout(() => {
         setGamePhase('round_end')
         if (!isGameOver) addToast(`ხელი ${r} დასრულდა.`, 'success')
-      }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS))
+      }, TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + chipFlightMs))
     })
 
-    socket.on('game-over', ({ finalScores, winner, winners, isTie, mode, players: p, roundDetails: rd, surrenderedBySeat }) => {
+    socket.on('game-over', ({ finalScores, winner, winners, isTie, mode, players: p, roundDetails: rd, surrenderedBySeat, gameKind: gk, chips: finalChips, matchWinner: mw, startingStack: ss, settlements }) => {
+      // ── Spin King: the match is decided by chips ──────────────────────
+      // No leaderboard POST — spinking matches are casual chip games and
+      // must never create finished_games rows or touch the seasons.
+      if (gk === 'spinking') {
+        const w = winner || null
+        setFinalResults({
+          gameKind: 'spinking',
+          finalScores, players: p, roundDetails: rd,
+          winner: w, winners: w ? [w] : [], isTie: false, mode,
+          chips: finalChips || {}, matchWinner: mw ?? null,
+          startingStack: ss || null, settlements: settlements || [],
+        })
+        if (rd) setRoundDetails(rd)
+        setMatchWinner(mw ?? null)
+        if (finalChips) setChips(finalChips)
+        setQuitProposal(null)
+        try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+        // Extra beat so the final payout chip-flight (and the settlement
+        // modal's match banner) get seen before the results screen.
+        setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 1400)
+        addToast(w ? `${w.name} იღებს მთელ ბანკს! 🪙` : 'მატჩი დასრულდა.', 'success')
+        return
+      }
+
       // Older server payloads carry only `winner` — normalise so the
       // game-over screen can always render from `winners`.
       const winnersList = Array.isArray(winners) && winners.length ? winners : (winner ? [winner] : [])
@@ -876,8 +996,74 @@ export function GameProvider({ children }) {
           }
         })
         setAppPhase('gameover')
+      } else if (state.phase === 'match_end') {
+        // Spin King terminal snapshot (refresh/reconnect on a decided match)
+        // — rebuild the chips-flavored results if the live `game-over`
+        // event never reached this client.
+        setFinalResults(prev => {
+          if (prev) return prev
+          const mw = state.matchWinner ?? null
+          const w = mw === null ? null : {
+            seat: mw,
+            name: (state.players || []).find(pl => pl.seat === mw)?.name || `მოთამაშე ${mw}`,
+            score: state.chips?.[mw] ?? 0,
+          }
+          return {
+            gameKind: 'spinking',
+            finalScores: state.cumulativeScores || {},
+            players: state.players || [],
+            roundDetails: state.roundDetails || [],
+            winner: w, winners: w ? [w] : [], isTie: false,
+            chips: state.chips || {}, matchWinner: mw,
+            startingStack: state.startingStack || null,
+            settlements: state.settlements || [],
+          }
+        })
+        setAppPhase('gameover')
       } else {
         setAppPhase('game')
+      }
+      // ── Spin King slice ─────────────────────────────────────────────────
+      // Unconditional sets (not truthy-guarded) — nulls are meaningful here:
+      // auction/pledge being over, a settlement being cleared by a new round.
+      if (state.gameKind === 'spinking') {
+        setGameKind('spinking')
+        if (state.startingStack) setStartingStack(state.startingStack)
+        if (state.chips)         setChips(state.chips)
+        setPot(state.pot ?? 0)
+        setAnte(state.ante ?? 0)
+        if (state.zombies)       setZombies(state.zombies)
+        setAuction(state.auction ?? null)
+        setPledge(state.pledge ?? null)
+        setSettlement(state.lastSettlement ?? null)
+        setMatchWinner(state.matchWinner ?? null)
+        setPrikupCount(state.prikupCount ?? 0)
+        setPrikupDead(!!state.prikupDead)
+        setRoundStats({
+          queensTaken: state.queensTaken || {},
+          jacksTaken: state.jacksTaken || {},
+          heartsTaken: state.heartsTaken || {},
+          kingOfHeartsTakenBy: state.kingOfHeartsTakenBy ?? null,
+          trickWinners: state.trickWinners || [],
+        })
+        // Chip-flight detection: pot grew + stacks shrank → animate the
+        // difference flying from each payer's avatar into the pot (antes,
+        // auction price, pledge stakes — one generic diff covers them all).
+        if (typeof state.pot === 'number' && state.chips) {
+          const prevPot = prevPotRef.current
+          const prevChips = prevChipsRef.current
+          if (prevPot !== null && prevChips && state.pot > prevPot) {
+            const moves = []
+            for (const s of [0, 1, 2]) {
+              const before = prevChips[s] ?? 0
+              const after = state.chips[s] ?? 0
+              if (after < before) moves.push({ seat: s, amount: before - after })
+            }
+            if (moves.length) EventBus.emit('spin-chips-fly', { moves, direction: 'in' })
+          }
+          prevPotRef.current = state.pot
+          prevChipsRef.current = { ...state.chips }
+        }
       }
       if (state.players)                       setPlayers(state.players)
       if (state.hand)                          setHand(sortHand(state.hand))
@@ -986,11 +1172,13 @@ export function GameProvider({ children }) {
     })
   }, [])
 
-  const createRoom = useCallback((name, avatar = null, mode = 'public') => {
+  const createRoom = useCallback((name, avatar = null, mode = 'public', extra = {}) => {
     setMyName(name)
     myNameRef.current   = name
     myAvatarRef.current = avatar
-    socketRef.current?.emit('create-room', { playerName: name, avatar, mode })
+    // `extra` carries variant options — { gameKind: 'spinking', startingStack }
+    // for a Spin King table; empty for a classic King room.
+    socketRef.current?.emit('create-room', { playerName: name, avatar, mode, ...extra })
   }, [])
 
   const joinRoom = useCallback((code, name, avatar = null) => {
@@ -1064,6 +1252,17 @@ export function GameProvider({ children }) {
 
   const nextRound = useCallback(() => { socketRef.current?.emit('next-round') }, [])
 
+  // ── Spin King actions ───────────────────────────────────────────────────
+  const ackSpin  = useCallback(() => { socketRef.current?.emit('spin-ack') }, [])
+  const placeBid = useCallback((amount) => { socketRef.current?.emit('place-bid', { amount }) }, [])
+  const passBid  = useCallback(() => { socketRef.current?.emit('pass-bid') }, [])
+  // payload: { action: 'fold'|'call'|'raise', tier?, stake? }
+  const pledgeAct = useCallback((payload) => { socketRef.current?.emit('pledge-act', payload) }, [])
+  // Creator-only stack edit while the table is still waiting.
+  const setTableStack = useCallback((startingStack) => {
+    socketRef.current?.emit('set-starting-stack', { startingStack })
+  }, [])
+
   const leaveRoom = useCallback(() => {
     socketRef.current?.emit('leave-room')
     setAppPhase('lobby')
@@ -1076,6 +1275,22 @@ export function GameProvider({ children }) {
     setPublicSeatBoth(null)
     setPublicSeatMode(null)
     setRoomMode('public')
+    // Reset the Spin King slice so the next (possibly King) room starts clean.
+    setGameKind('king')
+    setStartingStack(null)
+    setChips(null)
+    setPot(0)
+    setAnte(0)
+    setZombies(null)
+    setAuction(null)
+    setPledge(null)
+    setSettlement(null)
+    setMatchWinner(null)
+    setPrikupCount(0)
+    setPrikupDead(false)
+    setRoundStats(null)
+    prevPotRef.current = null
+    prevChipsRef.current = null
     try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
   }, [])
 
@@ -1114,6 +1329,9 @@ export function GameProvider({ children }) {
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     roomMode,
     rematch, requestRematch,
+    gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,
+    settlement, matchWinner, prikupCount, prikupDead, roundStats,
+    ackSpin, placeBid, passBid, pledgeAct, setTableStack,
     createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
     playCard, nextRound, leaveRoom, toggleDiscard, addToast,
   }), [
@@ -1130,6 +1348,9 @@ export function GameProvider({ children }) {
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     roomMode,
     rematch, requestRematch,
+    gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,
+    settlement, matchWinner, prikupCount, prikupDead, roundStats,
+    ackSpin, placeBid, passBid, pledgeAct, setTableStack,
     createRoom, joinRoom, startGame, selectGameType, selectTrump, discardCards,
     playCard, nextRound, leaveRoom, toggleDiscard, addToast,
   ])

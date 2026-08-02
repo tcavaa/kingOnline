@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Check, Copy, Play, User, Trophy, Dices } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Copy, Play, User, Trophy, Dices, Coins } from 'lucide-react'
 import { useGame } from '../context/GameContext'
 
 function Dots() {
@@ -16,9 +16,24 @@ function Dots() {
 const SEAT_COLOR = ['#8e2b23', '#7a532c', '#4c7a2f']
 
 export default function WaitingRoom() {
-  const { roomCode, players, mySeat, isCreator, startGame, roomMode } = useGame()
+  const {
+    roomCode, players, mySeat, isCreator, startGame, roomMode,
+    gameKind, startingStack, setTableStack,
+  } = useGame()
   const [copied, setCopied] = useState(false)
   const isChampionship = roomMode === 'championship'
+  const isSpinKing = gameKind === 'spinking'
+
+  // Local draft of the chip stack; committed on blur/Enter. Non-creators
+  // (and the creator, after the server clamps) get live values pushed via
+  // `starting-stack-updated` → startingStack.
+  const [stackDraft, setStackDraft] = useState(startingStack || 1000)
+  useEffect(() => { if (startingStack) setStackDraft(startingStack) }, [startingStack])
+  const commitStack = () => {
+    const v = Math.round(Number(stackDraft))
+    if (!Number.isFinite(v)) { setStackDraft(startingStack || 1000); return }
+    if (v !== startingStack) setTableStack(v)
+  }
 
   const copyCode = async () => {
     try { await navigator.clipboard.writeText(roomCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }
@@ -45,13 +60,15 @@ export default function WaitingRoom() {
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-typewriter font-bold"
                style={{
-                 background: isChampionship ? 'rgba(184,134,11,0.14)' : 'rgba(122,83,44,0.1)',
-                 border: isChampionship ? '1px solid rgba(184,134,11,0.55)' : '1px solid rgba(122,83,44,0.35)',
-                 color: isChampionship ? '#b8860b' : '#3b2314',
+                 background: isSpinKing ? 'rgba(184,134,11,0.16)' : isChampionship ? 'rgba(184,134,11,0.14)' : 'rgba(122,83,44,0.1)',
+                 border: (isSpinKing || isChampionship) ? '1px solid rgba(184,134,11,0.55)' : '1px solid rgba(122,83,44,0.35)',
+                 color: (isSpinKing || isChampionship) ? '#b8860b' : '#3b2314',
                }}>
-            {isChampionship
-              ? <><Trophy size={11} /> ლიგის თამაში — ითვლება სეზონში</>
-              : <><Dices size={11} /> უბრალო თამაში</>}
+            {isSpinKing
+              ? <>სპინ კინგი 🎰 — თამაში ჩიპებზე</>
+              : isChampionship
+                ? <><Trophy size={11} /> ლიგის თამაში — ითვლება სეზონში</>
+                : <><Dices size={11} /> უბრალო თამაში</>}
           </div>
         </div>
 
@@ -82,6 +99,40 @@ export default function WaitingRoom() {
             ეს კოდი სჭირდებათ მეგობრებს შენს დუქანში შესასვლელად
           </p>
         </div>
+
+        {/* Spin King: starting chip stack (creator edits; everyone sees) */}
+        {isSpinKing && (
+          <div className="western-panel p-4 mb-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Coins size={16} style={{ color: '#b8860b' }} />
+                <div className="leading-tight">
+                  <p className="text-[11px] uppercase tracking-[0.25em] font-western"
+                     style={{ color: 'rgba(142,43,35,0.7)' }}>საწყისი ჩიპები</p>
+                  <p className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.5)' }}>
+                    ანტე ყოველ ხელზე: {Math.max(1, Math.round((startingStack || 1000) / 100))}
+                  </p>
+                </div>
+              </div>
+              {isCreator ? (
+                <input
+                  type="number" min={30} max={1000000} step={50}
+                  value={stackDraft}
+                  onChange={e => setStackDraft(e.target.value)}
+                  onBlur={commitStack}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  className="casino-input font-typewriter text-center text-lg font-bold"
+                  style={{ width: '8rem' }}
+                />
+              ) : (
+                <span className="text-2xl font-typewriter font-black"
+                      style={{ color: '#8a5a0b' }}>
+                  {(startingStack || 0).toLocaleString()}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Player seats */}
         <div className="western-panel p-5 mb-5">

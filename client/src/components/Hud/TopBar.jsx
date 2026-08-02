@@ -18,6 +18,11 @@ const PHASE_LABELS_KA = {
   playing:         'თამაში',
   round_end:       'ხელი დასრულდა',
   game_over:       'თამაშის დასასრული',
+  // Spin King phases
+  spin:            'ბედის ბორბალი',
+  auction:         'აუქციონი',
+  pledge:          'ფსონები',
+  match_end:       'მატჩი დასრულდა',
 }
 
 /**
@@ -25,9 +30,12 @@ const PHASE_LABELS_KA = {
  * trump pills, and the chat / settings / latency icons on the right.
  */
 function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
-  const { round, chosenGameType, trumpSuit, roomCode, gamePhase } = useGame()
+  const { round, chosenGameType, trumpSuit, roomCode, gamePhase, gameKind } = useGame()
   const gt = getGameType(chosenGameType)
   const TypeIcon = gt?.Icon
+  // Spin King has no round cap — the match runs until one stack holds all
+  // the chips, so the "/27" suffix would be a lie there.
+  const isSpinKing = gameKind === 'spinking'
 
   // Tap-to-copy on the room-code pill, with a brief "copied" confirmation.
   const [copied, setCopied] = useState(false)
@@ -87,8 +95,13 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
                   style={{ color: 'rgba(142,43,35,0.85)' }}>ხელი</span>
             <span className="font-western text-xs lg:text-sm" style={{ color: '#3b2314' }}>
               <span className="text-sm lg:text-base text-amber">{round}</span>
-              <span className="opacity-70 mx-0.5">/</span>
-              <span>27</span>
+              {!isSpinKing && (
+                <>
+                  <span className="opacity-70 mx-0.5">/</span>
+                  <span>27</span>
+                </>
+              )}
+              {isSpinKing && <span className="opacity-70 ml-0.5">🎰</span>}
             </span>
           </div>
         </Pill>

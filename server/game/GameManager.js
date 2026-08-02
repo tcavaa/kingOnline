@@ -1,6 +1,8 @@
 'use strict';
 
 const GameState = require('./GameState');
+const SpinKingState = require('../spinking/SpinKingState');
+const { clampStack, DEFAULT_STACK } = require('../spinking/constants');
 const store     = require('../db/store');
 
 function generateCode() {
@@ -46,6 +48,8 @@ class GameManager {
       creatorSeat: room.creatorSeat,
       status: room.status,
       mode: room.mode || 'public',
+      gameKind: room.gameKind || 'king',
+      startingStack: room.startingStack || null,
       isPublic: !!room.isPublic,
       players: room.players.map((p) => ({
         id: p.id, name: p.name, avatar: p.avatar || null,
@@ -65,6 +69,8 @@ class GameManager {
       // all counted as championship games historically, but a *live* legacy
       // room is safest treated as public so it can't eat a quota slot.
       mode: snap.mode === 'championship' ? 'championship' : 'public',
+      gameKind: snap.gameKind === 'spinking' ? 'spinking' : 'king',
+      startingStack: snap.startingStack || null,
       isPublic: !!snap.isPublic,
       players: snap.players.map((p) => ({
         id: p.id || null, name: p.name, avatar: p.avatar || null,
@@ -73,7 +79,14 @@ class GameManager {
         // disconnected until they re-join with the same room code + name.
         connected: false,
       })),
-      gameState: snap.gameState ? GameState.fromSnapshot(snap.gameState) : null,
+      // Spin King snapshots are tagged engine:'spinking' by serialize();
+      // restore through the matching class so the prototype (and therefore
+      // every phase/betting method) comes back correct.
+      gameState: snap.gameState
+        ? (snap.gameState.engine === 'spinking'
+            ? SpinKingState.fromSnapshot(snap.gameState)
+            : GameState.fromSnapshot(snap.gameState))
+        : null,
       // Rematch coordination is transient and never persisted — if the
       // server restarts, players just press Play Again again.
       rematchRoomCode: null,
@@ -153,9 +166,10 @@ class GameManager {
     return code;
   }
 
-  createRoom(socketId, playerName, avatar = null, mode = 'public') {
+  createRoom(socketId, playerName, avatar = null, mode = 'public', gameKind = 'king', startingStack = null) {
     const roomCode = this._generateUniqueCode();
     const player = { id: socketId, name: playerName, avatar, seat: 0, connected: true };
+    const kind = gameKind === 'spinking' ? 'spinking' : 'king';
     this.rooms.set(roomCode, {
       code: roomCode,
       players: [player],
@@ -164,7 +178,12 @@ class GameManager {
       status: 'waiting',
       // 'championship' games count toward the daily quota and feed the
       // public API / score-app seasons; 'public' games are casual.
-      mode: mode === 'championship' ? 'championship' : 'public',
+      // Spin King rooms are always casual — never championship.
+      mode: kind === 'spinking' ? 'public' : (mode === 'championship' ? 'championship' : 'public'),
+      // 'king' = the classic 27-round game; 'spinking' = the chip-betting
+      // variant played on the same table with the same socket events.
+      gameKind: kind,
+      startingStack: kind === 'spinking' ? clampStack(startingStack ?? DEFAULT_STACK) : null,
       // Rematch coordination — populated when a finished room transitions
       // into "waiting for players to click Play Again". Lives only in
       // memory; never persisted.
@@ -282,11 +301,58 @@ class GameManager {
     if (!room) throw new Error(`Room ${roomCode} not found.`);
     if (room.players.length !== 3) throw new Error('Need exactly 3 players to start.');
     if (room.status !== 'waiting') throw new Error('Game already started.');
-    room.gameState = new GameState(room.players.map((p) => ({ id: p.id, name: p.name, seat: p.seat })));
+    const seatedPlayers = room.players.map((p) => ({ id: p.id, name: p.name, seat: p.seat }));
+    room.gameState = room.gameKind === 'spinking'
+      ? new SpinKingState(seatedPlayers, clampStack(room.startingStack ?? DEFAULT_STACK))
+      : new GameState(seatedPlayers);
     room.status = 'playing';
     console.log(`[GameManager] Game started in room ${roomCode}`);
     this._persist(roomCode);
     return room.gameState;
+  }
+
+  /**
+   * Creator-only, waiting-room-only edit of a Spin King table's stack size.
+   * Returns the clamped value actually stored.
+   */
+  setStartingStack(roomCode, socketId, value) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return { ok: false, error: 'Room not found.' };
+    if (room.gameKind !== 'spinking') return { ok: false, error: 'Not a Spin King room.' };
+    if (room.status !== 'waiting') return { ok: false, error: 'Game already started.' };
+    const mapping = this.socketRoomMap.get(socketId);
+    if (!mapping || mapping.roomCode !== roomCode || mapping.seat !== room.creatorSeat) {
+      return { ok: false, error: 'Only the room creator can change the stack.' };
+    }
+    room.startingStack = clampStack(value);
+    this._persist(roomCode);
+    return { ok: true, startingStack: room.startingStack };
+  }
+
+  /** Spin King action plumbing — same shape as the King handleX methods. */
+  _spinAction(roomCode, fn) {
+    const room = this.rooms.get(roomCode);
+    if (!room || !room.gameState) return { ok: false, error: 'Game not found.' };
+    if (room.gameKind !== 'spinking') return { ok: false, error: 'Not a Spin King room.' };
+    const result = fn(room.gameState);
+    if (result.ok) this._persist(roomCode);
+    return result;
+  }
+
+  handleAckSpin(roomCode, seat) {
+    return this._spinAction(roomCode, (gs) => gs.ackSpin(seat));
+  }
+
+  handlePlaceBid(roomCode, seat, amount) {
+    return this._spinAction(roomCode, (gs) => gs.placeBid(seat, amount));
+  }
+
+  handlePassBid(roomCode, seat) {
+    return this._spinAction(roomCode, (gs) => gs.passBid(seat));
+  }
+
+  handlePledgeAct(roomCode, seat, payload) {
+    return this._spinAction(roomCode, (gs) => gs.pledgeAct(seat, payload));
   }
 
   handleSelectGameType(roomCode, seat, typeCode) {
@@ -518,8 +584,13 @@ class GameManager {
     if (!newRoomCode) {
       // First click: create a fresh room with this socket as seat 0. The
       // rematch inherits the finished game's mode (championship rematches
-      // are quota-checked in the socket handler before we get here).
-      const result = this.createRoom(socketId, playerName, avatar, oldRoom.mode);
+      // are quota-checked in the socket handler before we get here) plus
+      // its game kind and stack size — a Spin King rematch is a fresh
+      // match with everyone reset to the starting stack.
+      const result = this.createRoom(
+        socketId, playerName, avatar, oldRoom.mode,
+        oldRoom.gameKind || 'king', oldRoom.startingStack
+      );
       newRoomCode = result.roomCode;
       seat = result.seat;
       oldRoom.rematchRoomCode = newRoomCode;

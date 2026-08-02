@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { EventBus } from '../EventBus.js'
 import { createFaceUpCard, createFaceDownCard, CARD_W, CARD_H } from '../objects/Card.js'
 import { SOUNDS } from '../../constants/sounds.js'
+import { getTier, tierProgress, PROGRESS_COLOR, chipBreakdown, seatStatText } from '../../constants/spinKing.js'
 
 // CSS hex string ("#daa520") → Phaser color int (0xdaa520).
 const hexToInt = (hex) => parseInt(hex.slice(1), 16)
@@ -157,12 +158,21 @@ export class GameScene extends Phaser.Scene {
       if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
       this._animatingTrick = false
       if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
+      this._sweepFlyingChips()
       if (this.gameState) this._renderAll(this.gameState)
+    }
+
+    // Spin King chip flights: bets sliding into the pot, payouts sliding
+    // out to the winners.
+    this._onChipsFly = ({ moves, direction }) => {
+      if (!this.sys || !this.sys.displayList || !this.sys.isActive()) return
+      this._animateChips(moves || [], direction)
     }
 
     EventBus.on('state-update', this._onStateUpdate)
     EventBus.on('animate-trick-winner', this._onAnimateTrickWinner)
     EventBus.on('force-render', this._onForceRender)
+    EventBus.on('spin-chips-fly', this._onChipsFly)
 
     // ── Visibility-change recovery ────────────────────────────────────────
     // When a tab is backgrounded mid-animation, Phaser pauses the scene
@@ -179,6 +189,7 @@ export class GameScene extends Phaser.Scene {
       if (!this.sys || !this.sys.isActive()) return
       this._animatingTrick = false
       if (this._trickWatchdog) { clearTimeout(this._trickWatchdog); this._trickWatchdog = null }
+      this._sweepFlyingChips()
       if (this.gameState) this._renderAll(this.gameState)
     }
     if (typeof document !== 'undefined') {
@@ -202,6 +213,7 @@ export class GameScene extends Phaser.Scene {
     if (this._onStateUpdate)        EventBus.off('state-update', this._onStateUpdate)
     if (this._onAnimateTrickWinner) EventBus.off('animate-trick-winner', this._onAnimateTrickWinner)
     if (this._onForceRender)        EventBus.off('force-render', this._onForceRender)
+    if (this._onChipsFly)           EventBus.off('spin-chips-fly', this._onChipsFly)
     if (this._onVisibility && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this._onVisibility)
     }
@@ -209,6 +221,7 @@ export class GameScene extends Phaser.Scene {
     this._onStateUpdate = null
     this._onAnimateTrickWinner = null
     this._onForceRender = null
+    this._onChipsFly = null
     this._onVisibility = null
   }
 
@@ -263,8 +276,185 @@ export class GameScene extends Phaser.Scene {
     this._renderHand(state)
     this._renderTrickArea(state)
     this._renderCenterCards(state)
+    this._renderSpinTable(state)
     this._renderChatBubbles(state)
     this._maybeReactToTrickWinner(state)
+  }
+
+  /**
+   * Draw a poker chip pile for `amount`: one column per denomination
+   * (gold 1000 / purple 500 / black 100 / green 25 / red 5 / white 1),
+   * column height tracking the count — so the pile's size reads the value
+   * at a glance. Drawn into `container` when given (coords become
+   * container-relative), else onto the scene root.
+   */
+  _drawChipPile(x, y, amount, scale = 1, container = null) {
+    const cols = chipBreakdown(amount, 8)
+    if (!cols.length) return null
+    const colW  = 21 * scale
+    const chipH = 5.2 * scale
+    const rw    = 18 * scale   // chip ellipse width
+    const rh    = 7.5 * scale  // chip ellipse height
+    const totalW = cols.length * colW
+    const g = this.add.graphics()
+    cols.forEach((c, ci) => {
+      const cx = x - totalW / 2 + colW * (ci + 0.5)
+      const colInt  = hexToInt(c.color)
+      const darkInt = hexToInt(c.dark)
+      for (let i = 0; i < c.count; i++) {
+        const cy = y - i * chipH
+        g.fillStyle(darkInt, 1)
+        g.fillEllipse(cx, cy + 1.8 * scale, rw, rh)
+        g.fillStyle(colInt, 1)
+        g.fillEllipse(cx, cy, rw, rh)
+      }
+      // Top-face ring on the pile's top chip.
+      g.lineStyle(Math.max(1, scale), 0xffffff, 0.4)
+      g.strokeEllipse(cx, y - (c.count - 1) * chipH, rw * 0.62, rh * 0.6)
+    })
+    if (container) container.add(g)
+    return g
+  }
+
+  /**
+   * Chip flight: bets sliding from a seat's avatar into the pot
+   * (direction 'in') or payouts sliding from the pot to the winners
+   * (direction 'out'). Fire-and-forget — sprites destroy themselves.
+   */
+  _animateChips(moves, direction) {
+    const state = this.gameState
+    if (!state || state.gameKind !== 'spinking') return
+    if (!moves.length) return
+    // Chip clatter rides every flight — antes, bets, calls, raises going in
+    // and payouts going out. One clip per betting action, not per chip.
+    try {
+      const snd = new window.Audio('/sounds/pokerchips.mp3')
+      snd.volume = 0.65
+      snd.play().catch(() => { /* needs a first gesture — silent until then */ })
+    } catch { /* ignore */ }
+    const mySeat = state.mySeat ?? 0
+    const POT = { x: TABLE_CX, y: TABLE_CY - 118 }
+    if (!this._flyingChips) this._flyingChips = []
+    moves.forEach(({ seat, amount }, mi) => {
+      const rel = (seat - mySeat + 3) % 3
+      const av = AVATAR_POS[rel]
+      if (!av) return
+      const from = direction === 'in' ? av : POT
+      const to   = direction === 'in' ? POT : av
+      // More chips for bigger sums, capped so a monster pot stays smooth.
+      const n = Math.max(3, Math.min(10, Math.ceil(Math.log2((amount || 1) + 1)) + 1))
+      const palette = chipBreakdown(amount, 8)
+      const colors = palette.length ? palette : [{ color: '#e0a83c', dark: '#a97c22' }]
+      for (let i = 0; i < n; i++) {
+        const c = colors[i % colors.length]
+        const g = this.add.graphics().setDepth(90)
+        g.fillStyle(hexToInt(c.dark), 1)
+        g.fillEllipse(0, 2, 22, 9.5)
+        g.fillStyle(hexToInt(c.color), 1)
+        g.fillEllipse(0, 0, 22, 9.5)
+        g.setPosition(
+          from.x + Phaser.Math.Between(-16, 16),
+          from.y + Phaser.Math.Between(-10, 10)
+        )
+        g.setAlpha(0)
+        this._flyingChips.push(g)
+        const untrack = () => {
+          this._flyingChips = (this._flyingChips || []).filter((s) => s !== g)
+        }
+        this.tweens.add({
+          targets: g,
+          alpha: 1,
+          duration: 90,
+          delay: mi * 90 + i * 42,
+        })
+        this.tweens.add({
+          targets: g,
+          x: to.x + Phaser.Math.Between(-20, 20),
+          y: to.y + Phaser.Math.Between(-12, 12),
+          duration: 520 + Phaser.Math.Between(0, 140),
+          delay: mi * 90 + i * 42,
+          ease: 'Cubic.easeInOut',
+          onComplete: () => {
+            this.tweens.add({
+              targets: g, alpha: 0, duration: 160,
+              onComplete: () => { untrack(); g.destroy() },
+            })
+          },
+        })
+      }
+    })
+    // Backgrounded tabs pause the scene clock and can strand chips mid-air
+    // (their tweens only resume on re-focus). A wall-clock sweep guarantees
+    // nothing lingers past the flight window regardless of tab state.
+    setTimeout(() => this._sweepFlyingChips(), 2600)
+  }
+
+  _sweepFlyingChips() {
+    (this._flyingChips || []).forEach((g) => { try { g.destroy() } catch { /* gone */ } })
+    this._flyingChips = []
+  }
+
+  // ── Spin King table dressing: centre pot + face-down prikup ──────────────
+  // No-op for King states (they never carry `gameKind: 'spinking'`), so the
+  // classic table is pixel-identical to before.
+  _renderSpinTable(state) {
+    if (state.gameKind !== 'spinking') return
+
+    // The pot: a real chip pile hovering above the trick zone + the exact
+    // number on a pill right under it.
+    if ((state.pot ?? 0) > 0) {
+      const potY = TABLE_CY - 92
+      const pile = this._drawChipPile(TABLE_CX, potY - 30, state.pot, 1.35)
+      if (pile) { pile.setDepth(6); this.centerObjs.push(pile) }
+      const label = this.add.text(TABLE_CX, potY, `ბანკი: ${state.pot.toLocaleString()}`, {
+        fontSize: '14px', color: '#f4d06f',
+        fontFamily: 'Noto Sans Georgian, Inter, Arial', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(6)
+      const w = label.width + 30
+      const bg = this.add.graphics().setDepth(5)
+      bg.fillStyle(0x1a120a, 0.72)
+      bg.fillRoundedRect(TABLE_CX - w / 2, potY - 15, w, 30, 15)
+      bg.lineStyle(1.5, 0xe3b04b, 0.85)
+      bg.strokeRoundedRect(TABLE_CX - w / 2, potY - 15, w, 30, 15)
+      this.centerObjs.push(bg, label)
+    }
+
+    const count = state.prikupCount ?? 0
+    if (!count) return
+
+    if (['spin', 'auction', 'trump_selection'].includes(state.gamePhase)) {
+      // The hidden 2-card prikup up for auction — face-down for EVERYONE
+      // (its contents are the gamble; King's face-up prikup never applies).
+      for (let i = 0; i < count; i++) {
+        const card = createFaceDownCard(this, TABLE_CX - 40 + i * 80, TABLE_CY + 6)
+        card.setDepth(4)
+        this.centerObjs.push(card)
+      }
+      const lbl = this.add.text(TABLE_CX, TABLE_CY + CARD_H / 2 + 28, '❖  ფარული პრიკუპი  ❖', {
+        fontSize: '11px', color: '#e3b04b',
+        fontFamily: 'Noto Sans Georgian, Inter, Arial', stroke: '#000', strokeThickness: 3,
+      }).setOrigin(0.5)
+      this.centerObjs.push(lbl)
+    } else if (state.prikupDead) {
+      // All-pass round: the prikup stays buried. Park two dimmed mini-backs
+      // off-centre so the table remembers the dead cards without colliding
+      // with the trick zone.
+      const px = TABLE_CX - 205
+      const py = TABLE_CY - 80
+      for (let i = 0; i < count; i++) {
+        const card = createFaceDownCard(this, px + i * 24, py)
+        card.setScale(0.5)
+        card.setAlpha(0.38)
+        card.setAngle(-8 + i * 12)
+        card.setDepth(3)
+        this.centerObjs.push(card)
+      }
+      const lbl = this.add.text(px + 12, py + CARD_H * 0.25 + 16, 'მკვდარი პრიკუპი', {
+        fontSize: '9px', color: '#b7a488',
+        fontFamily: 'Noto Sans Georgian, Inter, Arial', stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5).setAlpha(0.65)
+      this.centerObjs.push(lbl)
+    }
   }
 
   /**
@@ -465,20 +655,142 @@ export class GameScene extends Phaser.Scene {
       container.add(nameTxt)
 
       const scoreOffY = nameOffY + 18
-      const scoreStr  = score > 0 ? `+${score}` : `${score}`
-      const scoreCol  = score > 0 ? '#fbbf24' : score < 0 ? '#f87171' : '#cccccc'
-      // small coin icon
-      const coin = this.add.graphics()
-      coin.fillStyle(0xfbbf24, 1)
-      coin.fillCircle(-22, scoreOffY, 5)
-      coin.fillStyle(0xfde68a, 1)
-      coin.fillCircle(-22, scoreOffY, 3)
-      container.add(coin)
-      const scoreTxt = this.add.text(-12, scoreOffY, scoreStr, {
-        fontSize: '13px', color: scoreCol,
-        fontFamily: 'Inter, system-ui, Arial, sans-serif', fontStyle: 'bold',
-      }).setOrigin(0, 0.5)
-      container.add(scoreTxt)
+      // Spin King tables show the live chip stack where King shows the
+      // cumulative score (classic points still exist there, but only as
+      // flavor — chips are what the match is about).
+      const isSpin    = state.gameKind === 'spinking' && !!state.chips
+      const isZombie  = isSpin && !!state.zombies?.[seat]
+      const chipsVal  = isSpin ? (state.chips[seat] ?? 0) : 0
+      const scoreStr  = isSpin
+        ? (isZombie ? '0 ☠' : chipsVal.toLocaleString())
+        : (score > 0 ? `+${score}` : `${score}`)
+      const scoreCol  = isSpin
+        ? (isZombie ? '#9ca3af' : '#fbbf24')
+        : (score > 0 ? '#fbbf24' : score < 0 ? '#f87171' : '#cccccc')
+      if (isSpin && isOwn) {
+        // The own row sits at the canvas' bottom edge — the below-name slot
+        // is OFF-SCREEN. Park the pile + amount to the LEFT of the avatar.
+        this._drawChipPile(-126, -12, chipsVal, 0.75, container)
+        const amt = this.add.text(-126, 18, scoreStr, {
+          fontSize: '16px', color: scoreCol,
+          fontFamily: 'Inter, system-ui, Arial, sans-serif', fontStyle: 'bold',
+          stroke: '#1a120a', strokeThickness: 3,
+        }).setOrigin(0.5)
+        container.add(amt)
+      } else if (isSpin) {
+        // A real (mini) chip pile in place of King's coin dot — its size
+        // tracks the stack, so a glance around the table reads the money.
+        this._drawChipPile(-40, scoreOffY + 5, chipsVal, 0.7, container)
+        const scoreTxt = this.add.text(14, scoreOffY, scoreStr, {
+          fontSize: '15px', color: scoreCol,
+          fontFamily: 'Inter, system-ui, Arial, sans-serif', fontStyle: 'bold',
+        }).setOrigin(0, 0.5)
+        container.add(scoreTxt)
+      } else {
+        // small coin icon
+        const coin = this.add.graphics()
+        coin.fillStyle(0xfbbf24, 1)
+        coin.fillCircle(-22, scoreOffY, 5)
+        coin.fillStyle(0xfde68a, 1)
+        coin.fillCircle(-22, scoreOffY, 3)
+        container.add(coin)
+        const scoreTxt = this.add.text(-12, scoreOffY, scoreStr, {
+          fontSize: '13px', color: scoreCol,
+          fontFamily: 'Inter, system-ui, Arial, sans-serif', fontStyle: 'bold',
+        }).setOrigin(0, 0.5)
+        container.add(scoreTxt)
+      }
+
+      // Spin King table intel during trick play. Seats with chips in the
+      // pot get the pledge plaque: the SHARED condition, their stake, and a
+      // LIVE counter. Every other seat still gets a small public stat chip
+      // (queens/jacks/hearts/tricks taken under the current game type) so
+      // the whole table can read who to feed cards to.
+      const entry = isSpin ? state.pledge?.entries?.[seat] : null
+      const inTrickPhases = ['playing', 'round_end'].includes(gamePhase)
+      // Own plaque goes LEFT of the avatar, past the chip pile (below is
+      // off-canvas and above is the hand fan); opponents' hang underneath
+      // their name block.
+      const px = isOwn ? -262 : 0
+      const py = isOwn ? 0 : scoreOffY + (isLeader ? 40 : 26)
+      const showPlaque = entry && inTrickPhases &&
+        (entry.status === 'in' || (entry.status === 'folded' && entry.committed > 0))
+      if (showPlaque) {
+        const folded = entry.status === 'folded'
+        const sharedTier = folded ? null : getTier(state.chosenGameType, state.pledge?.tierId)
+        const prog = sharedTier ? tierProgress(
+          state.chosenGameType, sharedTier.id,
+          { ...(state.roundStats || {}), tricksTaken: state.tricksTaken || {} },
+          seat
+        ) : null
+        const line1 = folded ? 'ფოლდი' : (sharedTier?.label ?? '')
+        const line2 = folded
+          ? `${entry.committed.toLocaleString()} დაკარგა`
+          : `ფსონი ${entry.committed.toLocaleString()}${prog ? ' · ' + prog.text : ''}`
+        const accentHexStr = folded ? '#9ca3af' : (PROGRESS_COLOR[prog?.state] || '#cccccc')
+        const accent = hexToInt(accentHexStr)
+
+        const t1 = this.add.text(px, py - 9, line1, {
+          fontSize: '11px', color: '#f4ead2',
+          fontFamily: 'Noto Sans Georgian, Inter, Arial', fontStyle: 'bold',
+        }).setOrigin(0.5)
+        const t2 = this.add.text(px, py + 8, line2, {
+          fontSize: '11px', color: accentHexStr,
+          fontFamily: 'Noto Sans Georgian, Inter, Arial', fontStyle: 'bold',
+        }).setOrigin(0.5)
+        const pw = Math.max(t1.width, t2.width) + 18
+        const plaqueBg = this.add.graphics()
+        plaqueBg.fillStyle(0x140d08, 0.8)
+        plaqueBg.fillRoundedRect(px - pw / 2, py - 20, pw, 40, 10)
+        plaqueBg.lineStyle(1.5, accent, folded ? 0.5 : 0.95)
+        plaqueBg.strokeRoundedRect(px - pw / 2, py - 20, pw, 40, 10)
+        container.add(plaqueBg)
+        container.add(t1)
+        container.add(t2)
+      } else if (isSpin && inTrickPhases && state.chosenGameType) {
+        const stat = seatStatText(state.chosenGameType, state.roundStats, state.tricksTaken, seat)
+        this._addSeatBadge(container, px, py, stat.text,
+          stat.danger ? '#ffb1a6' : '#e8dcbf', stat.danger ? 0xa5372b : 0x7a532c)
+      } else if (isSpin && gamePhase === 'auction' && state.auction) {
+        // Who bid what / who passed, live under every avatar.
+        const a = state.auction
+        let text = 'ელოდება'
+        let color = '#c9b895'
+        let border = 0x7a532c
+        if (a.highBidder === seat) {
+          text = `★ ფსონი ${(a.bid ?? 0).toLocaleString()}`
+          color = '#f4d06f'; border = 0xb8860b
+        } else if (a.passed?.[seat]) {
+          text = 'პასი'
+          color = '#9ca3af'; border = 0x555a63
+        } else if (state.currentTurn === seat) {
+          text = 'ფიქრობს…'
+          color = '#ffb1a6'; border = 0xa5372b
+        }
+        this._addSeatBadge(container, px, py, text, color, border)
+      } else if (isSpin && gamePhase === 'pledge' && state.pledge) {
+        // Who set the condition, who has chips in, who folded.
+        const p = state.pledge
+        const e = p.entries?.[seat]
+        const sharedTier = getTier(state.chosenGameType, p.tierId)
+        let text = 'ელოდება'
+        let color = '#c9b895'
+        let border = 0x7a532c
+        if (e?.status === 'folded') {
+          text = e.committed > 0 ? `ფოლდი · ${e.committed.toLocaleString()}` : 'ფოლდი'
+          color = '#9ca3af'; border = 0x555a63
+        } else if (e?.status === 'in' && p.tierSetBy === seat && sharedTier) {
+          text = `⇧ ${sharedTier.label} · ${e.committed.toLocaleString()}`
+          color = '#f4d06f'; border = 0xb8860b
+        } else if (e?.status === 'in') {
+          text = `დადო ${e.committed.toLocaleString()} ✓`
+          color = '#b8e6a3'; border = 0x4c7a2f
+        } else if (state.currentTurn === seat) {
+          text = 'ფიქრობს…'
+          color = '#ffb1a6'; border = 0xa5372b
+        }
+        this._addSeatBadge(container, px, py, text, color, border)
+      }
 
       // Leader / "Dealer" pill
       if (isLeader) {
@@ -501,6 +813,22 @@ export class GameScene extends Phaser.Scene {
 
       this.avatarObjs.push(container)
     })
+  }
+
+  /** One-line status chip under an avatar (betting states, table stats). */
+  _addSeatBadge(container, px, py, text, colorHex, borderInt) {
+    const t = this.add.text(px, py, text, {
+      fontSize: '11px', color: colorHex,
+      fontFamily: 'Noto Sans Georgian, Inter, Arial', fontStyle: 'bold',
+    }).setOrigin(0.5)
+    const cw = t.width + 18
+    const bg = this.add.graphics()
+    bg.fillStyle(0x140d08, 0.72)
+    bg.fillRoundedRect(px - cw / 2, py - 11, cw, 22, 11)
+    bg.lineStyle(1.2, borderInt, 0.85)
+    bg.strokeRoundedRect(px - cw / 2, py - 11, cw, 22, 11)
+    container.add(bg)
+    container.add(t)
   }
 
   /**
@@ -580,7 +908,8 @@ export class GameScene extends Phaser.Scene {
     const minSpacing = isNarrow ? 46 : 36
     const spacing    = Math.max(minSpacing, Math.min(maxSpacing, (W - 200) / Math.max(1, total)))
     const startX     = W / 2 - ((total - 1) * spacing) / 2
-    const baseY      = H - 165
+    // Lifted so the fan clears the own avatar + sound button underneath.
+    const baseY      = H - 192
     const isMyTurn   = gamePhase === 'playing' && currentTurn === mySeat
     const midIdx     = (total - 1) / 2
 

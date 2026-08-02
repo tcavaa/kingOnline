@@ -16,6 +16,10 @@ import DisconnectBanner from './Hud/DisconnectBanner'
 import RoundResult      from './Hud/RoundResult'
 import WaitingChip      from './Hud/WaitingChip'
 import QuitModal        from './Hud/QuitModal'
+import SpinReelOverlay  from './SpinKing/SpinReelOverlay'
+import AuctionOverlay   from './SpinKing/AuctionOverlay'
+import PledgeOverlay    from './SpinKing/PledgeOverlay'
+import SettlementResult from './SpinKing/SettlementResult'
 import { quoteForRound } from '../constants/quotes'
 
 /**
@@ -29,7 +33,9 @@ export default function GameLayout() {
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, playCard, playPending, roomCode,
+    gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
   } = useGame()
+  const isSpinKing = gameKind === 'spinking'
   const { chatBubbles, typingSeats } = useChat()
 
   // One famous Georgian line per round — same pick for all three players,
@@ -72,11 +78,15 @@ export default function GameLayout() {
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, chatBubbles: bubblesWithTyping, playPending,
+    // Spin King table dressing — absent/void on King tables, so the scene
+    // renders exactly as before for the classic game.
+    gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
   }), [
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, bubblesWithTyping, playPending,
+    gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
   ])
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
@@ -86,6 +96,10 @@ export default function GameLayout() {
   const showDiscard       = gamePhase === 'discard'         && mySeat === leaderSeat
   const showRoundResult   = gamePhase === 'round_end'
   const showWaiting       = gamePhase === 'playing' && currentTurn !== mySeat && !trickAnimation
+  // Spin King phase overlays — King rooms never enter these phases.
+  const showSpinReel = isSpinKing && gamePhase === 'spin'
+  const showAuction  = isSpinKing && gamePhase === 'auction'
+  const showPledge   = isSpinKing && gamePhase === 'pledge'
 
   const turnName   = players.find(p => p.seat === currentTurn)?.name ?? '…'
   const leaderName = players.find(p => p.seat === leaderSeat)?.name  ?? '…'
@@ -194,7 +208,11 @@ export default function GameLayout() {
       {showTypeSelector  && <GameTypeSelector />}
       {showTrumpSelector && <TrumpSelector />}
       {showDiscard       && <DiscardSelector />}
-      {showRoundResult   && <RoundResult />}
+      {showRoundResult   && (isSpinKing ? <SettlementResult /> : <RoundResult />)}
+
+      {showSpinReel && <SpinReelOverlay />}
+      {showAuction  && <AuctionOverlay />}
+      {showPledge   && <PledgeOverlay />}
 
       <QuitModal confirmKind={confirmQuit} onCloseConfirm={() => setConfirmQuit(null)} />
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const store = require('../db/store');
+const { clampStack, DEFAULT_STACK } = require('../spinking/constants');
 
 const playerView = (p) => ({ id: p.id, name: p.name, avatar: p.avatar || null, seat: p.seat });
 const playersView = (players = []) => players.map(playerView);
@@ -30,23 +31,34 @@ function registerHandlers(io, socket, gameManager) {
   function emitChampionshipLimit() { emitError(CHAMPIONSHIP_LIMIT_MESSAGE, 'CHAMPIONSHIP_LIMIT'); }
 
   // ─── create-room ─────────────────────────────────────────────────────────
-  socket.on('create-room', async ({ playerName, avatar, mode } = {}) => {
+  socket.on('create-room', async ({ playerName, avatar, mode, gameKind, startingStack } = {}) => {
     try {
       if (!playerName || typeof playerName !== 'string' || !playerName.trim()) {
         return emitError('playerName is required.');
       }
-      const roomMode = mode === 'championship' ? 'championship' : 'public';
+      // Spin King rooms are always casual — never championship, never
+      // quota-checked. The kind is fixed at creation and never changes.
+      const kind = gameKind === 'spinking' ? 'spinking' : 'king';
+      const roomMode = kind === 'king' && mode === 'championship' ? 'championship' : 'public';
       if (roomMode === 'championship' && await _championshipBlocked(playerName.trim())) {
         return emitChampionshipLimit();
       }
-      const { roomCode, seat } = gameManager.createRoom(socketId, playerName.trim(), avatar || null, roomMode);
+      const { roomCode, seat } = gameManager.createRoom(
+        socketId, playerName.trim(), avatar || null, roomMode,
+        kind, kind === 'spinking' ? clampStack(startingStack ?? DEFAULT_STACK) : null
+      );
       socket.join(roomCode);
-      socket.emit('room-created', { roomCode, seat, mode: roomMode });
       const room = gameManager.getRoom(roomCode);
+      socket.emit('room-created', {
+        roomCode, seat, mode: roomMode,
+        gameKind: room.gameKind, startingStack: room.startingStack,
+      });
       io.to(roomCode).emit('player-joined', {
         players: playersView(room.players),
         roomCode,
         mode: room.mode,
+        gameKind: room.gameKind,
+        startingStack: room.startingStack,
       });
     } catch (err) {
       emitError(err.message);
@@ -82,13 +94,19 @@ function registerHandlers(io, socket, gameManager) {
 
       const { seat, reconnected, status } = gameManager.joinRoom(rc, socketId, playerName.trim(), avatar || null);
       socket.join(rc);
-      const roomMode = gameManager.getRoom(rc)?.mode || 'public';
+      const joinedRoom = gameManager.getRoom(rc);
+      const roomMode = joinedRoom?.mode || 'public';
+      const roomKind = joinedRoom?.gameKind || 'king';
+      const roomStack = joinedRoom?.startingStack || null;
 
       if (reconnected) {
         // `status` tells the client which screen to land on — a lobby
         // reconnect should stay on WaitingRoom, an in-game reconnect
         // should rehydrate the table.
-        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status, mode: roomMode });
+        socket.emit('room-joined', {
+          roomCode: rc, seat, reconnected: true, status, mode: roomMode,
+          gameKind: roomKind, startingStack: roomStack,
+        });
         const room = gameManager.getRoom(rc);
         const state = gameManager.getStateForPlayer(rc, seat);
         if (state) {
@@ -104,12 +122,17 @@ function registerHandlers(io, socket, gameManager) {
         return;
       }
 
-      socket.emit('room-joined', { roomCode: rc, seat, status, mode: roomMode });
+      socket.emit('room-joined', {
+        roomCode: rc, seat, status, mode: roomMode,
+        gameKind: roomKind, startingStack: roomStack,
+      });
       const room = gameManager.getRoom(rc);
       io.to(rc).emit('player-joined', {
         players: playersView(room.players),
         roomCode: rc,
         mode: roomMode,
+        gameKind: roomKind,
+        startingStack: roomStack,
       });
     } catch (err) {
       emitError(err.message);
@@ -249,6 +272,103 @@ function registerHandlers(io, socket, gameManager) {
         players: playersView(room.players),
       });
       _emitHandDealt(io, room, gameState, roomCode);
+      _broadcastSpinState(io, gameManager, roomCode);
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  // ─── Spin King events ─────────────────────────────────────────────────────
+  // All guarded on room.gameKind === 'spinking' (inside the GameManager
+  // methods), so King rooms can never trigger them. Every successful action
+  // re-broadcasts each player's full per-seat state — the chip/auction/
+  // pledge overlays are rendered straight from `game-state`, which keeps the
+  // reconnect, watchdog and live paths identical.
+
+  /** Look up this socket's spinking room, or null (with an error emitted). */
+  function _spinContext() {
+    const mapping = gameManager.getMappingBySocketId(socketId);
+    if (!mapping) { emitError('You are not in a room.'); return null; }
+    const room = gameManager.getRoom(mapping.roomCode);
+    if (!room || !room.gameState) { emitError('Game not found.'); return null; }
+    if (room.gameKind !== 'spinking') { emitError('Not a Spin King room.'); return null; }
+    return { mapping, room, roomCode: mapping.roomCode, seat: mapping.seat };
+  }
+
+  socket.on('set-starting-stack', ({ startingStack } = {}) => {
+    try {
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (!mapping) return emitError('You are not in a room.');
+      const result = gameManager.setStartingStack(mapping.roomCode, socketId, startingStack);
+      if (!result.ok) return emitError(result.error);
+      io.to(mapping.roomCode).emit('starting-stack-updated', { startingStack: result.startingStack });
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  socket.on('spin-ack', () => {
+    try {
+      const ctx = _spinContext();
+      if (!ctx) return;
+      const result = gameManager.handleAckSpin(ctx.roomCode, ctx.seat);
+      // A losing ack race is normal (someone else's reel finished first) —
+      // stay quiet instead of flashing an error at the slower clients.
+      if (!result.ok) return;
+      _broadcastSpinState(io, gameManager, ctx.roomCode);
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  socket.on('place-bid', ({ amount } = {}) => {
+    try {
+      const ctx = _spinContext();
+      if (!ctx) return;
+      const result = gameManager.handlePlaceBid(ctx.roomCode, ctx.seat, amount);
+      if (!result.ok) return emitError(result.error);
+      _afterAuctionStep(ctx);
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  socket.on('pass-bid', () => {
+    try {
+      const ctx = _spinContext();
+      if (!ctx) return;
+      const result = gameManager.handlePassBid(ctx.roomCode, ctx.seat);
+      if (!result.ok) return emitError(result.error);
+      _afterAuctionStep(ctx);
+    } catch (err) {
+      emitError(err.message);
+    }
+  });
+
+  /** Shared post-bid/post-pass work: if the auction just resolved with a
+   *  buyer on a non-trump type, the prikup was merged — push the buyer
+   *  their 12-card hand exactly like King's merge paths do. */
+  function _afterAuctionStep(ctx) {
+    const gs = ctx.room.gameState;
+    if (gs.phase === 'discard' && gs.auctionWinner !== null) {
+      const buyer = ctx.room.players.find((p) => p.seat === gs.auctionWinner);
+      if (buyer && buyer.id) {
+        io.to(buyer.id).emit('hand-updated', {
+          hand: gs.hands[gs.auctionWinner],
+          lastCenterCards: gs.lastCenterCards,
+        });
+      }
+    }
+    _broadcastSpinState(io, gameManager, ctx.roomCode);
+  }
+
+  socket.on('pledge-act', ({ action, tier, stake } = {}) => {
+    try {
+      const ctx = _spinContext();
+      if (!ctx) return;
+      const result = gameManager.handlePledgeAct(ctx.roomCode, ctx.seat, { action, tier, stake });
+      if (!result.ok) return emitError(result.error);
+      _broadcastSpinState(io, gameManager, ctx.roomCode);
     } catch (err) {
       emitError(err.message);
     }
@@ -304,10 +424,13 @@ function registerHandlers(io, socket, gameManager) {
       });
       // The 2 center cards have just been merged into the leader's hand —
       // send the updated hand + which cards came from center for highlighting.
+      // (On a Spin King all-pass round nothing was merged; the hand is
+      // unchanged and the extra emit is harmless.)
       socket.emit('hand-updated', {
         hand: gs.hands[seat],
         lastCenterCards: gs.lastCenterCards,
       });
+      _broadcastSpinState(io, gameManager, roomCode);
     } catch (err) {
       emitError(err.message);
     }
@@ -331,6 +454,7 @@ function registerHandlers(io, socket, gameManager) {
         currentTurn: gs.currentTurn,
         leaderSeat: gs.leaderSeat,
       });
+      _broadcastSpinState(io, gameManager, roomCode);
     } catch (err) {
       emitError(err.message);
     }
@@ -374,6 +498,14 @@ function registerHandlers(io, socket, gameManager) {
           nextTurn: gs.currentTurn,
           tricksTaken: { ...gs.tricksTaken },
           cardCounts,
+          // Full running stat maps — Spin King renders live pledge progress
+          // ("queens 1/1", "hearts 2/3") on the table from these. Harmless
+          // extra fields for King clients.
+          queensTaken: { ...gs.queensTaken },
+          jacksTaken: { ...gs.jacksTaken },
+          heartsTaken: { ...gs.heartsTaken },
+          kingOfHeartsTakenBy: gs.kingOfHeartsTakenBy,
+          trickWinners: [...gs.trickWinners],
         });
         return;
       }
@@ -393,6 +525,15 @@ function registerHandlers(io, socket, gameManager) {
         isGameOver: result.isGameOver,
         cardCounts,
         roundDetail: lastDetail,
+        // Spin King rounds settle chips the moment the last trick lands;
+        // King rooms never have these fields. No extra game-state push here
+        // — it would cut the clients' final-trick animation short; the
+        // settlement payload carries everything the result modal needs and
+        // next-round/reconnect paths resync the full state.
+        ...(room.gameKind === 'spinking' ? {
+          settlement: result.settlement || null,
+          matchWinner: result.matchWinner ?? null,
+        } : {}),
       });
       if (result.isGameOver) {
         _finishGame(io, room, roomCode, gameManager);
@@ -419,6 +560,7 @@ function registerHandlers(io, socket, gameManager) {
         usedTypes: { ...gameState.usedTypes },
       });
       _emitHandDealt(io, room, gameState, roomCode);
+      _broadcastSpinState(io, gameManager, roomCode);
     } catch (err) {
       emitError(err.message);
     }
@@ -469,6 +611,9 @@ function registerHandlers(io, socket, gameManager) {
       const room = gameManager.getRoom(roomCode);
       if (!room || !room.gameState) return emitError('Game not found.');
       if (room.status !== 'playing') return emitError('Game is not in progress.');
+      // Quit/surrender votes would bypass the chip settlement flow — a Spin
+      // King match only ends when one player holds all the chips.
+      if (room.gameKind === 'spinking') return emitError('Not available in Spin King.');
       const gs = room.gameState;
       if (kind === 'round' && !(gs.chosenGameType && (gs.phase === 'discard' || gs.phase === 'playing'))) {
         return emitError('The round cannot be quit right now.');
@@ -684,7 +829,12 @@ function registerHandlers(io, socket, gameManager) {
       // Tell the requester their new seat — same shape as `room-joined`
       // so the client uses the existing handler to transition into the
       // waiting room UI without a new code path.
-      socket.emit('room-joined', { roomCode: newRoomCode, seat, status: 'waiting' });
+      const rematchRoom = gameManager.getRoom(newRoomCode);
+      socket.emit('room-joined', {
+        roomCode: newRoomCode, seat, status: 'waiting',
+        gameKind: rematchRoom?.gameKind || 'king',
+        startingStack: rematchRoom?.startingStack || null,
+      });
 
       // Send the new lobby's player list to the requester so the waiting
       // room is populated immediately (otherwise the first joiner sits
@@ -809,6 +959,28 @@ function _clearQuitProposal(room) {
 }
 
 /**
+ * Spin King: push every seated player their per-seat view after a betting/
+ * phase transition. The overlays (spin reel, auction, pledge, settlement)
+ * all render from `game-state`, so live play, reconnects and the desync
+ * watchdog share one code path. No-op for King rooms.
+ */
+function _broadcastSpinState(io, gameManager, roomCode) {
+  const room = gameManager.getRoom(roomCode);
+  if (!room || room.gameKind !== 'spinking' || !room.gameState) return;
+  // Transient engine events aren't broadcast (clients derive everything
+  // from state) — drain them so the array can't grow across a long match.
+  if (typeof room.gameState.drainEvents === 'function') room.gameState.drainEvents();
+  for (const player of room.players) {
+    if (!player.id) continue;
+    const state = room.gameState.getStateForPlayer(player.seat);
+    io.to(player.id).emit('game-state', {
+      ...state,
+      players: playersView(room.players),
+    });
+  }
+}
+
+/**
  * Shared game-over path: rank the cumulative scores, broadcast `game-over`,
  * flip the room to finished, and arm the grace timer so the room survives
  * long enough for "Play Again" clicks. `extra` is merged into the payload
@@ -817,6 +989,39 @@ function _clearQuitProposal(room) {
  */
 function _finishGame(io, room, roomCode, gameManager, extra = {}) {
   const gs = room.gameState;
+
+  // ── Spin King: the match is decided by chips, not points ─────────────────
+  // No finished_games row, no leaderboard, no championship quota — Spin King
+  // matches are casual chip games. The classic scores ride along as flavor.
+  if (room.gameKind === 'spinking') {
+    const matchWinner = gs.matchWinner;
+    const winner = matchWinner !== null ? {
+      seat: matchWinner,
+      name: room.players.find((p) => p.seat === matchWinner)?.name || 'Unknown',
+      score: gs.chips[matchWinner],
+    } : null;
+    io.to(roomCode).emit('game-over', {
+      gameKind: 'spinking',
+      matchWinner,
+      chips: { ...gs.chips },
+      startingStack: gs.startingStack,
+      finalScores: { ...gs.cumulativeScores },
+      winner,
+      winners: winner ? [winner] : [],
+      isTie: false,
+      mode: 'public',
+      players: playersView(room.players),
+      settlements: gs.settlements || [],
+      roundDetails: gs.roundDetails || [],
+      ...extra,
+    });
+    // Keep phase 'match_end' — it drives SpinKingState.isGameOver, which a
+    // rehydrated room relies on. Room status still flips so rematch works.
+    room.status = 'finished';
+    gameManager.armRoomGrace(roomCode);
+    gameManager._persist(roomCode);
+    return;
+  }
   const finalScores = { ...gs.cumulativeScores };
   let bestScore = null;
   for (let s = 0; s < 3; s++) {
@@ -880,6 +1085,9 @@ function _finishGame(io, room, roomCode, gameManager, extra = {}) {
 function _emitHandDealt(io, room, gameState, roomCode) {
   const cardCounts = {};
   for (let s = 0; s < 3; s++) cardCounts[s] = gameState.hands[s].length;
+  // Spin King: the prikup is a face-down gamble sold at auction — its
+  // contents must never reach ANY client before the merge.
+  const spinking = room.gameKind === 'spinking';
   for (const player of room.players) {
     const isLeader = player.seat === gameState.leaderSeat;
     io.to(player.id).emit('hand-dealt', {
@@ -888,7 +1096,7 @@ function _emitHandDealt(io, room, gameState, roomCode) {
       // choosing. Only the leader is kept blind to the prikup until it's
       // merged into their hand.
       hand: gameState.hands[player.seat],
-      centerCards: isLeader ? [] : gameState.centerCards,
+      centerCards: (spinking || isLeader) ? [] : gameState.centerCards,
       leaderSeat: gameState.leaderSeat,
       round: gameState.round,
       cardCounts,

@@ -10,14 +10,17 @@ const ITEMS = [
 
 /** Left-side slide-in drawer triggered by the hamburger pill. */
 export default function MenuDrawer({ open, onClose, onPick }) {
-  const { gamePhase, chosenGameType } = useGame()
+  const { gamePhase, chosenGameType, gameKind } = useGame()
   if (!open) return null
 
   // Folding only makes sense once the hand is underway (type picked, cards
   // being discarded/played). Surrender is available any time mid-game.
-  const canQuitRound =
+  // Spin King has neither — a chip match only ends when one stack holds
+  // everything (the server rejects quit votes there too).
+  const isSpinKing = gameKind === 'spinking'
+  const canQuitRound = !isSpinKing &&
     !!chosenGameType && (gamePhase === 'discard' || gamePhase === 'playing')
-  const canSurrender = gamePhase !== 'game_over'
+  const canSurrender = !isSpinKing && gamePhase !== 'game_over'
 
   return (
     <>
