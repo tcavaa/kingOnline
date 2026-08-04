@@ -2,12 +2,20 @@
 deployment:
   tasks:
     - export APP=/home/rretroca/king.rretrocar.ge
+    # Backend code (never touches .env, .htaccess, logs or the
+    # cPanel-managed node_modules symlink). db/ is code only — the data
+    # lives in MySQL.
     - /bin/cp -R server/game $APP/
     - /bin/cp -R server/durak $APP/
     - /bin/cp -R server/socket $APP/
     - /bin/cp -R server/spinking $APP/
+    - /bin/cp -R server/db $APP/
     - /bin/cp server/index.js $APP/
     - /bin/cp server/package.json $APP/
     - /bin/cp server/package-lock.json $APP/
+    # Frontend build: clear the old hashed bundles first so public/assets
+    # doesn't accumulate stale files, then copy the fresh dist contents in
+    - /bin/rm -rf $APP/public/assets
     - /bin/cp -R client/dist/* $APP/public/
+    # Tell Passenger to restart the app with the new code
     - /bin/touch $APP/tmp/restart.txt

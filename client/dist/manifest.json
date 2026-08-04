@@ -1,0 +1,14 @@
+{
+  "name": "King Card Game",
+  "short_name": "King",
+  "description": "3-player saloon-style King card game.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1c100a",
+  "theme_color": "#daa520",
+  "icons": [
+    { "src": "/favicon.png",        "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/avatar-default.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

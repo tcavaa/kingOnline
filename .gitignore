@@ -7,8 +7,8 @@ node_modules/
 .env.production
 .env.*.local
 
-# Build output
-dist/
+# Build output — client/dist is COMMITTED on purpose: shared hosting can't
+# run the Vite build, so the deploy ships the locally-built bundle.
 build/
 
 # Editor / OS
