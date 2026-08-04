@@ -6,7 +6,7 @@
 process.env.NODE_ENV = 'test';
 
 const SpinKingState = require('./SpinKingState');
-const { SPIN_TYPES, PLEDGE_TIERS, anteFor } = require('./constants');
+const { SPIN_TYPES, PLEDGE_TIERS, anteFor, anteForRound } = require('./constants');
 
 let passed = 0;
 let failed = 0;
@@ -53,6 +53,17 @@ console.log('— ante & round open —');
   check('ante formula: 250→3', anteFor(250) === 3);
   check('ante formula: 40→1 (min 1)', anteFor(40) === 1);
 
+  // Tournament escalation: doubles every 5 rounds, capped at stack/5.
+  check('ante escalation: rounds 1-5 flat', anteForRound(1000, 1) === 10 && anteForRound(1000, 5) === 10);
+  check('ante escalation: round 6 doubles', anteForRound(1000, 6) === 20);
+  check('ante escalation: round 11 quadruples', anteForRound(1000, 11) === 40);
+  check('ante escalation: capped at stack/5', anteForRound(1000, 28) === 200 && anteForRound(30, 16) === 6);
+  {
+    const ge = newGame(1000, 'T');
+    rig(ge, { round: 6 });
+    check('engine ante follows the round', ge.anteAmount === 20);
+  }
+
   // Zombie skips ante; broke player pays what they have.
   const g2 = newGame(1000);
   rig(g2, { phase: 'round_end', zombies: { 0: true, 1: false, 2: false } });
@@ -80,7 +91,7 @@ console.log('— spin —');
   check('duplicate ack rejected harmlessly', g.ackSpin(0).ok === false);
 }
 
-console.log('— auction —');
+console.log('— prikup betting (all-pay: bids never come back) —');
 {
   const g = newGame(1000, 'T');
   g.ackSpin(0);
@@ -88,14 +99,23 @@ console.log('— auction —');
   check('minNextBid = ante for opening', g.auction.minNextBid === undefined && g._minNextBid === 10);
   check('opening below ante rejected', g.placeBid(0, 5).ok === false);
   check('bid above stack rejected', g.placeBid(0, 5000).ok === false);
-  check('opening bid accepted', g.placeBid(0, 10).ok === true && g.auction.bid === 10 && g.currentTurn === 1);
+  check('opening bid sinks into the pot immediately', g.placeBid(0, 10).ok === true &&
+    g.auction.bid === 10 && g.chips[0] === 980 && g.pot === 40 && g.currentTurn === 1);
   check('raise below bid+ante rejected', g.placeBid(1, 15).ok === false);
-  check('raise accepted', g.placeBid(1, 40).ok === true && g.currentTurn === 2);
+  check('raise pays in full', g.placeBid(1, 40).ok === true &&
+    g.chips[1] === 950 && g.pot === 80 && g.currentTurn === 2);
   g.passBid(2);
-  check('back to first bidder after pass', g.currentTurn === 0);
+  check('back to first bidder after fold', g.currentTurn === 0);
+  // Poker min-raise: last raise was 30 (10→40), so the floor is 70.
+  check('min re-raise = size of the last raise', g.placeBid(0, 69).ok === false);
+  check('re-raise tops up only the delta', g.placeBid(0, 70).ok === true &&
+    g.chips[0] === 920 && g.pot === 140 && g.auction.committed[0] === 70 && g.currentTurn === 1);
+  check('counter re-raise', g.placeBid(1, 120).ok === true &&
+    g.chips[1] === 870 && g.pot === 220 && g.currentTurn === 0);
   g.passBid(0);
-  check('auction resolves to highest bidder', g.auctionWinner === 1 && g.auctionPrice === 40);
-  check('winner paid into pot', g.chips[1] === 1000 - 10 - 40 && g.pot === 30 + 40);
+  check('betting resolves to the last raiser', g.auctionWinner === 1 && g.auctionPrice === 120);
+  check('folded bidder chips STAY in the pot', g.pot === 220 && g.chips[0] === 920);
+  check('winner pays nothing extra at resolution', g.chips[1] === 870);
   check('prikup merged into winner hand (12 cards)', g.hands[1].length === 12);
   check('winner discards next', g.phase === 'discard' && g.currentTurn === 1);
   check('leaderSeat getter points at buyer', g.leaderSeat === 1);
@@ -270,6 +290,18 @@ console.log('— pledge betting (shared escalating condition) —');
   g4.pledgeAct(2, { action: 'fold' });
   check('all-fold still plays tricks', g4.phase === 'playing');
 
+  // Poker min-raise in the pledge: re-raise by at least the last raise size.
+  const gm = newGame(1000, 'T');
+  gm.ackSpin(0);
+  gm.passBid(0); gm.passBid(1); gm.passBid(2);
+  gm.pledgeAct(0, { action: 'raise', stake: 50 });
+  check('pledge min re-raise = last raise size',
+    gm.pledgeAct(1, { action: 'raise', stake: 60 }).ok === false &&
+    gm.pledgeAct(1, { action: 'raise', stake: 100 }).ok === true &&
+    gm.pledge.lastRaise === 50);
+  check('the floor follows the newest raise', gm.pledgeAct(2, { action: 'raise', stake: 120 }).ok === false &&
+    gm.pledgeAct(2, { action: 'raise', stake: 150 }).ok === true);
+
   // An unopened table can never be checked through — the last live actor
   // still has to put chips in (or fold into a rollover).
   const g6 = newGame(1000, 'T');
@@ -362,18 +394,22 @@ console.log('— pledge evaluation matrix —');
     t('P1', 'p8').check(mk({ tricksTaken: { 0: 7, 1: 2, 2: 1 } }), 0) === false);
 }
 
-console.log('— settlement (equal split on the shared condition) —');
+console.log('— settlement (MVP slice + equal split on the shared condition) —');
 {
-  /** Prepared game at end-of-round with rigged pledge + stats. */
-  function settleWith({ entries, stake = 0, tierIdx = 0, stats, pot, chips, zombies, leader = 0, type = 'T' }) {
+  /** Prepared game at end-of-round with rigged pledge + stats + round scores.
+   *  `mvp` rigs this round's flavor scores — the best one takes the 15% MVP
+   *  slice off the top before pledge winners split the rest. */
+  function settleWith({ entries, stake = 0, tierIdx = 0, stats, pot, chips, zombies, leader = 0, type = 'T',
+                        mvp = { 0: 0, 1: -10, 2: -20 } }) {
     const g = newGame(1000, type);
     g.round = leader + 1; // roundLeader = leader
     g.chosenGameType = type;
     g.chips = { ...chips };
     g.pot = pot;
     if (zombies) g.zombies = { ...zombies };
-    g.pledge = { tierIdx, stake, entries: JSON.parse(JSON.stringify(entries)), toAct: [], lastRaiser: null };
+    g.pledge = { tierIdx, stake, entries: JSON.parse(JSON.stringify(entries)), toAct: [], lastRaiser: null, tierSetBy: null, lastRaise: 0 };
     Object.assign(g, stats);
+    g.roundScores = [{ round: g.round, gameType: type, scores: { ...mvp } }];
     g.phase = 'round_end';
     return { g, settlement: g._settle() };
   }
@@ -385,15 +421,19 @@ console.log('— settlement (equal split on the shared condition) —');
     kingOfHeartsTakenBy: null, trickWinners: [1, 2, 1, 2, 1, 2, 1, 2, 1, 2],
   };
 
-  // Single winner takes everything (incl. failed stakes). Condition t0 (idx 4).
+  // Sole pledge winner who is ALSO the MVP still sweeps the whole pot
+  // (34 MVP slice + 196 pledge pot = 230).
   {
     const { g, settlement } = settleWith({
       stake: 100, tierIdx: 4, // '0 tricks'
       entries: { 0: inEntry(100), 1: inEntry(100), 2: foldedEntry() },
       stats: zeroStats, // seat 0 has 0 tricks → met; seat 1 has 5 → failed
       pot: 230, chips: { 0: 900, 1: 900, 2: 970 },
+      mvp: { 0: 0, 1: -20, 2: -16 },
     });
-    check('single winner sweeps pot', settlement.payouts[0] === 230 && g.chips[0] === 1130);
+    check('winner+MVP sweeps pot', settlement.payouts[0] === 230 && g.chips[0] === 1130);
+    check('MVP slice recorded', settlement.mvpSeats.length === 1 && settlement.mvpSeats[0] === 0 &&
+      settlement.mvpShare === 34);
     check('failed pledger got nothing', settlement.payouts[1] === 0);
     check('final condition recorded', settlement.tierId === 't0');
     check('pot cleared', g.pot === 0);
@@ -401,63 +441,77 @@ console.log('— settlement (equal split on the shared condition) —');
     check('results recorded', settlement.results[0].met === true && settlement.results[1].met === false && settlement.results[2].entered === false);
   }
 
-  // Both meet the shared condition → equal split.
+  // A FOLDED seat can still earn the MVP slice; winners split the rest.
   {
     const stats = { ...zeroStats, tricksTaken: { 0: 2, 1: 3, 2: 5 } };
     const { settlement } = settleWith({
-      stake: 20, tierIdx: 1, // 'max 3 tricks'
+      stake: 20, tierIdx: 1, // 'max 3 tricks' — 0 and 1 meet
       entries: { 0: inEntry(20), 1: inEntry(20), 2: foldedEntry() },
       stats, pot: 100, chips: { 0: 950, 1: 950, 2: 1000 },
+      mvp: { 0: -12, 1: -12, 2: -4 }, // folded seat 2 played the round best
     });
-    check('equal split between winners', settlement.payouts[0] === 50 && settlement.payouts[1] === 50,
+    // MVP 15 → seat 2; remaining 85 → 42/42, odd chip clockwise from leader 0.
+    check('folded MVP takes the slice, winners split the rest',
+      settlement.payouts[0] === 43 && settlement.payouts[1] === 42 && settlement.payouts[2] === 15,
       JSON.stringify(settlement.payouts));
   }
 
-  // Odd pot two winners → remainder clockwise from leader.
+  // MVP tie splits the slice.
   {
     const stats = { ...zeroStats, queensTaken: { 0: 0, 1: 1, 2: 0 }, tricksTaken: { 0: 0, 1: 0, 2: 0 } };
     const { settlement } = settleWith({
       type: 'Q', stake: 10, tierIdx: 0, // 'max 2 queens' — both meet
       entries: { 0: inEntry(10), 1: inEntry(10), 2: foldedEntry() },
-      stats, pot: 101, chips: { 0: 960, 1: 960, 2: 979 },
+      stats, pot: 100, chips: { 0: 960, 1: 960, 2: 980 },
+      mvp: { 0: 0, 1: 0, 2: -10 }, // seats 0 and 1 tie for MVP
     });
-    check('odd remainder clockwise from leader', settlement.payouts[0] === 51 && settlement.payouts[1] === 50,
+    // MVP 15 → 7/7 +1 clockwise from leader 0 → 8/7; pledge 85 → 42/42 +1 → seat 0.
+    check('tied MVP slice splits (remainder clockwise)',
+      settlement.payouts[0] === 8 + 43 && settlement.payouts[1] === 7 + 42,
       JSON.stringify(settlement.payouts));
   }
 
-  // Three-way equal split with remainder → clockwise from leader.
+  // Three-way pledge split with remainder → clockwise from leader.
   {
     const stats = { ...zeroStats, tricksTaken: { 0: 3, 1: 3, 2: 4 } }; // all meet t4 (idx 0)
     const { settlement } = settleWith({
       leader: 1, stake: 0, tierIdx: 0,
       entries: { 0: inEntry(0), 1: inEntry(0), 2: inEntry(0) },
-      stats, pot: 10, chips: { 0: 996, 1: 997, 2: 997 },
+      stats, pot: 11, chips: { 0: 996, 1: 996, 2: 997 },
+      mvp: { 0: -16, 1: -16, 2: -12 }, // seat 2 solo MVP
     });
-    // 10/3 → 3 each + 1 leftover → clockwise from leader seat 1 → seat 1 gets it
+    // MVP max(1, floor(1.65)) = 1 → seat 2; pledge 10 → 3 each + 1 leftover →
+    // clockwise from leader seat 1.
     check('three-way remainder goes clockwise from leader',
-      settlement.payouts[1] === 4 && settlement.payouts[0] === 3 && settlement.payouts[2] === 3,
+      settlement.payouts[1] === 4 && settlement.payouts[0] === 3 && settlement.payouts[2] === 4,
       JSON.stringify(settlement.payouts));
   }
 
-  // Sole remaining entrant still has to MEET the condition — else rollover.
+  // Sole remaining entrant still has to MEET the condition — else the pot
+  // (minus the MVP slice) rolls over.
   {
     const { g, settlement } = settleWith({
       stake: 50, tierIdx: 4, // '0 tricks' failed
       entries: { 0: inEntry(50), 1: foldedEntry(), 2: foldedEntry() },
       stats: { ...zeroStats, tricksTaken: { 0: 4, 1: 3, 2: 3 } },
       pot: 200, chips: { 0: 900, 1: 950, 2: 950 },
+      mvp: { 0: -20, 1: -8, 2: -12 }, // folded seat 1 is MVP
     });
-    check('rollover keeps the pot', settlement.rolledOver === true && g.pot === 200 && g.phase === 'round_end');
+    check('rollover keeps the pot minus the MVP slice',
+      settlement.rolledOver === true && settlement.mvpShare === 30 &&
+      settlement.payouts[1] === 30 && g.pot === 170 && g.phase === 'round_end');
     check('rollover conservation', conserve(g));
   }
 
-  // All folded → rollover too.
+  // All folded → MVP still paid, rest rolls.
   {
     const { g, settlement } = settleWith({
       entries: { 0: foldedEntry(), 1: foldedEntry(), 2: foldedEntry() },
       stats: zeroStats, pot: 90, chips: { 0: 970, 1: 970, 2: 970 },
+      mvp: { 0: -4, 1: -16, 2: -20 },
     });
-    check('all-fold rolls the pot', settlement.rolledOver === true && g.pot === 90);
+    check('all-fold: MVP paid, rest rolls', settlement.rolledOver === true &&
+      settlement.payouts[0] === 13 && g.pot === 77 && g.chips[0] === 983);
   }
 
   // Zombie marking + match end.
@@ -467,10 +521,23 @@ console.log('— settlement (equal split on the shared condition) —');
       entries: { 0: inEntry(970), 1: inEntry(970), 2: foldedEntry() },
       stats: { ...zeroStats, tricksTaken: { 0: 0, 1: 5, 2: 5 } }, // 0 wins, 1 fails
       pot: 2000, chips: { 0: 0, 1: 0, 2: 1000 },
+      mvp: { 0: 0, 1: -20, 2: -16 },
     });
     check('winner paid', g.chips[0] === 2000);
     check('failed all-in became zombie', g.zombies[1] === true && settlement.newZombies.includes(1));
     check('match continues with 2 alive', g.phase === 'round_end' && g.matchWinner === null);
+  }
+  // A zombie who wins the MVP slice COMES BACK FROM THE DEAD.
+  {
+    const { g, settlement } = settleWith({
+      entries: { 0: foldedEntry(), 1: foldedEntry(), 2: foldedEntry() },
+      stats: zeroStats, pot: 300, chips: { 0: 1350, 1: 1350, 2: 0 },
+      zombies: { 0: false, 1: false, 2: true },
+      mvp: { 0: -20, 1: -16, 2: -4 }, // the zombie played the round best
+    });
+    check('zombie MVP revives with the slice', settlement.payouts[2] === 45 &&
+      g.chips[2] === 45 && g.zombies[2] === false && settlement.revived.includes(2));
+    check('revival keeps the match alive', settlement.matchEnd === false && g.pot === 255);
   }
   {
     const { settlement } = settleWith({
@@ -479,6 +546,7 @@ console.log('— settlement (equal split on the shared condition) —');
       stats: { ...zeroStats, tricksTaken: { 0: 0, 1: 5, 2: 5 } },
       pot: 2990, chips: { 0: 0, 1: 0, 2: 10 },
       zombies: { 0: false, 1: false, 2: false },
+      mvp: { 0: 0, 1: -20, 2: -16 },
     });
     // winner 0 gets 2990 → alive = {0 (2990), 2 (10)} → no match end yet
     check('two alive → no match end', settlement.matchEnd === false);
@@ -488,22 +556,23 @@ console.log('— settlement (equal split on the shared condition) —');
       stats: { ...zeroStats, tricksTaken: { 0: 5, 1: 5, 2: 5 } },
       pot: 10, chips: { 0: 2990, 1: 0, 2: 0 },
       zombies: { 0: false, 1: true, 2: false },
+      mvp: { 0: -12, 1: -16, 2: -16 }, // MVP goes to the big stack
     });
     check('last opponent busts → match end, winner sweeps pot',
       again.settlement.matchEnd === true && again.g.matchWinner === 0 && again.g.chips[0] === 3000 && again.g.pot === 0);
     check('match end phase', again.g.phase === 'match_end' && again.g.isGameOver === true);
   }
-  // All stacks zero → flavor-score fallback.
+  // All stacks zero after failed all-ins → the MVP slice decides the match.
   {
     const { g } = settleWith({
       stake: 1000, tierIdx: 4,
       entries: { 0: inEntry(1000), 1: inEntry(1000), 2: inEntry(1000) },
       stats: { ...zeroStats, tricksTaken: { 0: 4, 1: 4, 2: 2 } }, // everyone fails '0 tricks'
       pot: 3000, chips: { 0: 0, 1: 0, 2: 0 },
+      mvp: { 0: -16, 1: -8, 2: -16 }, // seat 1 played it best
     });
-    // set flavor scores before settle won't apply (already settled) — assert winner exists and got the pot
-    check('all-zero → match ends with a winner holding all chips',
-      g.phase === 'match_end' && g.matchWinner !== null && g.chips[g.matchWinner] === 3000 && g.pot === 0);
+    check('all-in wipeout → the MVP takes the match',
+      g.phase === 'match_end' && g.matchWinner === 1 && g.chips[1] === 3000 && g.pot === 0);
   }
 }
 
@@ -546,16 +615,18 @@ console.log('— multi-round flow, unlimited rounds, serialize round-trip —');
   check('flavor scores accumulated, chips untouched by scoring',
     Object.values(g.cumulativeScores).some((v) => v !== 0) && conserve(g));
 
-  // 35 more rounds — no TOTAL_ROUNDS ceiling, leader keeps rotating.
+  // More rounds — antes escalate and the MVP slice moves chips every
+  // settlement, so the match may legitimately END mid-loop; both outcomes
+  // must stay conserved and well-formed.
   let ok = true;
-  for (let r = 0; r < 35 && ok; r++) {
+  for (let r = 0; r < 15 && ok && g.phase !== 'match_end'; r++) {
     const prevRound = g.round;
     const next = g.startNextRound();
     ok = next.ok && g.round === prevRound + 1 && g.phase === 'spin' &&
       g.roundLeader === (g.round - 1) % 3;
     if (!ok) break;
     g.ackSpin(0);
-    // everyone passes auction and folds pledge (fast-forward), then rig round end
+    // everyone passes the prikup and folds the pledge (fast-forward)
     while (g.phase === 'auction') {
       const t = g.currentTurn;
       g.passBid(t);
@@ -576,7 +647,15 @@ console.log('— multi-round flow, unlimited rounds, serialize round-trip —');
     ok = ok && (g.phase === 'round_end' || g.phase === 'match_end');
     ok = ok && conserve(g);
   }
-  check('35+ rounds loop cleanly past the 27-round King cap', ok && g.round >= 30, `round=${g.round} phase=${g.phase}`);
+  check('multi-round loop stays conserved (match end allowed)', ok,
+    `round=${g.round} phase=${g.phase}`);
+
+  // The 27-round King ceiling is gone: round 27 → 28 must just work.
+  const gCap = newGame(1000, 'T');
+  rig(gCap, { phase: 'round_end', round: 27 });
+  const past = gCap.startNextRound();
+  check('no 27-round ceiling — round 28 opens', past.ok === true && gCap.round === 28 && gCap.phase === 'spin');
+  check('late-round ante is escalated and capped', gCap.anteAmount === 200);
 
   // Serialize → fromSnapshot mid-auction.
   const g2 = newGame(500, 'Q');

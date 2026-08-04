@@ -1,7 +1,7 @@
 'use strict';
 
 const GameState = require('../game/GameState');
-const { SPIN_TYPES, PLEDGE_TIERS, anteFor } = require('./constants');
+const { SPIN_TYPES, PLEDGE_TIERS, anteForRound, MVP_SHARE } = require('./constants');
 
 /**
  * Spin King — the King trick game played for poker chips.
@@ -11,9 +11,11 @@ const { SPIN_TYPES, PLEDGE_TIERS, anteFor } = require('./constants');
  * per-round stat maps, flavor scoring). What changes is the round shell:
  *
  *   ante → 'spin' (random type from the 7-entry pool)
- *        → 'auction' (rising bids for the face-down prikup)
+ *        → 'auction' (ALL-PAY betting for the face-down prikup: raise or
+ *          fold, every committed chip goes to the pot immediately and is
+ *          never refunded — the last bidder standing takes the cards)
  *        → ['trump_selection' → 'discard'] (buyer; or leader on all-pass PLUS)
- *        → 'pledge' (fold / call / raise on a self-chosen tier)
+ *        → 'pledge' (escalating shared condition: fold / call / raise)
  *        → 'playing' (inherited trick engine; buyer or leader leads)
  *        → settlement inside 'round_end', or 'match_end'
  *
@@ -57,7 +59,8 @@ class SpinKingState extends GameState {
 
   // ── derived ────────────────────────────────────────────────────────────────
 
-  get anteAmount() { return anteFor(this.startingStack); }
+  /** Tournament escalation: the ante doubles every 5 rounds (capped). */
+  get anteAmount() { return anteForRound(this.startingStack, this.round); }
 
   /** The rotating round leader (zombies still take their turn as leader). */
   get roundLeader() { return (this.round - 1) % 3; }
@@ -118,15 +121,24 @@ class SpinKingState extends GameState {
 
   // ── prikup auction (rising) ────────────────────────────────────────────────
 
+  /** Poker min-raise: you must raise by at least the size of the previous
+   *  raise (never less than an ante). */
   get _minNextBid() {
     if (!this.auction) return this.anteAmount;
-    return this.auction.bid === 0 ? this.anteAmount : this.auction.bid + this.anteAmount;
+    if (this.auction.bid === 0) return this.anteAmount;
+    const lastRaise = Math.max(this.auction.lastRaise || 0, this.anteAmount);
+    return this.auction.bid + lastRaise;
   }
 
   _startAuction() {
     this.auction = {
       bid: 0,
       highBidder: null,
+      // Size of the previous raise — the poker minimum for the next one.
+      lastRaise: 0,
+      // Per-seat chips already sunk into the pot by this betting — all-pay:
+      // folding does NOT refund them.
+      committed: { 0: 0, 1: 0, 2: 0 },
       passed: { 0: !!this.zombies[0], 1: !!this.zombies[1], 2: !!this.zombies[2] },
     };
     this.phase = 'auction';
@@ -145,7 +157,9 @@ class SpinKingState extends GameState {
       if (i === 3 && !inclusive) break;
       if (a.passed[seat]) continue;
       if (seat === a.highBidder) continue; // nobody left to outbid them
-      if (this.chips[seat] < this._minNextBid) {
+      // Raising is "top up to the new total" — a seat that can't reach the
+      // minimum with what it has left is folded automatically.
+      if (this.chips[seat] + (a.committed?.[seat] || 0) < this._minNextBid) {
         a.passed[seat] = true;
         this._event({ type: 'auction-autopass', seat });
         continue;
@@ -160,11 +174,20 @@ class SpinKingState extends GameState {
     if (this.phase !== 'auction') return this._err('Not in auction phase.');
     if (seat !== this.currentTurn) return this._err('Not your turn.');
     const a = this.auction;
-    if (a.passed[seat]) return this._err('You already passed.');
+    if (a.passed[seat]) return this._err('You already folded.');
+    if (!a.committed) a.committed = { 0: 0, 1: 0, 2: 0 }; // pre-update snapshot insurance
     const bid = Math.round(Number(amount));
     if (!Number.isFinite(bid)) return this._err('Invalid bid.');
     if (bid < this._minNextBid) return this._err(`Minimum bid is ${this._minNextBid}.`);
-    if (bid > this.chips[seat]) return this._err('Not enough chips.');
+    const already = a.committed[seat] || 0;
+    if (bid > already + this.chips[seat]) return this._err('Not enough chips.');
+    // ALL-PAY: the raise-to amount sinks into the pot immediately and stays
+    // there win or lose — a later fold refunds nothing.
+    const delta = bid - already;
+    this.chips[seat] -= delta;
+    this.pot += delta;
+    a.committed[seat] = bid;
+    a.lastRaise = bid - a.bid;
     a.bid = bid;
     a.highBidder = seat;
     this._event({ type: 'auction-bid', seat, amount: bid });
@@ -185,11 +208,11 @@ class SpinKingState extends GameState {
     const a = this.auction;
     if (a.highBidder !== null) {
       const winner = a.highBidder;
-      this.chips[winner] -= a.bid;
-      this.pot += a.bid;
+      // Every bid (winner's AND losers') is already sitting in the pot —
+      // the winner just collects the cards.
       this.auctionWinner = winner;
-      this.auctionPrice = a.bid;
-      this._event({ type: 'auction-won', seat: winner, amount: a.bid });
+      this.auctionPrice = (a.committed && a.committed[winner]) || a.bid;
+      this._event({ type: 'auction-won', seat: winner, amount: this.auctionPrice });
       if (this.isTrumpType) {
         // Buyer picks trump BEFORE seeing the prikup (King rule preserved).
         this.phase = 'trump_selection';
@@ -260,8 +283,9 @@ class SpinKingState extends GameState {
     }
     // One SHARED condition for the whole table: tierIdx indexes the round
     // type's ladder (0 = loosest). Raising may tighten it; calling accepts
-    // it. tierSetBy remembers WHO last tightened the condition (badge/UI).
-    this.pledge = { tierIdx: 0, stake: 0, entries, toAct, lastRaiser: null, tierSetBy: null };
+    // it. tierSetBy remembers WHO last tightened the condition (badge/UI);
+    // lastRaise is the previous raise size (the poker minimum for the next).
+    this.pledge = { tierIdx: 0, stake: 0, entries, toAct, lastRaiser: null, tierSetBy: null, lastRaise: 0 };
     this.phase = 'pledge';
     if (toAct.length === 0) {
       this._beginTrickPlay();
@@ -285,6 +309,13 @@ class SpinKingState extends GameState {
 
   get _pledgeLadder() {
     return PLEDGE_TIERS[this.chosenGameType] || [];
+  }
+
+  /** Poker min-raise for the pledge: previous raise size, min one ante. */
+  get _pledgeMinRaise() {
+    if (!this.pledge) return this.anteAmount;
+    const lastRaise = Math.max(this.pledge.lastRaise || 0, this.anteAmount);
+    return this.pledge.stake + lastRaise;
   }
 
   /**
@@ -340,8 +371,8 @@ class SpinKingState extends GameState {
         return this._err(`Minimum bet is ${this.anteAmount}.`);
       }
       const moneyRaised = newStake > p.stake;
-      if (moneyRaised && newStake < p.stake + this.anteAmount) {
-        return this._err(`Minimum raise is ${p.stake + this.anteAmount}.`);
+      if (moneyRaised && newStake < this._pledgeMinRaise) {
+        return this._err(`Minimum raise is ${this._pledgeMinRaise}.`);
       }
       if (!tierRaised && !moneyRaised) {
         return this._err('Raise must tighten the pledge or add chips.');
@@ -353,6 +384,7 @@ class SpinKingState extends GameState {
       this.pot += delta;
       entry.committed = newStake;
       entry.status = 'in';
+      if (moneyRaised) p.lastRaise = newStake - p.stake;
       p.stake = newStake;
       if (tierRaised) p.tierSetBy = seat;
       p.tierIdx = newTierIdx;
@@ -434,33 +466,68 @@ class SpinKingState extends GameState {
       if (met) winners.push(s);
     }
 
-    // Payouts: whoever fulfilled the final condition splits the WHOLE pot
-    // equally; remainder chips go one at a time clockwise from the leader.
+    const clockwisePos = (s) => (s - this.roundLeader + 3) % 3;
     const payouts = { 0: 0, 1: 0, 2: 0 };
+
+    // ── Round MVP: the best flavor score of THIS round takes a slice off
+    // the top. Rank inside one round is type-neutral, so the random spin
+    // stays fair — and it pays even on rollovers, even to folded seats and
+    // zombies (a zombie who wins it comes back from the dead).
+    const lastRound = this.roundScores[this.roundScores.length - 1];
+    const mvpScores = lastRound && lastRound.round === this.round ? lastRound.scores : null;
+    let mvpSeats = [];
+    let mvpShare = 0;
+    if (mvpScores && potBefore > 0) {
+      const best = Math.max(
+        mvpScores[0] ?? -Infinity, mvpScores[1] ?? -Infinity, mvpScores[2] ?? -Infinity
+      );
+      mvpSeats = [0, 1, 2].filter((s) => (mvpScores[s] ?? -Infinity) === best);
+      mvpShare = Math.max(1, Math.floor(potBefore * MVP_SHARE));
+      const per = Math.floor(mvpShare / mvpSeats.length);
+      let left = mvpShare - per * mvpSeats.length;
+      const order = [...mvpSeats].sort((a, b) => clockwisePos(a) - clockwisePos(b));
+      for (const s of mvpSeats) payouts[s] += per;
+      for (let i = 0; left > 0; i++, left--) payouts[order[i % order.length]] += 1;
+      this._event({ type: 'mvp', seats: mvpSeats, share: mvpShare });
+    }
+    const potForPledge = potBefore - mvpShare;
+
+    // Payouts: whoever fulfilled the final condition splits the rest
+    // equally; remainder chips go one at a time clockwise from the leader.
     let rolledOver = false;
     if (winners.length > 0) {
-      const share = Math.floor(potBefore / winners.length);
-      let leftover = potBefore - share * winners.length;
-      const clockwisePos = (s) => (s - this.roundLeader + 3) % 3;
+      const share = Math.floor(potForPledge / winners.length);
+      let leftover = potForPledge - share * winners.length;
       const order = [...winners].sort((a, b) => clockwisePos(a) - clockwisePos(b));
-      for (const s of winners) payouts[s] = share;
+      for (const s of winners) payouts[s] += share;
       for (let i = 0; leftover > 0; i++, leftover--) {
         payouts[order[i % order.length]] += 1;
       }
-      for (const s of winners) this.chips[s] += payouts[s];
       this.pot = 0;
     } else {
-      rolledOver = potBefore > 0;
-      if (rolledOver) this._event({ type: 'rollover', amount: potBefore });
+      rolledOver = potForPledge > 0;
+      this.pot = potForPledge;
+      if (rolledOver) this._event({ type: 'rollover', amount: potForPledge });
+    }
+    for (let s = 0; s < 3; s++) {
+      if (payouts[s] > 0) this.chips[s] += payouts[s];
     }
 
-    // Zombie marking happens only here, at settlement.
+    // Zombie lifecycle at settlement: bust at 0 chips — and REVIVE the
+    // moment any payout (usually the MVP slice) puts chips back in front
+    // of a dead player.
     const newZombies = [];
+    const revived = [];
     for (let s = 0; s < 3; s++) {
-      if (!this.zombies[s] && this.chips[s] === 0) {
+      const broke = this.chips[s] === 0;
+      if (!this.zombies[s] && broke) {
         this.zombies[s] = true;
         newZombies.push(s);
         this._event({ type: 'zombie', seat: s });
+      } else if (this.zombies[s] && !broke) {
+        this.zombies[s] = false;
+        revived.push(s);
+        this._event({ type: 'zombie-revived', seat: s });
       }
     }
 
@@ -500,13 +567,19 @@ class SpinKingState extends GameState {
       potBefore,
       results,
       payouts,
+      // Round MVP (best flavor score of the round; payouts already include it).
+      mvpSeats,
+      mvpShare,
+      roundScores: mvpScores ? { ...mvpScores } : null,
       rolledOver,
       potAfter: this.pot,
       chipsAfter: { ...this.chips },
       newZombies,
+      revived,
       flavorScores: { ...this.cumulativeScores },
       matchEnd,
       matchWinner: this.matchWinner,
+      nextAnte: anteForRound(this.startingStack, this.round + 1),
     };
     this.settlements.push(this.lastSettlement);
 
@@ -583,6 +656,7 @@ class SpinKingState extends GameState {
         toAct: this.pledge.toAct,
         lastRaiser: this.pledge.lastRaiser,
         tierSetBy: this.pledge.tierSetBy ?? null,
+        lastRaise: this.pledge.lastRaise ?? 0,
       } : null,
       lastSettlement: this.lastSettlement,
       settlements: this.settlements,
@@ -658,6 +732,8 @@ class SpinKingState extends GameState {
     view.roundLeader = this.roundLeader;
     view.startingStack = this.startingStack;
     view.ante = this.anteAmount;
+    // Heads-up for the tournament escalation ("ante rises next round").
+    view.nextAnte = anteForRound(this.startingStack, this.round + 1);
     view.chips = { ...this.chips };
     view.pot = this.pot;
     view.zombies = { ...this.zombies };
@@ -667,6 +743,7 @@ class SpinKingState extends GameState {
       bid: this.auction.bid,
       highBidder: this.auction.highBidder,
       passed: { ...this.auction.passed },
+      committed: { ...(this.auction.committed || {}) },
       minNextBid: this._minNextBid,
     } : null;
     view.pledge = this.pledge ? {
@@ -676,7 +753,7 @@ class SpinKingState extends GameState {
       entries: JSON.parse(JSON.stringify(this.pledge.entries)),
       toAct: [...this.pledge.toAct],
       cap: this._pledgeCap,
-      minRaise: this.pledge.stake + this.anteAmount,
+      minRaise: this._pledgeMinRaise,
       canTighten: this.pledge.tierIdx < this._pledgeLadder.length - 1,
       lastRaiser: this.pledge.lastRaiser,
       tierSetBy: this.pledge.tierSetBy ?? null,

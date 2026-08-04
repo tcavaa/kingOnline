@@ -650,10 +650,11 @@ export function GameProvider({ children }) {
         setSettlement(stl)
         if (stl.chipsAfter) setChips(stl.chipsAfter)
         if (typeof stl.potAfter === 'number') setPot(stl.potAfter)
-        if (stl.newZombies?.length) {
+        if (stl.newZombies?.length || stl.revived?.length) {
           setZombies(prev => {
             const next = { ...(prev || { 0: false, 1: false, 2: false }) }
-            stl.newZombies.forEach(s => { next[s] = true })
+            ;(stl.newZombies || []).forEach(s => { next[s] = true })
+            ;(stl.revived || []).forEach(s => { next[s] = false })
             return next
           })
         }
@@ -1118,7 +1119,7 @@ export function GameProvider({ children }) {
         socketRef.current?.emit('request-state')
       }
       if (code === 'CHAMPIONSHIP_LIMIT') {
-        addToast('დღის ლიმიტი ამოიწურა — 2 ლიგის თამაში დღეში. ითამაშე უბრალო ოთახში 🎲', 'error')
+        addToast('დღის ლიმიტი ამოიწურა — 8 ლიგის თამაში დღეში. ითამაშე უბრალო ოთახში 🎲', 'error')
         return
       }
       addToast(message, 'error')

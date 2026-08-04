@@ -142,7 +142,7 @@ function rowToProfile(row) {
 // How many championship games a player may finish per calendar day (server
 // time). Enforced at room creation / join / quick-match sit; also exposed via
 // the quota endpoint so the lobby can grey the championship options out.
-const CHAMPIONSHIP_DAILY_LIMIT = 2;
+const CHAMPIONSHIP_DAILY_LIMIT = 8;
 
 // `mode` narrows a finished-games query: 'championship' | 'public' | 'all'.
 function modeClause(mode) {

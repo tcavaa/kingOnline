@@ -724,9 +724,11 @@ export class GameScene extends Phaser.Scene {
           seat
         ) : null
         const line1 = folded ? 'ფოლდი' : (sharedTier?.label ?? '')
+        // Own seat reads as money AT RISK — loss framing sharpens decisions.
+        const stakeWord = isOwn && !folded ? 'რისკზე' : 'ფსონი'
         const line2 = folded
           ? `${entry.committed.toLocaleString()} დაკარგა`
-          : `ფსონი ${entry.committed.toLocaleString()}${prog ? ' · ' + prog.text : ''}`
+          : `${stakeWord} ${entry.committed.toLocaleString()}${prog ? ' · ' + prog.text : ''}`
         const accentHexStr = folded ? '#9ca3af' : (PROGRESS_COLOR[prog?.state] || '#cccccc')
         const accent = hexToInt(accentHexStr)
 
@@ -752,8 +754,10 @@ export class GameScene extends Phaser.Scene {
         this._addSeatBadge(container, px, py, stat.text,
           stat.danger ? '#ffb1a6' : '#e8dcbf', stat.danger ? 0xa5372b : 0x7a532c)
       } else if (isSpin && gamePhase === 'auction' && state.auction) {
-        // Who bid what / who passed, live under every avatar.
+        // Who bid what / who folded (their chips stay in the pot!), live
+        // under every avatar.
         const a = state.auction
+        const sunk = a.committed?.[seat] ?? 0
         let text = 'ელოდება'
         let color = '#c9b895'
         let border = 0x7a532c
@@ -761,11 +765,14 @@ export class GameScene extends Phaser.Scene {
           text = `★ ფსონი ${(a.bid ?? 0).toLocaleString()}`
           color = '#f4d06f'; border = 0xb8860b
         } else if (a.passed?.[seat]) {
-          text = 'პასი'
+          text = sunk > 0 ? `ფოლდი · ${sunk.toLocaleString()}` : 'პასი'
           color = '#9ca3af'; border = 0x555a63
         } else if (state.currentTurn === seat) {
-          text = 'ფიქრობს…'
+          text = sunk > 0 ? `ფიქრობს… (დადო ${sunk.toLocaleString()})` : 'ფიქრობს…'
           color = '#ffb1a6'; border = 0xa5372b
+        } else if (sunk > 0) {
+          text = `დადო ${sunk.toLocaleString()}`
+          color = '#b8e6a3'; border = 0x4c7a2f
         }
         this._addSeatBadge(container, px, py, text, color, border)
       } else if (isSpin && gamePhase === 'pledge' && state.pledge) {

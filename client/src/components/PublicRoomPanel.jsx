@@ -79,7 +79,7 @@ export default function PublicRoomPanel({ active, mode = 'public', quota = null 
 
       <div className="mb-4 text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
         {isChampionship
-          ? <>ითვლება სეზონის ჩემპიონატში · დღეში 2 თამაში
+          ? <>ითვლება სეზონის ჩემპიონატში · დღეში 8 თამაში
               {quota != null && (
                 <span className="ml-1 font-bold" style={{ color: quotaSpent ? '#a5372b' : '#4c7a2f' }}>
                   · დღეს დარჩა: {quota.remaining}/{quota.limit}

@@ -20,16 +20,20 @@ export default function AuctionOverlay() {
   const gt         = getGameType(chosenGameType)
   const gtName     = SPIN_TYPE_NAME_OVERRIDE[chosenGameType] || gt?.name || chosenGameType
   const myChips    = chips?.[mySeat] ?? 0
+  // All-pay: what you already sank stays in the pot; a new bid only tops
+  // up the difference, so your ceiling is committed + remaining chips.
+  const myCommitted = auction?.committed?.[mySeat] ?? 0
+  const myMax      = myCommitted + myChips
   const minNextBid = auction?.minNextBid ?? ante
   const myTurn     = currentTurn === mySeat && !auction?.passed?.[mySeat]
-  const canAfford  = myChips >= minNextBid
+  const canAfford  = myMax >= minNextBid
 
   const [bid, setBid] = useState(minNextBid)
   useEffect(() => { setBid(minNextBid) }, [minNextBid])
   const clampBid = (v) => {
     const n = Math.round(Number(v))
     if (!Number.isFinite(n)) return minNextBid
-    return Math.max(minNextBid, Math.min(myChips, n))
+    return Math.max(minNextBid, Math.min(myMax, n))
   }
 
   const highName = auction?.highBidder !== null && auction?.highBidder !== undefined
@@ -50,7 +54,7 @@ export default function AuctionOverlay() {
              }}>
           <p className="text-[10px] font-typewriter uppercase tracking-[0.25em]"
              style={{ color: gt?.color || '#e3b04b' }}>
-            {gtName} · პრიკუპის აუქციონი
+            {gtName} · პრიკუპზე ფსონები
           </p>
           <p className="text-base lg:text-xl font-typewriter font-black leading-tight"
              style={{ color: '#f4d06f' }}>
@@ -58,10 +62,15 @@ export default function AuctionOverlay() {
           </p>
           <p className="text-[11px] lg:text-sm font-typewriter font-bold" style={{ color: '#e8dcbf' }}>
             2 ფარული კარტი{pot > 0 && <span className="opacity-60"> · ბანკი: {pot.toLocaleString()}</span>}
+            {myCommitted > 0 && <span className="opacity-80"> · შენ დადე: {myCommitted.toLocaleString()}</span>}
           </p>
           {!myTurn && (
             <p className="text-[10px] lg:text-xs font-typewriter animate-pulse mt-0.5" style={{ color: 'rgba(232,220,191,0.75)' }}>
-              {auction?.passed?.[mySeat] ? `შენ თქვი პასი · ელოდება ${turnName}-ს…` : `ელოდება ${turnName}-ს…`}
+              {auction?.passed?.[mySeat]
+                ? (myCommitted > 0
+                    ? `შენ დაკეცე — ${myCommitted.toLocaleString()} ბანკში დარჩა · ელოდება ${turnName}-ს…`
+                    : `შენ თქვი პასი · ელოდება ${turnName}-ს…`)
+                : `ელოდება ${turnName}-ს…`}
             </p>
           )}
         </div>
@@ -80,7 +89,7 @@ export default function AuctionOverlay() {
             <button onClick={passBid}
                     className="py-2 px-3.5 rounded-xl text-xs lg:text-sm font-bold uppercase tracking-wider transition-all active:scale-95 font-typewriter"
                     style={{ background: 'rgba(165,55,43,0.25)', border: '1px solid rgba(165,55,43,0.7)', color: '#ffb1a6' }}>
-              პასი
+              ფოლდი
             </button>
             {canAfford && (
               <>
@@ -91,7 +100,7 @@ export default function AuctionOverlay() {
                     <Minus size={14} />
                   </button>
                   <input
-                    type="number" min={minNextBid} max={myChips} step={ante}
+                    type="number" min={minNextBid} max={myMax} step={ante}
                     value={bid}
                     onChange={e => setBid(e.target.value)}
                     onBlur={() => setBid(b => clampBid(b))}

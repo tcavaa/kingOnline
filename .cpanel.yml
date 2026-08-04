@@ -1,0 +1,13 @@
+---
+deployment:
+  tasks:
+    - export APP=/home/rretroca/king.rretrocar.ge
+    - /bin/cp -R server/game $APP/
+    - /bin/cp -R server/durak $APP/
+    - /bin/cp -R server/socket $APP/
+    - /bin/cp -R server/spinking $APP/
+    - /bin/cp server/index.js $APP/
+    - /bin/cp server/package.json $APP/
+    - /bin/cp server/package-lock.json $APP/
+    - /bin/cp -R client/dist/* $APP/public/
+    - /bin/touch $APP/tmp/restart.txt

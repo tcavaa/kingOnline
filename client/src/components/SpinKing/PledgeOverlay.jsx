@@ -115,6 +115,15 @@ export default function PledgeOverlay() {
             </div>
           )}
 
+          {/* Pot odds — what the call buys you */}
+          {opened && callDelta > 0 && (
+            <p className="rounded-full px-3 py-0.5 text-[10px] font-typewriter font-bold"
+               style={{ background: 'rgba(20,13,8,0.78)', border: '1px solid rgba(76,122,47,0.5)', color: '#b8e6a3' }}>
+              ქოლი {callDelta.toLocaleString()} → ბანკი {(pot + callDelta).toLocaleString()}
+              {' '}({((pot + callDelta) / callDelta).toFixed(1)}×)
+            </p>
+          )}
+
           <div className="flex items-center gap-1.5 rounded-2xl px-2 py-1.5"
                style={{
                  background: 'rgba(20,13,8,0.82)',

@@ -20,7 +20,7 @@ const PHASE_LABELS_KA = {
   game_over:       'თამაშის დასასრული',
   // Spin King phases
   spin:            'ბედის ბორბალი',
-  auction:         'აუქციონი',
+  auction:         'პრიკუპის ფსონები',
   pledge:          'ფსონები',
   match_end:       'მატჩი დასრულდა',
 }

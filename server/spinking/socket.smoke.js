@@ -255,7 +255,9 @@ async function driveRound(seats, { shove = false } = {}) {
   const chipsAfter = rc1?.settlement?.chipsAfter;
   check('settlement conserves every chip', chipsAfter &&
     (chipsAfter[0] + chipsAfter[1] + chipsAfter[2] + rc1.settlement.potAfter === 2400));
-  check('folded seat cannot win the pot', rc1?.settlement?.payouts?.[2] === 0);
+  check('folded seat is out of the pledge pot', rc1?.settlement?.results?.[2]?.entered === false);
+  check('settlement carries the MVP slice', Array.isArray(rc1?.settlement?.mvpSeats) &&
+    rc1.settlement.mvpShare >= 1);
   check('flavor scores ride along', rc1 && rc1.scores && rc1.cumulativeScores);
   check('match continues (no game over)', rc1?.isGameOver === false && !a.gameOver);
 

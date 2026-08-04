@@ -7,8 +7,17 @@ const DEFAULT_STACK = 1000;
 const MIN_STACK = 30;
 const MAX_STACK = 1000000;
 
-// Ante per round = max(1, round(startingStack / ANTE_DIVISOR)).
+// Base ante = max(1, round(startingStack / ANTE_DIVISOR)). Tournament-style
+// escalation: the ante DOUBLES every ANTE_LEVEL_ROUNDS rounds, capped at
+// startingStack / ANTE_CAP_DIVISOR so late levels stay playable.
 const ANTE_DIVISOR = 100;
+const ANTE_LEVEL_ROUNDS = 5;
+const ANTE_CAP_DIVISOR = 5;
+
+// Round MVP: the best flavor score of the round takes this slice of the pot
+// off the top (before pledge winners split the rest). Rank-within-the-round
+// is type-neutral, so the random spin stays fair.
+const MVP_SHARE = 0.15;
 
 // The spin pool has SEVEN entries — a single PLUS instead of P1/P2/P3, so
 // plus rounds aren't three times as likely. PLUS maps to the engine's 'P1'
@@ -82,6 +91,14 @@ function anteFor(startingStack) {
   return Math.max(1, Math.round(startingStack / ANTE_DIVISOR));
 }
 
+/** Ante for a given round under the doubling schedule, with the cap. */
+function anteForRound(startingStack, round) {
+  const base = anteFor(startingStack);
+  const level = Math.floor(Math.max(0, (round || 1) - 1) / ANTE_LEVEL_ROUNDS);
+  const cap = Math.max(1, Math.floor(startingStack / ANTE_CAP_DIVISOR));
+  return Math.min(base * (2 ** level), cap);
+}
+
 /** Public (function-free) tier metadata safe to put on the wire. */
 function tierViews() {
   const out = {};
@@ -93,6 +110,7 @@ function tierViews() {
 
 module.exports = {
   DEFAULT_STACK, MIN_STACK, MAX_STACK, ANTE_DIVISOR,
+  ANTE_LEVEL_ROUNDS, ANTE_CAP_DIVISOR, MVP_SHARE,
   SPIN_TYPES, PLEDGE_TIERS,
-  clampStack, anteFor, tierViews,
+  clampStack, anteFor, anteForRound, tierViews,
 };
