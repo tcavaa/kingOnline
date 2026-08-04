@@ -218,7 +218,7 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
                 <h3 className="text-sm font-western text-ink inline-flex items-center gap-2 uppercase">
                   <User size={14} />
                   <span className="inline-flex flex-col leading-tight">
-                    <span>{active ? 'მოთამაშე' : 'აირჩიე პროფილი'}</span>
+                    <span>{active ? 'ყომარ ბაზი' : 'აირჩიე პროფილი'}</span>
                   </span>
                 </h3>
                 <button onClick={() => { setEditing(null); setShowForm(true) }}
