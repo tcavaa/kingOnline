@@ -1,7 +1,13 @@
-// Single source of truth for the tavern reaction clips. Used by both the
-// in-canvas avatar buttons (GameScene) and the DOM Sound Board modal.
+// The tavern reaction clips that ship inside the front-end build.
 //
-//   id    — filename + server ALLOWED_SOUNDS id (do not change lightly)
+// This is no longer the single source of truth — the live catalogue lives in
+// the server's `sounds` table and is edited from /admin. This list is the
+// seed for that table and the offline fallback used by `lib/soundRegistry`
+// when /api/sounds can't be reached, so the built-in clips keep working with
+// no database at all. Read the catalogue through `getSounds()`, not from
+// here.
+//
+//   id    — filename (client/public/sounds/<id>.mp3) + play-sound wire id
 //   glyph — single character drawn on the compact canvas buttons
 //   label — friendly name shown in the big DOM modal
 //   color — CSS hex; GameScene converts it to a Phaser int on the fly

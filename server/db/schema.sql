@@ -2,6 +2,12 @@
 -- Run this once to initialize the database, e.g.:
 --   mysql -u root -p < db/schema.sql
 
+-- Almost every literal in this file is Georgian. Some mysql clients default
+-- to a latin1 connection charset, which silently re-encodes those UTF-8
+-- bytes and lands mojibake in utf8mb4 columns. Pin the connection charset so
+-- the import is correct no matter how the client is configured.
+SET NAMES utf8mb4;
+
 CREATE DATABASE IF NOT EXISTS king_card_game
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
@@ -106,3 +112,63 @@ CREATE TABLE IF NOT EXISTS live_games (
   updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_live_updated (updated_at)
 ) ENGINE=InnoDB;
+
+-- ─── sounds ─────────────────────────────────────────────────────────────────
+-- The reaction-clip catalogue behind the in-game sound buttons. Adding a clip
+-- used to mean editing three source files and redeploying; now it's a row
+-- here, written by the /admin page.
+--
+-- `source` splits the two storage strategies:
+--   'builtin'  → the file ships with the front-end build, served from
+--                /sounds/<id>.mp3. `audio_b64` is NULL.
+--   'uploaded' → the bytes live in `audio_b64` and are served by
+--                GET /api/sounds/:id/audio. Storing them in MySQL (rather
+--                than writing into the deploy directory) keeps uploads
+--                surviving a cPanel deploy, which rsyncs over public/.
+CREATE TABLE IF NOT EXISTS sounds (
+  id          VARCHAR(64)   NOT NULL PRIMARY KEY,   -- also the play-sound wire id
+  label       VARCHAR(64)   NOT NULL,               -- name shown on the button
+  glyph       VARCHAR(8)    NOT NULL DEFAULT '?',   -- single char on the canvas buttons
+  color       VARCHAR(16)   NOT NULL DEFAULT '#8e6a1e',
+  source      VARCHAR(16)   NOT NULL DEFAULT 'uploaded',
+  mime        VARCHAR(64)   NULL,                   -- uploaded clips only
+  audio_b64   MEDIUMTEXT    NULL,                   -- uploaded clips only (base64, no data: prefix)
+  sort_order  INT           NOT NULL DEFAULT 0,
+  created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sounds_order (sort_order, id)
+) ENGINE=InnoDB;
+
+-- Seed the clips that predate this table, but ONLY on the very first run
+-- (empty table). Re-running schema.sql is a routine migration step, and an
+-- unconditional INSERT IGNORE would resurrect every built-in an admin had
+-- deliberately deleted. Same stored-procedure guard style as the column
+-- migrations above.
+DROP PROCEDURE IF EXISTS _king_seed_sounds;
+DELIMITER //
+CREATE PROCEDURE _king_seed_sounds()
+BEGIN
+  IF (SELECT COUNT(*) FROM sounds) = 0 THEN
+    INSERT INTO sounds (id, label, glyph, color, source, sort_order) VALUES
+      ('yeehaw',      'ყიჟინა',       'ჰ', '#b98a2f', 'builtin',  10),
+      ('gunshot',     'გასროლა',      '!', '#a5372b', 'builtin',  20),
+      ('whistle',     'სტვენა',       '~', '#4c7a2f', 'builtin',  30),
+      ('giv',         'გივ',          'გ', '#31536b', 'builtin',  40),
+      ('janmrteloba', 'ჯანმრთელობა',  'ჯ', '#6b3fa0', 'builtin',  50),
+      ('sheilage',    'შეილაგე',      'შ', '#5b3d99', 'builtin',  60),
+      ('shemetxara',  'შემეთხარა',    'ხ', '#a83a68', 'builtin',  70),
+      ('tsava',       'ცავა',         'ც', '#8e6a1e', 'builtin',  80),
+      ('Dedofali',    'დედოფალი',     'დ', '#b0446e', 'builtin',  90),
+      ('Male!',       'მალე!',        'მ', '#2f5d8a', 'builtin', 100),
+      ('Revia',       'რევია',        'რ', '#2b7a55', 'builtin', 110),
+      ('Tazik',       'თაზიკ',        'თ', '#9c7818', 'builtin', 120),
+      ('10-10',       '10-10',        '1', '#b04a52', 'builtin', 130),
+      ('achexet',     'აჩეხეთ',       'ა', '#9c5a24', 'builtin', 140),
+      ('bedi',        'ბედი',         'ბ', '#a97b14', 'builtin', 150),
+      ('cxado',       'ცხადო',        'ო', '#22758a', 'builtin', 160),
+      ('ketika',      'კეტიკა',       'კ', '#5e7a1e', 'builtin', 170);
+  END IF;
+END //
+DELIMITER ;
+CALL _king_seed_sounds();
+DROP PROCEDURE _king_seed_sounds;

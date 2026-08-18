@@ -6,6 +6,7 @@ const express = require('express');
 const http    = require('http');
 const path    = require('path');
 const fs      = require('fs');
+const crypto  = require('crypto');
 const { Server } = require('socket.io');
 const cors    = require('cors');
 
@@ -68,13 +69,26 @@ app.use(cors({
   origin: CORS_ORIGINS,
   credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-Device-Key'],
+  allowedHeaders: ['Content-Type', 'X-Device-Key', 'X-Admin-Pass'],
   maxAge: 600,
 }));
 // Profile avatars are base64 data URLs of downscaled JPEGs (~30-40 KB each),
 // so the default 100KB body limit is too small. 1MB gives generous headroom
 // while still rejecting absurd uploads at the parser layer.
-app.use(express.json({ limit: '1mb' }));
+//
+// Admin sound uploads are the one exception: a reaction clip is base64 audio,
+// which blows past 1MB easily. The limit has to be picked HERE — this parser
+// runs on every request and consumes the body, so a roomier `express.json()`
+// mounted further down on the route would never get to see it. The ceiling is
+// deliberately well above the store's 2MB audio cap (base64 inflates by a
+// third) so an over-cap clip fails validation with a readable message rather
+// than being truncated at the parser.
+const jsonDefault = express.json({ limit: '1mb' });
+const jsonUpload  = express.json({ limit: '6mb' });
+app.use((req, res, next) => (
+  req.path.startsWith('/api/admin/sounds') ? jsonUpload(req, res, next)
+                                           : jsonDefault(req, res, next)
+));
 
 // Pull the device key from a header set by the client. Treat the absence of
 // a header as "no claim", in which case the server still applies its
@@ -283,6 +297,87 @@ app.get('/api/quota/:name', async (req, res) => {
 // shared leaderboard, so exposing it on the open internet would be griefer
 // bait. If you need to clear records in production, do it through MySQL.
 
+// ─── Reaction sounds ────────────────────────────────────────────────────────
+// Public reads (every client fetches the catalogue on boot) + a passcode-
+// guarded admin surface at /api/admin/sounds. The catalogue used to be three
+// hardcoded lists — one in the client constants, one in GameContext, one in
+// the socket handler — so adding a clip meant a code change and a redeploy.
+
+// The /admin passcode. Overridable via env for anyone who wants it to be
+// less guessable; this is a "keep the other players out of the sound board"
+// latch, not an authentication system, and it's the only thing standing
+// between the internet and the upload form.
+const ADMIN_PASSCODE = String(process.env.ADMIN_PASSCODE || '2282');
+
+function checkAdminPass(value) {
+  const given = Buffer.from(String(value ?? ''));
+  const want  = Buffer.from(ADMIN_PASSCODE);
+  // timingSafeEqual throws on a length mismatch, so compare lengths first
+  // (the length of the passcode isn't the secret).
+  return given.length === want.length && crypto.timingSafeEqual(given, want);
+}
+
+function requireAdmin(req, res, next) {
+  if (checkAdminPass(req.get('x-admin-pass'))) return next();
+  res.status(401).json({ error: 'Wrong passcode' });
+}
+
+// Public: the catalogue every client renders its sound buttons from.
+app.get('/api/sounds', async (_req, res) => {
+  try { res.json(await store.listSounds()); }
+  catch (err) { sendErr(res, err); }
+});
+
+// Public: the bytes of an uploaded clip. Built-ins are static files and
+// never reach this route.
+app.get('/api/sounds/:id/audio', async (req, res) => {
+  try {
+    const clip = await store.getSoundAudio(req.params.id);
+    if (!clip) return res.status(404).json({ error: 'Sound not found' });
+    res.setHeader('Content-Type', clip.mime);
+    res.setHeader('Content-Length', clip.buffer.length);
+    // The `?v=` in the manifest URL changes whenever the row is updated, so
+    // the bytes behind any given URL really are immutable.
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(clip.buffer);
+  } catch (err) { sendErr(res, err); }
+});
+
+// Passcode check for the login screen. Nothing is handed back but a yes/no;
+// the client re-sends the passcode as a header on every subsequent call.
+app.post('/api/admin/login', (req, res) => {
+  if (!checkAdminPass((req.body || {}).passcode)) {
+    return res.status(401).json({ ok: false, error: 'Wrong passcode' });
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/sounds', requireAdmin, async (_req, res) => {
+  try { res.json(await store.listSounds()); }
+  catch (err) { sendErr(res, err); }
+});
+
+app.post('/api/admin/sounds', requireAdmin, async (req, res) => {
+  try { res.status(201).json(await store.createSound(req.body || {})); }
+  catch (err) { sendErr(res, err); }
+});
+
+app.put('/api/admin/sounds/:id', requireAdmin, async (req, res) => {
+  try {
+    const saved = await store.updateSound(req.params.id, req.body || {});
+    if (!saved) return res.status(404).json({ error: 'Sound not found' });
+    res.json(saved);
+  } catch (err) { sendErr(res, err); }
+});
+
+app.delete('/api/admin/sounds/:id', requireAdmin, async (req, res) => {
+  try {
+    const ok = await store.deleteSound(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Sound not found' });
+    res.json({ ok: true });
+  } catch (err) { sendErr(res, err); }
+});
+
 function sendErr(res, err) {
   const status = err.status
     || (err.code === 'FORBIDDEN'           ? 403
@@ -291,6 +386,21 @@ function sendErr(res, err) {
   if (status >= 500) console.error('[api]', err.message);
   res.status(status).json({ error: err.message });
 }
+
+// Body-parser failures (oversized upload, malformed JSON) are thrown before
+// any route runs, and express's default handler answers with an HTML error
+// page — which the client's fetch wrapper then surfaces as a wall of markup.
+// Turn them into the same JSON shape every other error uses.
+app.use((err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Upload is too large.' });
+  }
+  if (err && err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Malformed JSON body.' });
+  }
+  return next(err);
+});
 
 // ─── Static front-end (single-process deployment) ──────────────────────────
 // Serve the React build from the same Node process so one upload + one open

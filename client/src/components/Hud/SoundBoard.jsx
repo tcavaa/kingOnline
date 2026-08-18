@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Volume2, X } from 'lucide-react'
 import { useGame, useChat } from '../../context/GameContext'
-import { SOUNDS } from '../../constants/sounds'
+import { getSounds, subscribeSounds } from '../../lib/soundRegistry'
 
 // Touch devices only: on desktop the compact in-canvas avatar buttons are
 // easy to click with a mouse, so this big button (and its modal) would be
@@ -29,6 +29,10 @@ export default function SoundBoard() {
   const [open, setOpen] = useState(false)
   const [flash, setFlash] = useState(null)
   const [touch] = useState(isTouchDevice)
+  // Admin-managed catalogue: starts as the built-in fallback and swaps to
+  // the server list once GameContext's fetch lands.
+  const [sounds, setSoundList] = useState(getSounds)
+  useEffect(() => subscribeSounds(setSoundList), [])
 
   if (!touch) return null
 
@@ -69,7 +73,7 @@ export default function SoundBoard() {
 
         <div className="p-3 overflow-y-auto">
           <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
-            {SOUNDS.map(s => (
+            {sounds.map(s => (
               <button
                 key={s.id}
                 onClick={() => fire(s.id)}

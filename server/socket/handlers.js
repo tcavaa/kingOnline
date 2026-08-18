@@ -21,11 +21,59 @@ async function _championshipBlocked(playerName) {
   }
 }
 
+// ─── allowed reaction-sound ids ─────────────────────────────────────────────
+// The catalogue lives in the `sounds` table (managed from /admin) and only
+// changes when an admin adds or removes a clip, so it's cached rather than
+// queried on every button press. `play-sound` fires several times a minute
+// at a busy table; a DB round-trip per press would be silly.
+//
+// The seed list below is the pre-database catalogue. It's the fallback for
+// two cases: the cache hasn't warmed yet (first press after boot), and the
+// DB is unreachable — a database blip should mute nothing.
+const SEED_SOUND_IDS = [
+  'yeehaw', 'gunshot', 'whistle',
+  'giv', 'janmrteloba', 'sheilage', 'shemetxara', 'tsava',
+  'Dedofali', 'Male!', 'Revia', 'Tazik',
+  '10-10', 'achexet', 'bedi', 'cxado', 'ketika',
+];
+
+const SOUND_CACHE_TTL_MS = 60 * 1000;
+let soundIdCache = null;
+let soundCacheAt = 0;
+let soundCacheInFlight = null;
+
+/** Cached set of valid ids. Refreshes in the background; never blocks. */
+function allowedSoundIds() {
+  const stale = Date.now() - soundCacheAt > SOUND_CACHE_TTL_MS;
+  if (stale && !soundCacheInFlight) {
+    soundCacheInFlight = store.listSoundIds()
+      .then((ids) => {
+        // An empty table means the seed migration hasn't run — keep the
+        // fallback rather than silencing every button.
+        if (ids.length) soundIdCache = new Set(ids);
+        soundCacheAt = Date.now();
+      })
+      .catch((err) => {
+        console.warn(`[handlers] sound catalogue refresh failed: ${err.message}`);
+        // Back off for a full TTL instead of hammering a downed DB.
+        soundCacheAt = Date.now();
+      })
+      .finally(() => { soundCacheInFlight = null; });
+  }
+  return soundIdCache || new Set(SEED_SOUND_IDS);
+}
+
 const CHAMPIONSHIP_LIMIT_MESSAGE =
   `Daily championship limit reached (${store.CHAMPIONSHIP_DAILY_LIMIT} games per day). Play a public game instead.`;
 
 function registerHandlers(io, socket, gameManager) {
   const socketId = socket.id;
+
+  // Warm the catalogue on connect. Without this the first `play-sound` of a
+  // server's life is checked against the seed fallback (the refresh it
+  // kicks off only lands afterwards), so a freshly-uploaded clip would be
+  // silently dropped once. A connect always precedes a button press.
+  allowedSoundIds();
 
   function emitError(message, code) { socket.emit('error', { message, code }); }
   function emitChampionshipLimit() { emitError(CHAMPIONSHIP_LIMIT_MESSAGE, 'CHAMPIONSHIP_LIMIT'); }
@@ -569,23 +617,11 @@ function registerHandlers(io, socket, gameManager) {
   // ─── play-sound ───────────────────────────────────────────────────────────
   // The player who emits this is "playing a sound at" `targetSeat` (which is
   // typically themselves). All players in the room receive the broadcast and
-  // play the audio file matching `soundId`. Server only validates the IDs.
+  // play the clip matching `soundId`. Server only validates the id against
+  // the `sounds` catalogue (see allowedSoundIds).
   socket.on('play-sound', ({ soundId, targetSeat } = {}) => {
     try {
-      const ALLOWED_SOUNDS = new Set([
-        // built-in saloon clips
-        'yeehaw', 'gunshot', 'whistle',
-        // user-added reaction clips (files in client/public/sounds/<id>.mp3)
-        'giv', 'janmrteloba',
-        'sheilage', 'shemetxara', 'tsava',
-        // Georgian reaction clips
-        'Dedofali', 'Male!', 'Revia', 'Tazik',
-        // latest Georgian reaction clips
-        '10-10', 'achexet', 'bedi', 'cxado',
-        // one-off addition
-        'ketika',
-      ]);
-      if (!ALLOWED_SOUNDS.has(soundId)) return;
+      if (!allowedSoundIds().has(soundId)) return;
       const mapping = gameManager.getMappingBySocketId(socketId);
       if (!mapping) return;
       io.to(mapping.roomCode).emit('play-sound', {
@@ -860,13 +896,22 @@ function registerHandlers(io, socket, gameManager) {
   });
 
   // ─── request-state ────────────────────────────────────────────────────────
+  // Background resync only — every caller is a watchdog (turn timeout, tab
+  // regained focus, rejected play), never a user action. Nothing here is
+  // worth a toast, and emitting one from the `error` handler's own retry
+  // path could ping-pong, so every failure mode exits quietly.
   socket.on('request-state', () => {
     try {
       const mapping = gameManager.getMappingBySocketId(socketId);
-      if (!mapping) return emitError('You are not in a room.');
+      if (!mapping) return;
       const { roomCode, seat } = mapping;
       const state = gameManager.getStateForPlayer(roomCode, seat);
-      if (!state) return emitError('No game state available.');
+      // No state yet is the normal condition for a seat in a waiting room —
+      // the tab-visibility watchdog fires `request-state` for anyone with a
+      // room code, so erroring here popped a "No game state available" toast
+      // every time a player sitting at a public table switched tabs. Nothing
+      // to sync, nothing to say.
+      if (!state) return;
       // Include the room roster (with avatars) — GameState.players carries only
       // id/name/seat, so emitting raw `state` would blank every avatar on the
       // client each time the desync watchdog resyncs. Mirror the reconnect path.
@@ -1015,11 +1060,12 @@ function _finishGame(io, room, roomCode, gameManager, extra = {}) {
       roundDetails: gs.roundDetails || [],
       ...extra,
     });
-    // Keep phase 'match_end' — it drives SpinKingState.isGameOver, which a
-    // rehydrated room relies on. Room status still flips so rematch works.
+    // Keep phase 'match_end' — it drives SpinKingState.isGameOver, which the
+    // in-memory rematch path relies on. Room status still flips so rematch
+    // works; the live_games row is retired (the match is decided).
     room.status = 'finished';
     gameManager.armRoomGrace(roomCode);
-    gameManager._persist(roomCode);
+    gameManager.retireRoom(roomCode);
     return;
   }
   const finalScores = { ...gs.cumulativeScores };
@@ -1079,7 +1125,9 @@ function _finishGame(io, room, roomCode, gameManager, extra = {}) {
   gs.phase = 'game_over';
   room.status = 'finished';
   gameManager.armRoomGrace(roomCode);
-  gameManager._persist(roomCode);
+  // The result is in `finished_games` now — drop the live snapshot. The room
+  // itself stays in memory for the rematch grace window.
+  gameManager.retireRoom(roomCode);
 }
 
 function _emitHandDealt(io, room, gameState, roomCode) {

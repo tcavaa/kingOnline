@@ -102,8 +102,10 @@ class GameManager {
    */
   _persist(roomCode) {
     const room = this.rooms.get(roomCode);
-    if (!room) {
-      // Room was just deleted — drop the persisted row too.
+    if (!room || room.dbRetired) {
+      // Room was deleted, or the game ended and `retireRoom` already dropped
+      // the snapshot. Either way the live_games row must not come back — a
+      // retired room stays in memory only long enough for "Play Again".
       store.deleteLiveGame(roomCode).catch((err) => {
         console.warn(`[GameManager] _persist delete ${roomCode} failed: ${err.message}`);
       });
@@ -128,6 +130,12 @@ class GameManager {
       return null;
     }
     if (!snap) return null;
+    if (snap.status === 'finished') {
+      // Leftover row from before finished rooms were retired. Rehydrating it
+      // would put the joiner straight onto a game-over screen — bin it.
+      store.deleteLiveGame(roomCode).catch(() => {});
+      return null;
+    }
     const room = this._roomFromSnapshot(snap);
     if (!room) return null;
     this.rooms.set(roomCode, room);
@@ -140,6 +148,15 @@ class GameManager {
    * so a deploy/restart doesn't kill in-flight games.
    */
   async hydrateAll() {
+    // Boot-time housekeeping: clear out finished/abandoned snapshots before
+    // reading the table, so we never resurrect a dead room and the table
+    // doesn't grow without bound.
+    try {
+      const purged = await store.purgeStaleLiveGames();
+      if (purged > 0) console.log(`[GameManager] Purged ${purged} stale live_games row(s).`);
+    } catch (err) {
+      console.warn(`[GameManager] purgeStaleLiveGames failed: ${err.message}`);
+    }
     let entries;
     try { entries = await store.listLiveGames(); }
     catch (err) {
@@ -149,6 +166,7 @@ class GameManager {
     let loaded = 0;
     for (const { roomCode, snapshot } of entries) {
       if (this.rooms.has(roomCode)) continue;
+      if (snapshot && snapshot.status === 'finished') continue;
       const room = this._roomFromSnapshot(snapshot);
       if (!room) continue;
       this.rooms.set(roomCode, room);
@@ -284,6 +302,22 @@ class GameManager {
   destroyRoom(roomCode) {
     this.rooms.delete(roomCode);
     store.deleteLiveGame(roomCode).catch(() => {});
+  }
+
+  /**
+   * The game is over (natural finish or surrender). The room has to stay in
+   * memory for the rematch window, but its `live_games` row is finished
+   * business: the result now lives in `finished_games`, and leaving the
+   * snapshot behind is what used to strand rows in the table forever (and
+   * let a returning player rehydrate into a dead game). Flag the room so no
+   * later `_persist` writes it back, then drop the row.
+   */
+  retireRoom(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (room) room.dbRetired = true;
+    store.deleteLiveGame(roomCode).catch((err) => {
+      console.warn(`[GameManager] retireRoom ${roomCode} failed: ${err.message}`);
+    });
   }
 
   getRoom(roomCode) { return this.rooms.get(roomCode); }
@@ -453,7 +487,10 @@ class GameManager {
       if (room.players.every((p) => !p.connected)) {
         console.log(`[GameManager] Room ${roomCode} grace expired — deleting in-memory copy.`);
         this.rooms.delete(roomCode);
-        // Persisted live_games row stays so a future join can rehydrate it.
+        // A finished room was already retired, so there's no row left. An
+        // unfinished one keeps its live_games row so a future join can
+        // rehydrate it.
+        if (room.dbRetired) store.deleteLiveGame(roomCode).catch(() => {});
       }
     }, ROOM_GRACE_MS);
     // Don't keep the Node event loop alive just for grace timers — if the

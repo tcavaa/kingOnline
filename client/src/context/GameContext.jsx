@@ -2,8 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, u
 import { io } from 'socket.io-client'
 import { EventBus } from '../game/EventBus'
 import { saveGame } from '../lib/leaderboard'
-import { API_BASE } from '../lib/api'
+import { API_BASE, api } from '../lib/api'
 import { voicePlayer } from '../lib/voicePlayer'
+import { readSeatMarker, writeSeatMarker, clearSeatMarker } from '../lib/publicSeatStore'
+import { getSounds, setSounds } from '../lib/soundRegistry'
 
 const GameContext = createContext(null)
 // Chat traffic (messages, table bubbles, typing pings) changes at keystroke
@@ -21,6 +23,31 @@ function sortHand(hand) {
     if (sd !== 0) return sd
     return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank)
   })
+}
+
+/**
+ * Play `a` muted and immediately stop it. Two jobs: it satisfies the browser's
+ * autoplay policy for this element (so a later socket-driven .play() outside
+ * a gesture is allowed), and the play attempt is what actually downloads the
+ * file — the elements are created with preload="none" so page load doesn't
+ * pull down the whole clip library.
+ *
+ * The element STAYS muted afterwards. It's only unmuted in the real playback
+ * path; unmuting here used to race — a rejected or interrupted prime could
+ * flip `muted` back off while another prime was still running, occasionally
+ * blasting every clip at once on page load.
+ */
+function primeAudioEl(a) {
+  try {
+    a.muted = true
+    const stop = () => { a.pause(); a.currentTime = 0 }
+    const p = a.play()
+    if (p && typeof p.then === 'function') {
+      p.then(stop).catch(() => { /* stays muted & idle — never audible */ })
+    } else {
+      setTimeout(stop, 0)
+    }
+  } catch { /* ignore */ }
 }
 
 const TRICK_DISPLAY_MS = 1300   // how long a completed trick stays on the table
@@ -95,6 +122,9 @@ export function GameProvider({ children }) {
   const setPublicSeatBoth = (v) => { publicSeatRef.current = v; setPublicSeat(v) }
   // Which quick-match table the seat belongs to ('public' | 'championship').
   const [publicSeatMode, setPublicSeatMode] = useState(null)
+  // A seat we *could* go back to, read from localStorage on boot. Offered as
+  // a button in the lobby — never applied on our own (see publicSeatStore).
+  const [resumableSeat, setResumableSeat] = useState(null)
   // Mode of the room we're currently in ('public' | 'championship') — shown
   // in the waiting room and on the game-over screen.
   const [roomMode, setRoomMode] = useState('public')
@@ -144,6 +174,10 @@ export function GameProvider({ children }) {
   const myNameRef   = useRef('')
   const myAvatarRef = useRef(null)
   const hadDisconnectRef = useRef(false)
+  // Mirrors `appPhase` for the mount-only socket effect (which can't see the
+  // state variable). Used to keep background resyncs to screens that
+  // actually have a table to resync.
+  const appPhaseRef = useRef('lobby')
   // Latest serialised game-state snapshot (whatever last got pushed to the
   // Phaser scene via EventBus). The scene replays this via `scene-ready`
   // when it finishes mounting — fixes the "table is blank after refresh
@@ -195,6 +229,10 @@ export function GameProvider({ children }) {
     return () => clearTimeout(t)
   }, [gamePhase, currentTurn, leaderSeat, mySeat])
 
+  // Keep the ref in step with the state — cheaper than threading it through
+  // every setAppPhase call site.
+  useEffect(() => { appPhaseRef.current = appPhase }, [appPhase])
+
   const addToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random()
     setToasts(prev => [...prev, { id, message, type }])
@@ -206,31 +244,60 @@ export function GameProvider({ children }) {
     trickTimers.current = []
   }
 
-  const SOUND_IDS = [
-    'yeehaw', 'gunshot', 'whistle',
-    'giv', 'janmrteloba',
-    'sheilage', 'shemetxara', 'tsava',
-    'Dedofali', 'Male!', 'Revia', 'Tazik',
-    '10-10', 'achexet', 'bedi', 'cxado',
-    'ketika',
-  ]
+  // One reusable <audio> per clip, keyed by wire id. They have to be
+  // constructed up front and primed inside a user gesture (see the unlock
+  // pass below) — a freshly-constructed Audio() inside a socket callback is
+  // blocked by the autoplay policy.
   const audioElsRef = useRef(null)
-  if (!audioElsRef.current && typeof window !== 'undefined') {
-    const map = {}
-    for (const id of SOUND_IDS) {
-      // `Male!` has a reserved URL character; encodeURIComponent keeps the
-      // socket-layer id unchanged while still resolving the correct file
-      // path here (and is a no-op for the plain lowercase ids).
-      const a = new Audio(`/sounds/${encodeURIComponent(id)}.mp3`)
-      // 'none': don't fetch 17 MP3s (~1.2 MB) during page load. The first-
-      // gesture unlock pass below plays each element muted, which triggers
-      // the actual download — same audible behavior, off the critical path.
+  const audioUnlockedRef = useRef(false)
+  // id -> the url its element was built from, so a clip whose audio an admin
+  // replaced can be told apart from one that's unchanged.
+  const audioUrlsRef = useRef({})
+
+  // Build (or top up) the pool from whatever the registry currently holds.
+  // Existing elements are kept as-is so a catalogue refresh never discards
+  // an element that's already been unlocked.
+  const syncAudioPool = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const map = audioElsRef.current || {}
+    for (const s of getSounds()) {
+      // Compared on the url, not just the id: when an admin replaces a
+      // clip's audio the id stays put but the url's `?v=` moves, and we want
+      // the new bytes rather than the element still holding the old ones.
+      if (map[s.id] && audioUrlsRef.current[s.id] === s.url) continue
+      // Built-in urls carry a filename; `Male!` has a reserved URL character,
+      // which the registry has already encoded.
+      const a = new Audio(s.url)
+      // 'none': don't fetch every clip during page load. The unlock pass
+      // plays each element muted, which triggers the actual download — same
+      // audible behavior, off the critical path.
       a.preload = 'none'
       a.volume = 0.7
-      map[id] = a
+      // Clips added after the first user gesture missed the unlock pass, so
+      // prime them now — we're outside a gesture, but the autoplay policy is
+      // per-document once it has been satisfied.
+      if (audioUnlockedRef.current) primeAudioEl(a)
+      map[s.id] = a
+      audioUrlsRef.current[s.id] = s.url
     }
     audioElsRef.current = map
-  }
+  }, [])
+
+  if (!audioElsRef.current && typeof window !== 'undefined') syncAudioPool()
+
+  // Pull the live catalogue (admin-managed) and refresh the button lists +
+  // audio pool. A failure leaves the built-in fallback in place.
+  useEffect(() => {
+    let cancelled = false
+    api.listSounds()
+      .then(list => {
+        if (cancelled) return
+        setSounds(list)
+        syncAudioPool()
+      })
+      .catch(err => console.warn('[sounds] catalogue fetch failed:', err.message))
+    return () => { cancelled = true }
+  }, [syncAudioPool])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -239,25 +306,12 @@ export function GameProvider({ children }) {
       if (unlocked) return
       unlocked = true
       // Prime every element inside this user gesture so later socket-driven
-      // .play() calls are allowed by the autoplay policy. The elements STAY
-      // muted for the entire priming pass — they are only unmuted inside the
-      // real playback path (the `play-sound` handler). Unmuting here used to
-      // race: a rejected/interrupted prime could flip `muted` back off while
-      // another prime was still playing, occasionally blasting all 17 clips
-      // at once on page load. Priming is also strictly once per session —
-      // no retry loop to interleave with itself.
-      Object.values(audioElsRef.current || {}).forEach(a => {
-        try {
-          a.muted = true
-          const stop = () => { a.pause(); a.currentTime = 0 }
-          const p = a.play()
-          if (p && typeof p.then === 'function') {
-            p.then(stop).catch(() => { /* stays muted & idle — never audible */ })
-          } else {
-            setTimeout(stop, 0)
-          }
-        } catch { /* ignore */ }
-      })
+      // .play() calls are allowed by the autoplay policy (see primeAudioEl).
+      // Strictly once per session — no retry loop to interleave with itself.
+      // The flag lets clips that arrive later (catalogue fetch resolving
+      // after the first click) prime themselves as they're created.
+      audioUnlockedRef.current = true
+      Object.values(audioElsRef.current || {}).forEach(primeAudioEl)
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown',     unlock)
     }
@@ -322,19 +376,14 @@ export function GameProvider({ children }) {
         // Stay in the "reconnecting…" state until the server-side
         // reconnect path acknowledges via `room-joined { reconnected: true }`.
       } else {
-        // Fresh connect (page load, no prior session). If we were sitting
-        // at the public table before a refresh, silently re-take the seat —
-        // the server only re-attaches (never fresh-sits), and if the game
-        // started while we were away this drops us straight back into it.
+        // Fresh connect (page load, no prior session). We may have a stored
+        // quick-match seat, but taking it back automatically is exactly the
+        // behaviour that made the homepage teleport returning visitors into
+        // a game they'd walked away from. Surface it instead and let the
+        // lobby offer a "rejoin" button.
         if (!roomCodeRef.current) {
-          try {
-            const saved = JSON.parse(localStorage.getItem('king.publicSeat') || 'null')
-            if (saved?.roomCode && saved?.name) {
-              myNameRef.current = saved.name
-              setMyName(saved.name)
-              socket.emit('rejoin-public', { roomCode: saved.roomCode, playerName: saved.name })
-            }
-          } catch { /* corrupted storage — ignore */ }
+          const saved = readSeatMarker()
+          setResumableSeat(saved)
         }
         setReconnecting(false)
       }
@@ -422,7 +471,7 @@ export function GameProvider({ children }) {
           setRoomCode('')
           setMySeat(null); mySeatRef.current = null
           setIsCreator(false)
-          try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+          clearSeatMarker()
         }
       } else {
         // The quick-match lobby moved on — either our table filled and the
@@ -444,10 +493,9 @@ export function GameProvider({ children }) {
       const tableMode = mode === 'championship' ? 'championship' : 'public'
       setPublicSeatMode(tableMode)
       setRoomMode(tableMode)
-      // Survive a refresh: rejoin-public re-attaches by room code + name.
-      try {
-        localStorage.setItem('king.publicSeat', JSON.stringify({ roomCode: code, name: myNameRef.current }))
-      } catch { /* ignore quota */ }
+      // Remember the seat so the lobby can offer it back after a refresh.
+      writeSeatMarker(code, myNameRef.current)
+      setResumableSeat(null)
     })
 
     socket.on('public-unseated', () => {
@@ -458,13 +506,14 @@ export function GameProvider({ children }) {
       setMySeat(null)
       mySeatRef.current = null
       setIsCreator(false)
-      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+      clearSeatMarker()
     })
 
     socket.on('public-rejoin-failed', () => {
       setPublicSeatBoth(null)
       setPublicSeatMode(null)
-      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+      clearSeatMarker()
+      setResumableSeat(null)
     })
 
     socket.on('game-started', ({ round: r, leaderSeat: ls, players: p }) => {
@@ -734,7 +783,7 @@ export function GameProvider({ children }) {
         setMatchWinner(mw ?? null)
         if (finalChips) setChips(finalChips)
         setQuitProposal(null)
-        try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+        clearSeatMarker()
         // Extra beat so the final payout chip-flight (and the settlement
         // modal's match banner) get seen before the results screen.
         setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 1400)
@@ -752,7 +801,7 @@ export function GameProvider({ children }) {
       setQuitProposal(null)
       // The public-seat bookmark (if any) has served its purpose — the game
       // it pointed at is finished, so a later refresh shouldn't chase it.
-      try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+      clearSeatMarker()
       setTimeout(() => setAppPhase('gameover'), TRICK_DISPLAY_MS + TRICK_ANIMATION_MS + 200)
       const winnerLabel = winnersList.map(w => w.name).join(' და ')
       if (typeof surrenderedBySeat === 'number') {
@@ -1139,6 +1188,10 @@ export function GameProvider({ children }) {
       if (typeof document === 'undefined') return
       if (document.visibilityState !== 'visible') return
       if (!roomCodeRef.current) return            // not in a room — nothing to sync
+      // Only a live table has a snapshot to resync. Sitting in a waiting
+      // room (public quick-match seat, pre-start lobby) there is nothing on
+      // the server to ask for, so the round-trip is pure noise.
+      if (appPhaseRef.current !== 'game') return
       const now = Date.now()
       // Throttle: visibilitychange can fire in rapid bursts (focus + page
       // visibility events on iOS sometimes double-fire). One resync per
@@ -1236,6 +1289,26 @@ export function GameProvider({ children }) {
     socketRef.current?.emit('sit-public', { playerName: name, avatar, emoji, mode })
   }, [])
   const standPublic    = useCallback(() => { socketRef.current?.emit('stand-public') }, [])
+
+  // ── Stored quick-match seat: user-driven resume ────────────────────────
+  // `rejoin-public` only ever re-attaches to a seat already holding this
+  // name, so the worst a stale marker can do is come back as
+  // `public-rejoin-failed`. Deliberately a click, not a page-load effect.
+  const resumeSeat = useCallback(() => {
+    const saved = readSeatMarker()
+    if (!saved) { setResumableSeat(null); return }
+    setMyName(saved.name)
+    myNameRef.current = saved.name
+    socketRef.current?.emit('rejoin-public', {
+      roomCode: saved.roomCode, playerName: saved.name,
+    })
+    setResumableSeat(null)
+  }, [])
+
+  const dismissResumeSeat = useCallback(() => {
+    clearSeatMarker()
+    setResumableSeat(null)
+  }, [])
   const setPublicEmoji = useCallback((emoji) => { socketRef.current?.emit('set-public-emoji', { emoji }) }, [])
   const selectGameType = useCallback((typeCode) => { socketRef.current?.emit('select-game-type', { typeCode }) }, [])
   const selectTrump    = useCallback((suit) => { socketRef.current?.emit('select-trump', { suit }) }, [])
@@ -1292,7 +1365,7 @@ export function GameProvider({ children }) {
     setRoundStats(null)
     prevPotRef.current = null
     prevChipsRef.current = null
-    try { localStorage.removeItem('king.publicSeat') } catch { /* ignore */ }
+    clearSeatMarker()
   }, [])
 
   const toggleDiscard = useCallback((card) => {
@@ -1328,6 +1401,7 @@ export function GameProvider({ children }) {
     toasts, disconnectedPlayer, reconnecting, selectedDiscards,
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
+    resumableSeat, resumeSeat, dismissResumeSeat,
     roomMode,
     rematch, requestRematch,
     gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,
@@ -1347,6 +1421,7 @@ export function GameProvider({ children }) {
     toasts, disconnectedPlayer, reconnecting, selectedDiscards,
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
+    resumableSeat, resumeSeat, dismissResumeSeat,
     roomMode,
     rematch, requestRematch,
     gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,

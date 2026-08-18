@@ -48,7 +48,14 @@ mysql -u king -p king_card_game < server/db/schema.sql
 
 > **Upgrading an existing deployment:** re-run `schema.sql` once to add
 > `finished_games.is_championship` (existing rows default to championship so
-> historical games keep counting in the score app's seasons).
+> historical games keep counting in the score app's seasons) and the `sounds`
+> table (seeded with the 17 built-in reaction clips on first run only, so a
+> clip you later delete from `/admin` doesn't come back on the next migration).
+
+> **Note on charset:** `schema.sql` is full of Georgian literals and starts
+> with `SET NAMES utf8mb4`. Don't strip that line — a mysql client defaulting
+> to a latin1 connection will otherwise write mojibake into the utf8mb4
+> columns.
 
 ### Public API modes
 
@@ -80,6 +87,7 @@ npm start
 | `DB_NAME`      | yes      | MySQL database name                                |
 | `PORT`         | no       | HTTP/WebSocket port (default `3001`)               |
 | `CORS_ORIGIN`  | no       | Comma-separated allowed origins, or `*` for dev    |
+| `ADMIN_PASSCODE` | no     | Passcode for `/admin` (default `2282`)             |
 
 ## 3) Client
 
@@ -103,6 +111,27 @@ npm run build              # outputs to client/dist
 | Var             | Required | Purpose                                                    |
 | --------------- | -------- | ---------------------------------------------------------- |
 | `VITE_API_URL`  | no       | Public URL of the API server. Blank → falls back to the page's host on port 3001. Use `https://...` in production so Socket.IO upgrades to WSS. |
+
+## Sound admin (`/admin`)
+
+Reaction clips (the sound buttons next to each player's avatar) live in the
+`sounds` table, not in the source. Visit **`/admin`**, enter the passcode
+(`ADMIN_PASSCODE`, default `2282`), and you can upload a clip with just a
+**name + audio file** — the glyph and colour are derived automatically and
+editable afterwards. No code change, no redeploy.
+
+- Uploaded audio is stored **in MySQL**, not on disk, so clips survive a
+  cPanel deploy (which overwrites `public/`).
+- The 17 original clips stay as static files in the build and are marked
+  `builtin` in the table; everything else streams from
+  `GET /api/sounds/:id/audio`.
+- Clients fetch the catalogue from `GET /api/sounds` on load, and the socket
+  layer validates `play-sound` against it (cached for 60s), so a new clip is
+  playable as soon as players reload.
+- Max 2 MB per clip. Accepted types: mp3, ogg, wav, m4a/aac, webm.
+
+The passcode is a shared latch, not an auth system — there are no accounts and
+no rate limiting. Set `ADMIN_PASSCODE` to something non-obvious in production.
 
 ## How to play
 

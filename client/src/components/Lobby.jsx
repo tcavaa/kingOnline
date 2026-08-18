@@ -19,7 +19,10 @@ function StarBar({ children }) {
 }
 
 export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
-  const { createRoom, joinRoom, connected, publicSeat } = useGame()
+  const {
+    createRoom, joinRoom, connected, publicSeat,
+    resumableSeat, resumeSeat, dismissResumeSeat,
+  } = useGame()
 
   // Spin King table stake — the chip stack everyone starts the match with.
   const [spinStack, setSpinStack] = useState(1000)
@@ -197,6 +200,37 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
           {connected ? 'კავშირი გამართულია' : 'ვემზადებით…'}
         </div>
       </div>
+
+      {/* A quick-match seat this browser held recently. Offered, never
+          taken automatically — landing on the homepage should land you on
+          the homepage. */}
+      {resumableSeat && publicSeat === null && (
+        <div className="relative z-10 w-full max-w-xl mb-5">
+          <div className="western-panel p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-typewriter" style={{ color: '#3b2314' }}>
+              <span className="font-bold">{resumableSeat.name}</span>
+              , დაბრუნდები მაგიდასთან{' '}
+              <span className="font-mono font-bold" style={{ color: '#8e2b23' }}>
+                {resumableSeat.roomCode}
+              </span>
+              ?
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={resumeSeat}
+                      disabled={!connected}
+                      className="western-pill px-4 py-2 text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
+                      style={{ color: '#3b2314' }}>
+                დაბრუნება
+              </button>
+              <button onClick={dismissResumeSeat}
+                      className="px-3 py-2 text-sm font-typewriter underline transition-opacity hover:opacity-70"
+                      style={{ color: 'rgba(59,35,20,0.6)' }}>
+                არა
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile section */}
       <div className="relative z-10 w-full max-w-xl mb-5">

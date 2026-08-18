@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { EventBus } from '../EventBus.js'
 import { createFaceUpCard, createFaceDownCard, CARD_W, CARD_H } from '../objects/Card.js'
-import { SOUNDS } from '../../constants/sounds.js'
+import { getSounds } from '../../lib/soundRegistry.js'
 import { getTier, tierProgress, PROGRESS_COLOR, chipBreakdown, seatStatText } from '../../constants/spinKing.js'
 
 // CSS hex string ("#daa520") → Phaser color int (0xdaa520).
@@ -871,7 +871,10 @@ export class GameScene extends Phaser.Scene {
     const rows = 3
     const yStart = -((rows - 1) * rowGap) / 2
 
-    SOUNDS.forEach((s, i) => {
+    // Read the catalogue per render rather than at import time — an admin
+    // can add a clip while the tab is open, and the next avatar repaint
+    // should show it.
+    getSounds().forEach((s, i) => {
       const row = i % rows
       const col = Math.floor(i / rows)
       const bx = baseX + side * col * colGap

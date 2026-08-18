@@ -2,6 +2,12 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
 import Lobby        from './components/Lobby'
 import WaitingRoom  from './components/WaitingRoom'
+// A *recent* durak session in localStorage means the user refreshed mid-game
+// — reopen the durak section so the seat re-attaches automatically. The
+// marker expires (see durak/session), so an old one no longer hijacks a
+// later visit to the homepage. Kept in its own tiny module so this check
+// doesn't pull the lazily-split durak chunk into the main bundle.
+import { readDurakSession } from './durak/session'
 
 // Heavy screens are code-split so the lobby doesn't pay for them up front:
 // GameLayout drags in Phaser (~1.5 MB), GameOverScreen pulls canvas-confetti
@@ -11,11 +17,15 @@ const GameOverScreen = lazy(() => import('./components/GameOverScreen'))
 const Leaderboard    = lazy(() => import('./components/Leaderboard'))
 // ჩეხური დურაკა is a self-contained side game (own socket, own screens).
 const DurakApp       = lazy(() => import('./durak/DurakApp'))
+// The /admin sound-management page. Lazy so ordinary players never download
+// it, and mounted outside GameProvider — it has no business opening a socket.
+const AdminApp       = lazy(() => import('./components/Admin/AdminApp'))
 
-// A live durak session in localStorage means the user refreshed mid-game —
-// reopen the durak section so the seat re-attaches automatically.
-function hasDurakSession() {
-  try { return !!localStorage.getItem('king.durak.session') } catch { return false }
+// The app has no router: the server's SPA fallback serves index.html for any
+// path, so a single pathname check is all the routing /admin needs.
+function isAdminPath() {
+  if (typeof window === 'undefined') return false
+  return /^\/admin\/?$/.test(window.location.pathname)
 }
 
 /** Parchment-toned full-screen fallback shown while a lazy chunk loads.
@@ -68,7 +78,7 @@ function ToastContainer() {
 
 function AppInner() {
   const { appPhase } = useGame()
-  const [view, setView] = useState(() => (hasDurakSession() ? 'durak' : 'main')) // 'main' | 'leaderboard' | 'durak'
+  const [view, setView] = useState(() => (readDurakSession() ? 'durak' : 'main')) // 'main' | 'leaderboard' | 'durak'
   const [durakProfile, setDurakProfile] = useState(null)
 
   // Warm the game-screen chunks in the background once the lobby has painted
@@ -121,6 +131,18 @@ function AppInner() {
 }
 
 export default function App() {
+  // Checked once at module-render time — /admin is a full page load, never a
+  // client-side transition, so there's nothing to re-evaluate.
+  if (isAdminPath()) {
+    return (
+      <div className="min-h-screen text-ink" style={{ background: '#3a2418', minHeight: '100dvh' }}>
+        <Suspense fallback={<ScreenLoader />}>
+          <AdminApp />
+        </Suspense>
+      </div>
+    )
+  }
+
   return (
     <GameProvider>
       <AppInner />

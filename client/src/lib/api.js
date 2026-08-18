@@ -110,4 +110,45 @@ export const api = {
 
   // championship daily quota — { name, limit, playedToday, remaining }.
   getChampionshipQuota: (name) => request(`/api/quota/${encodeURIComponent(name)}`),
+
+  // reaction-sound catalogue — [{ id, label, glyph, color, url }]. Public
+  // read; the write side lives in `adminApi` below.
+  listSounds: () => request('/api/sounds'),
+}
+
+// ─── /admin ─────────────────────────────────────────────────────────────────
+// The sound-management page. Every call carries the passcode as a header —
+// there's no session or cookie, the page just holds the code in memory (and
+// sessionStorage) for as long as the tab is open.
+function adminRequest(passcode, path, options = {}) {
+  return request(path, {
+    ...options,
+    headers: { ...(options.headers || {}), 'X-Admin-Pass': passcode },
+  })
+}
+
+export const adminApi = {
+  // Returns true/false rather than throwing on a bad passcode — the login
+  // screen wants to show "wrong code", not an HTTP error.
+  login: async (passcode) => {
+    try {
+      const out = await request('/api/admin/login', {
+        method: 'POST', body: JSON.stringify({ passcode }),
+      })
+      return !!out?.ok
+    } catch (err) {
+      if ((err?.message || '').includes('HTTP 401')) return false
+      throw err
+    }
+  },
+  listSounds:  (passcode)            => adminRequest(passcode, '/api/admin/sounds'),
+  createSound: (passcode, body)      => adminRequest(passcode, '/api/admin/sounds', {
+    method: 'POST', body: JSON.stringify(body),
+  }),
+  updateSound: (passcode, id, body)  => adminRequest(passcode, `/api/admin/sounds/${encodeURIComponent(id)}`, {
+    method: 'PUT', body: JSON.stringify(body),
+  }),
+  deleteSound: (passcode, id)        => adminRequest(passcode, `/api/admin/sounds/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  }),
 }

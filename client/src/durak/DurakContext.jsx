@@ -3,26 +3,13 @@ import { io } from 'socket.io-client'
 import { API_BASE } from '../lib/api'
 import { voicePlayer } from '../lib/voicePlayer'
 import { playDurakSound } from './sounds'
+import { readDurakSession, writeDurakSession } from './session'
 
 // ჩეხური დურაკა client state. Fully isolated from the King GameContext:
 // its own socket connection (forceNew) that lives only while the durak
 // section is open, and only `durak:*` events on the wire.
 
 const DurakContext = createContext(null)
-
-const SESSION_KEY = 'king.durak.session'
-
-export function readDurakSession() {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') }
-  catch { return null }
-}
-
-function writeDurakSession(session) {
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    else localStorage.removeItem(SESSION_KEY)
-  } catch { /* ignore */ }
-}
 
 const EVENT_TOASTS = {
   'penalty':       (e, name) => `${name} იღებს +${e.count} კარტს`,

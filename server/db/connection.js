@@ -25,6 +25,10 @@ function getPool() {
       user: DB_USER,
       password: DB_PASSWORD || '',
       database: DB_NAME,
+      // The app is full of Georgian text and emoji, and every text column is
+      // utf8mb4. mysql2 negotiates utf8mb3 by default, which mangles 4-byte
+      // characters — pin the connection to match the schema.
+      charset: 'utf8mb4',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
