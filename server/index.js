@@ -362,6 +362,14 @@ app.post('/api/admin/sounds', requireAdmin, async (req, res) => {
   catch (err) { sendErr(res, err); }
 });
 
+// Drag-and-drop ordering. A distinct path rather than a verb on /:id, so it
+// can never be shadowed by (or shadow) a clip whose slug happens to be
+// "reorder".
+app.post('/api/admin/sounds/reorder', requireAdmin, async (req, res) => {
+  try { res.json(await store.reorderSounds((req.body || {}).ids)); }
+  catch (err) { sendErr(res, err); }
+});
+
 app.put('/api/admin/sounds/:id', requireAdmin, async (req, res) => {
   try {
     const saved = await store.updateSound(req.params.id, req.body || {});

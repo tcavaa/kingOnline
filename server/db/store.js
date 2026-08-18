@@ -668,6 +668,39 @@ async function updateSound(id, { label, glyph, color, audio } = {}) {
   return getSound(id);
 }
 
+/**
+ * Persist a new button order. `ids` is the full catalogue, front to back;
+ * anything missing from it keeps its old slot number and just sorts after
+ * (or between) the rewritten ones, so a partial list can't silently reshuffle
+ * the rest.
+ *
+ * `updated_at = updated_at` is deliberate: the column would otherwise bump on
+ * every drag, which changes the `?v=` cache-buster in each clip's url and
+ * makes every client re-download the whole library after a reorder. Position
+ * isn't content.
+ */
+async function reorderSounds(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) throw badRequest('ids must be a non-empty array');
+  if (ids.some((id) => typeof id !== 'string')) throw badRequest('ids must all be strings');
+  const conn = await pool().getConnection();
+  try {
+    await conn.beginTransaction();
+    for (let i = 0; i < ids.length; i++) {
+      await conn.query(
+        'UPDATE sounds SET sort_order = ?, updated_at = updated_at WHERE id = ?',
+        [(i + 1) * 10, ids[i]]
+      );
+    }
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+  return listSounds();
+}
+
 async function deleteSound(id) {
   const [res] = await pool().query('DELETE FROM sounds WHERE id = ?', [id]);
   return res.affectedRows > 0;
@@ -688,4 +721,5 @@ module.exports = {
   saveDurakLiveGame, loadDurakLiveGame, deleteDurakLiveGame, listDurakLiveGames,
   // reaction sounds (admin-managed)
   listSounds, listSoundIds, getSound, getSoundAudio, createSound, updateSound, deleteSound,
+  reorderSounds,
 };

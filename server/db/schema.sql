@@ -137,7 +137,11 @@ CREATE TABLE IF NOT EXISTS sounds (
   created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_sounds_order (sort_order, id)
-) ENGINE=InnoDB;
+-- Charset pinned explicitly rather than inherited: a database created
+-- outside this file (cPanel makes them latin1 by default) would otherwise
+-- hand the table latin1 columns, and every Georgian label would bounce with
+-- "#1366 Incorrect string value".
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed the clips that predate this table, but ONLY on the very first run
 -- (empty table). Re-running schema.sql is a routine migration step, and an

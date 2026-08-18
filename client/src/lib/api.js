@@ -151,4 +151,8 @@ export const adminApi = {
   deleteSound: (passcode, id)        => adminRequest(passcode, `/api/admin/sounds/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   }),
+  // ids = the whole catalogue in its new front-to-back order.
+  reorderSounds: (passcode, ids)     => adminRequest(passcode, '/api/admin/sounds/reorder', {
+    method: 'POST', body: JSON.stringify({ ids }),
+  }),
 }

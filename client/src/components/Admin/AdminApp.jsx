@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Volume2, Trash2, Upload, Play, Square, Pencil, Check, X, LogOut } from 'lucide-react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
+import { Volume2, Trash2, Upload, Play, Square, Pencil, Check, X, LogOut, GripVertical } from 'lucide-react'
 import { adminApi, API_BASE } from '../../lib/api'
 import { voicePlayer } from '../../lib/voicePlayer'
 
@@ -90,7 +90,7 @@ function PasscodeGate({ onUnlock }) {
 
 /* ─── one row in the catalogue ────────────────────────────────────────── */
 
-function SoundRow({ sound, passcode, onChanged, onError }) {
+function SoundRow({ sound, passcode, onChanged, onError, onGrab, dragging, innerRef }) {
   const [editing, setEditing] = useState(false)
   const [label, setLabel] = useState(sound.label)
   const [glyph, setGlyph] = useState(sound.glyph)
@@ -126,8 +126,36 @@ function SoundRow({ sound, passcode, onChanged, onError }) {
   }
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl"
-         style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(122,83,44,0.25)' }}>
+    <div ref={innerRef}
+         className="flex items-center gap-2 py-2.5 px-3 rounded-xl"
+         style={{
+           background: dragging ? 'rgba(248,239,221,0.98)' : 'rgba(255,255,255,0.4)',
+           border: `1px solid ${dragging ? 'rgba(142,43,35,0.55)' : 'rgba(122,83,44,0.25)'}`,
+           boxShadow: dragging
+             ? '0 10px 24px rgba(58,36,24,0.26)'
+             : '0 0 0 rgba(58,36,24,0)',
+           // Lift the row being dragged above its neighbours so its shadow
+           // isn't clipped by the next card, and so it slides over them.
+           position: 'relative',
+           zIndex: dragging ? 5 : 'auto',
+           // Only the pick-up styling is transitioned here. Movement is
+           // animated separately (FLIP, in the parent) — a transition on
+           // `transform` would fight that.
+           transition: 'background 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+           willChange: dragging ? 'transform' : 'auto',
+         }}>
+      {/* Drag handle. `touch-action: none` is what stops a touch-drag from
+          scrolling the page instead of moving the row. */}
+      <button
+        onPointerDown={(e) => onGrab(e, sound.id)}
+        title="გადაათრიე რიგის შესაცვლელად"
+        aria-label="რიგის შეცვლა"
+        className="shrink-0 p-1 -ml-1 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'none', color: 'rgba(59,35,20,0.35)' }}
+      >
+        <GripVertical size={16} />
+      </button>
+
       <span className="flex items-center justify-center rounded-full font-bold shrink-0"
             style={{
               width: 38, height: 38, background: '#f8efdd',
@@ -276,6 +304,166 @@ export default function AdminApp() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // ── Drag-to-reorder ────────────────────────────────────────────────────
+  // Pointer events rather than HTML5 drag-and-drop: the same handlers cover
+  // mouse and touch, and pointer capture means the drag survives the cursor
+  // leaving the row (which native DnD on touch doesn't do at all).
+  //
+  // `dragId` is the clip being moved; `hoverIdx` is where it currently sits
+  // in the previewed order. The list renders `preview`, so what you see mid-
+  // drag is exactly what gets saved on release.
+  const [dragId, setDragId] = useState(null)
+  const [hoverIdx, setHoverIdx] = useState(null)
+  const listRef = useRef(null)
+
+  const preview = useMemo(() => {
+    if (dragId === null || hoverIdx === null) return sounds
+    const from = sounds.findIndex(s => s.id === dragId)
+    if (from === -1) return sounds
+    const arr = [...sounds]
+    const [moved] = arr.splice(from, 1)
+    arr.splice(hoverIdx, 0, moved)
+    return arr
+  }, [sounds, dragId, hoverIdx])
+
+  const grab = useCallback((e, id) => {
+    // Don't let the button take focus or start a text selection.
+    e.preventDefault()
+    setDragId(id)
+    setHoverIdx(sounds.findIndex(s => s.id === id))
+  }, [sounds])
+
+  // Which slot is the pointer over? Measured against the rows as currently
+  // rendered (i.e. the preview), so the answer stays consistent as the list
+  // shuffles underneath the cursor.
+  const trackPointer = useCallback((clientY) => {
+    const rows = listRef.current ? [...listRef.current.children] : []
+    if (!rows.length) return
+    let target = rows.length - 1
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect()
+      if (clientY < r.top + r.height / 2) { target = i; break }
+    }
+    setHoverIdx(target)
+  }, [])
+
+  const dropRef = useRef(null)
+  const trackRef = useRef(null)
+
+  const drop = useCallback(async () => {
+    if (dragId === null) return
+    const ordered = preview.map(s => s.id)
+    const unchanged = sounds.every((s, i) => s.id === ordered[i])
+    setDragId(null)
+    setHoverIdx(null)
+    if (unchanged) return
+    // Show the new order immediately; the server call just persists it.
+    setSounds(preview)
+    try {
+      await adminApi.reorderSounds(passcode, ordered)
+    } catch (err) {
+      setError(err.message)
+      // Put the old order back — the save didn't land.
+      setSounds(sounds)
+    }
+  }, [dragId, preview, sounds, passcode])
+
+  // Move/release are tracked on the window, not on the row or the list.
+  // Handlers on the container only fire while the pointer is over it, so a
+  // release anywhere else — or a pointerup the browser never delivers to the
+  // list — would leave the drag running forever with a row stuck to the
+  // cursor. Listening globally for the life of the drag means the release is
+  // always heard, and the effect cleanup is what guarantees we unsubscribe.
+  //
+  // The refs keep the listeners stable: `drop` and `trackPointer` change
+  // identity whenever the catalogue does, and re-binding mid-drag drops
+  // events.
+  dropRef.current = drop
+  trackRef.current = trackPointer
+
+  // ── Smooth movement (FLIP) ─────────────────────────────────────────────
+  // Reordering the array moves real DOM nodes, and moved nodes jump — CSS
+  // can't transition a change of document position. FLIP gets the animation
+  // back: after every render, compare each row's new top against where it
+  // was, instantly offset it back to the old spot with a transform, then let
+  // it transition to zero. The row never actually renders in the old place;
+  // the browser just animates the correction.
+  const rowRefs = useRef({})
+  const prevTops = useRef({})
+  const flipAnims = useRef({})
+
+  useLayoutEffect(() => {
+    const tops = {}
+    for (const [id, el] of Object.entries(rowRefs.current)) {
+      if (!el) continue
+      // offsetTop, NOT getBoundingClientRect().top. The rect is the *visual*
+      // box, so it includes any animation currently in flight — measuring
+      // that folds the old offset into the new delta and rows drift further
+      // with every move. offsetTop is pure layout.
+      const top = el.offsetTop
+      tops[id] = top
+      const was = prevTops.current[id]
+
+      // The row under the cursor is deliberately not animated: it should
+      // feel pinned to the pointer, and easing it into each new slot makes
+      // it trail behind the hand.
+      if (id === dragId) {
+        flipAnims.current[id]?.cancel()
+        delete flipAnims.current[id]
+        continue
+      }
+      if (was === undefined || was === top) continue
+
+      // Web Animations rather than a transition + rAF dance with inline
+      // styles: this runs entirely off the inline style attribute, so a move
+      // interrupted mid-flight can't strand a `transform` on the row (which
+      // is exactly how an earlier version left rows visibly displaced). A new
+      // animation supersedes the one it cancels, so rapid moves just retarget.
+      flipAnims.current[id]?.cancel()
+      const anim = el.animate(
+        [{ transform: `translateY(${was - top}px)` }, { transform: 'translateY(0px)' }],
+        { duration: 200, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+      )
+      flipAnims.current[id] = anim
+      anim.onfinish = () => { if (flipAnims.current[id] === anim) delete flipAnims.current[id] }
+    }
+    prevTops.current = tops
+  })
+
+  // Animations still running when the page navigates away would touch
+  // detached nodes.
+  useEffect(() => () => {
+    Object.values(flipAnims.current).forEach(a => a.cancel())
+    flipAnims.current = {}
+  }, [])
+
+  useEffect(() => {
+    if (dragId === null) return undefined
+    // Kill text selection for the duration — dragging across labels
+    // otherwise paints half the list blue.
+    const prevSelect = document.body.style.userSelect
+    document.body.style.userSelect = 'none'
+    const onMove = (e) => { e.preventDefault(); trackRef.current(e.clientY) }
+    const onUp   = () => { dropRef.current() }
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    // Last resort. A pointerup isn't actually guaranteed: alt-tabbing away,
+    // a context menu, or a mobile browser deciding the gesture is a system
+    // swipe all end the drag without one. Without this the row stays glued
+    // to the cursor and the page keeps `user-select: none` forever. Settling
+    // on the current preview is the right call — it's what the user last
+    // saw.
+    window.addEventListener('blur', onUp)
+    return () => {
+      document.body.style.userSelect = prevSelect
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('blur', onUp)
+    }
+  }, [dragId])
+
   const reload = useCallback(async (code) => {
     const pass = code || passcode
     if (!pass) return
@@ -337,6 +525,11 @@ export default function AdminApp() {
           <h2 className="text-sm font-western uppercase tracking-wider mb-3" style={{ color: '#3b2314' }}>
             კატალოგი {sounds.length > 0 && `(${sounds.length})`}
           </h2>
+          {sounds.length > 1 && (
+            <p className="text-[10px] font-typewriter mb-2" style={{ color: 'rgba(59,35,20,0.45)' }}>
+              რიგის შესაცვლელად გადაათრიე ⠿ სახელური — ეს რიგი ჩანს თამაშშიც.
+            </p>
+          )}
           {loading ? (
             <div className="text-sm font-typewriter py-3 text-center" style={{ color: 'rgba(59,35,20,0.55)' }}>
               იტვირთება…
@@ -346,10 +539,15 @@ export default function AdminApp() {
               ჯერ არცერთი ხმა არ არის.
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {sounds.map(s => (
+            <div ref={listRef} className="flex flex-col gap-2">
+              {preview.map(s => (
                 <SoundRow key={s.id} sound={s} passcode={passcode}
-                          onChanged={() => reload()} onError={setError} />
+                          onChanged={() => reload()} onError={setError}
+                          onGrab={grab} dragging={s.id === dragId}
+                          innerRef={(el) => {
+                            if (el) rowRefs.current[s.id] = el
+                            else delete rowRefs.current[s.id]
+                          }} />
               ))}
             </div>
           )}
