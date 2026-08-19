@@ -8,6 +8,7 @@ import { api } from '../lib/api'
 import ProfileForm, { ProfilePicker } from './ProfileForm'
 import PinPromptModal from './PinPromptModal'
 import PublicRoomPanel from './PublicRoomPanel'
+import TournamentPanel from './Tournament/TournamentPanel'
 import AvatarImg from './AvatarImg'
 
 function StarBar({ children }) {
@@ -316,6 +317,9 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
         <div className="relative z-10 w-full max-w-xl mb-5 flex flex-col gap-5">
           <PublicRoomPanel active={active} mode="championship" quota={quota} />
           <PublicRoomPanel active={active} mode="public" />
+
+          {/* Bracket play — King only. */}
+          <TournamentPanel active={active} />
 
           {/* სპინ კინგი — the chip-betting King variant, same table */}
           <div className="western-panel p-5"

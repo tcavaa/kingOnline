@@ -9,7 +9,7 @@ const ITEMS = [
 ]
 
 /** Left-side slide-in drawer triggered by the hamburger pill. */
-export default function MenuDrawer({ open, onClose, onPick }) {
+export default function MenuDrawer({ open, onClose, onPick, spectator = false }) {
   const { gamePhase, chosenGameType, gameKind } = useGame()
   if (!open) return null
 
@@ -17,10 +17,13 @@ export default function MenuDrawer({ open, onClose, onPick }) {
   // being discarded/played). Surrender is available any time mid-game.
   // Spin King has neither — a chip match only ends when one stack holds
   // everything (the server rejects quit votes there too).
+  // A spectator holds no seat at this table, so neither vote is theirs to
+  // start — and the server would resolve the proposal against whatever room
+  // they last played in.
   const isSpinKing = gameKind === 'spinking'
-  const canQuitRound = !isSpinKing &&
+  const canQuitRound = !isSpinKing && !spectator &&
     !!chosenGameType && (gamePhase === 'discard' || gamePhase === 'playing')
-  const canSurrender = !isSpinKing && gamePhase !== 'game_over'
+  const canSurrender = !isSpinKing && !spectator && gamePhase !== 'game_over'
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Swords, Eye } from 'lucide-react'
 import { useGame, useChat } from '../context/GameContext'
 import { EventBus } from '../game/EventBus'
 import PhaserGame       from '../game/PhaserGame'
@@ -20,6 +21,7 @@ import SpinReelOverlay  from './SpinKing/SpinReelOverlay'
 import AuctionOverlay   from './SpinKing/AuctionOverlay'
 import PledgeOverlay    from './SpinKing/PledgeOverlay'
 import SettlementResult from './SpinKing/SettlementResult'
+import BracketOverview  from './Tournament/BracketOverview'
 import { quoteForRound } from '../constants/quotes'
 
 /**
@@ -34,6 +36,7 @@ export default function GameLayout() {
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, playCard, playPending, roomCode,
     gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
+    tournamentSeat, spectating, stopSpectating,
   } = useGame()
   const isSpinKing = gameKind === 'spinking'
   const { chatBubbles, typingSeats } = useChat()
@@ -46,6 +49,7 @@ export default function GameLayout() {
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [chatOpen,    setChatOpen]    = useState(false)
   const [confirmQuit, setConfirmQuit] = useState(null) // null | 'round' | 'game'
+  const [bracketOpen, setBracketOpen] = useState(false)
 
   const openDrawer  = useCallback((id) => setDrawer(prev => prev === id ? null : id), [])
   const closeDrawer = useCallback(() => setDrawer(null), [])
@@ -90,6 +94,11 @@ export default function GameLayout() {
   ])
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
+
+  // A watcher has no seat, so `mySeat === leaderSeat` is already false for
+  // every selector below and the empty hand leaves nothing clickable. The
+  // flag is here to make the intent explicit and to gate the menu actions.
+  const isSpectator = !!spectating
 
   const showTypeSelector  = gamePhase === 'type_selection'  && mySeat === leaderSeat
   const showTrumpSelector = gamePhase === 'trump_selection' && mySeat === leaderSeat
@@ -169,6 +178,39 @@ export default function GameLayout() {
         onToggleScores={openScores}
         onToggleChat={toggleChat}
       />
+
+      {/* Tournament chrome: a way into the bracket from any table, plus a
+          banner making it obvious when you're watching rather than playing. */}
+      {(tournamentSeat || spectating) && (
+        <button
+          onClick={() => setBracketOpen(true)}
+          title="ტურნირის მიმოხილვა"
+          className="absolute z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform pointer-events-auto"
+          style={{
+            top: 'calc(env(safe-area-inset-top, 0px) + 60px)', left: 12,
+            background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
+            border: '1px solid rgba(142,43,35,0.6)', color: '#3b2314',
+            boxShadow: '0 2px 0 rgba(58,36,24,0.25)',
+          }}>
+          <Swords size={14} /> ტურნირი
+        </button>
+      )}
+
+      {spectating && (
+        <div className="absolute z-30 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+             style={{
+               top: 'calc(env(safe-area-inset-top, 0px) + 60px)',
+               background: 'rgba(49,83,107,0.92)', color: '#f6ead0',
+               border: '1px solid rgba(244,232,207,0.35)',
+             }}>
+          <Eye size={13} /> უყურებ
+          <button onClick={stopSpectating} className="underline ml-1 font-normal">
+            გასვლა
+          </button>
+        </div>
+      )}
+
+      {bracketOpen && <BracketOverview onClose={() => setBracketOpen(false)} />}
       <ScoreBoardPanel onOpen={openScores} />
       <ActionPanel     onLastTrick={openLast} />
 
@@ -216,7 +258,8 @@ export default function GameLayout() {
 
       <QuitModal confirmKind={confirmQuit} onCloseConfirm={() => setConfirmQuit(null)} />
 
-      <MenuDrawer  open={menuOpen} onClose={() => setMenuOpen(false)} onPick={handleMenuPick} />
+      <MenuDrawer  open={menuOpen} onClose={() => setMenuOpen(false)} onPick={handleMenuPick}
+                   spectator={isSpectator} />
       <ScoreDrawer panel={drawer}  onClose={closeDrawer} />
       <ChatOverlay open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>

@@ -33,6 +33,38 @@ class GameManager {
     // game mode. Cleared the moment a table's game starts (or the room dies)
     // so the next sitter opens a fresh table. In-memory only.
     this.quickMatchCodes = { public: null, championship: null };
+    // Watchers, not players. Kept out of `rooms[].players` so nothing in the
+    // game engine can ever deal to them or count them toward a seat, but
+    // tracked here so the chat/voice handlers can still identify them —
+    // those all resolve a sender via socketRoomMap, which a spectator is
+    // deliberately absent from.
+    this.spectators = new Map();   // socketId -> { roomCode, tournamentId, name, avatar }
+  }
+
+  // ── spectators ────────────────────────────────────────────────────────────
+
+  addSpectator(socketId, roomCode, info = {}) {
+    this.spectators.set(socketId, {
+      roomCode,
+      tournamentId: info.tournamentId || null,
+      name: info.name || 'Spectator',
+      avatar: info.avatar || null,
+    });
+  }
+
+  getSpectator(socketId) { return this.spectators.get(socketId) || null; }
+
+  removeSpectator(socketId) {
+    const s = this.spectators.get(socketId);
+    this.spectators.delete(socketId);
+    return s || null;
+  }
+
+  /** How many people are watching a table (for the overview badge). */
+  spectatorCount(roomCode) {
+    let n = 0;
+    for (const s of this.spectators.values()) if (s.roomCode === roomCode) n += 1;
+    return n;
   }
 
   // ── persistence ───────────────────────────────────────────────────────────
@@ -51,6 +83,11 @@ class GameManager {
       gameKind: room.gameKind || 'king',
       startingStack: room.startingStack || null,
       isPublic: !!room.isPublic,
+      // Tournament tags travel with the snapshot so a restart mid-bracket
+      // doesn't orphan the table from the tournament watching it.
+      tournamentId: room.tournamentId || null,
+      tournamentTable: room.tournamentTable ?? null,
+      tournamentStage: room.tournamentStage || null,
       players: room.players.map((p) => ({
         id: p.id, name: p.name, avatar: p.avatar || null,
         seat: p.seat, connected: !!p.connected,
@@ -72,6 +109,9 @@ class GameManager {
       gameKind: snap.gameKind === 'spinking' ? 'spinking' : 'king',
       startingStack: snap.startingStack || null,
       isPublic: !!snap.isPublic,
+      tournamentId: snap.tournamentId || null,
+      tournamentTable: snap.tournamentTable ?? null,
+      tournamentStage: snap.tournamentStage || null,
       players: snap.players.map((p) => ({
         id: p.id || null, name: p.name, avatar: p.avatar || null,
         seat: p.seat,

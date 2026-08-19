@@ -612,6 +612,55 @@ class GameState {
       isGameOver: this.isGameOver,
     };
   }
+
+  /**
+   * A watcher's view of the table: everything the room already broadcasts,
+   * minus anything only a seated player should know.
+   *
+   * Spectators are other tournament entrants who may still have to play these
+   * opponents, so this is a competitive-integrity boundary, not a cosmetic
+   * one. Three things are withheld:
+   *   • `hand`      — nobody's cards, obviously.
+   *   • `centerCards` — the prikup. Two of the three players can see it, but
+   *     a watcher knowing it would leak information into a later round.
+   *   • `lastCenterCards` — the same cards after the merge.
+   *
+   * The trick on the table, trick counts, scores, whose turn it is and the
+   * round/phase all stay visible — that's the point of watching.
+   */
+  getStateForSpectator() {
+    const cardCounts = {};
+    for (let s = 0; s < 3; s++) cardCounts[s] = this.hands[s].length;
+
+    return {
+      round: this.round,
+      phase: this.phase,
+      leaderSeat: this.leaderSeat,
+      hand: [],
+      centerCards: [],
+      lastCenterCards: [],
+      cardCounts,
+      chosenGameType: this.chosenGameType,
+      trumpSuit: this.trumpSuit,
+      usedTypes: { ...this.usedTypes },
+      currentTrick: this.currentTrick,
+      ledSuit: this.ledSuit,
+      trickNumber: this.trickNumber,
+      currentTurn: this.currentTurn,
+      tricksTaken: { ...this.tricksTaken },
+      queensTaken: { ...this.queensTaken },
+      jacksTaken: { ...this.jacksTaken },
+      heartsTaken: { ...this.heartsTaken },
+      kingOfHeartsTakenBy: this.kingOfHeartsTakenBy,
+      lastTrick: this.lastTrick,
+      cumulativeScores: { ...this.cumulativeScores },
+      roundScores: this.roundScores,
+      roundDetails: this.roundDetails,
+      players: this.players,
+      isGameOver: this.isGameOver,
+      spectator: true,
+    };
+  }
 }
 
 module.exports = GameState;

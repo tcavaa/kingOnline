@@ -13,6 +13,7 @@ const cors    = require('cors');
 const GameManager      = require('./game/GameManager');
 const registerHandlers = require('./socket/handlers');
 const DurakManager     = require('./durak/DurakManager');
+const TournamentManager = require('./tournament/TournamentManager');
 const registerDurakHandlers = require('./durak/handlers');
 const store            = require('./db/store');
 
@@ -458,9 +459,12 @@ const gameManager = new GameManager();
 // ჩეხური დურაკა lives in its own in-memory manager with `durak:*`-prefixed
 // events — fully isolated from the King game (no DB, no shared state).
 const durakManager = new DurakManager();
+// King-only bracket play. Drives ordinary GameManager rooms — it just tags
+// them and reacts to their game-over — so Durak and Spin King are untouched.
+const tournamentManager = new TournamentManager(gameManager);
 
 io.on('connection', (socket) => {
-  registerHandlers(io, socket, gameManager);
+  registerHandlers(io, socket, gameManager, tournamentManager);
   registerDurakHandlers(io, socket, durakManager);
 });
 

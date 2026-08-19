@@ -129,6 +129,20 @@ export function GameProvider({ children }) {
   // in the waiting room and on the game-over screen.
   const [roomMode, setRoomMode] = useState('public')
 
+  // ── Tournament ──────────────────────────────────────────────────────────
+  // `tournament` is our own lobby/bracket membership; `tournamentOverview` is
+  // the cross-table scoreboard; `tournamentSeat` tags the room we're playing
+  // as a bracket table; `spectating` is set while watching someone else's.
+  const [tournament, setTournament]                 = useState(null)
+  const [tournamentList, setTournamentList]         = useState([])
+  const [tournamentOverview, setTournamentOverview] = useState(null)
+  const [tournamentSeat, setTournamentSeat]         = useState(null)
+  const [tournamentFinal, setTournamentFinal]       = useState(null)
+  const [tournamentResult, setTournamentResult]     = useState(null)
+  const [spectating, setSpectating]                 = useState(null)
+  const spectatingRef = useRef(null)
+  const setSpectatingBoth = (v) => { spectatingRef.current = v; setSpectating(v) }
+
   // ── Quit-round / surrender vote ─────────────────────────────────────────
   // Set while a proposal is waiting on votes:
   //   { kind: 'round'|'game', proposerSeat, proposerName, acceptedSeats }
@@ -411,13 +425,17 @@ export function GameProvider({ children }) {
       setAppPhase('waiting')
     })
 
-    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode, gameKind: gk, startingStack: ss }) => {
+    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode, gameKind: gk, startingStack: ss, tournament: tournamentTag }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
       mySeatRef.current = seat
       setIsCreator(seat === 0)
       if (mode) setRoomMode(mode === 'championship' ? 'championship' : 'public')
+      // Set when the server seats us at a bracket table; drives the HUD's
+      // tournament button and blocks the quit/rematch affordances.
+      setTournamentSeat(tournamentTag || null)
+      if (tournamentTag) setSpectatingBoth(null)
       if (gk) {
         setGameKind(gk === 'spinking' ? 'spinking' : 'king')
         setStartingStack(gk === 'spinking' ? (ss || null) : null)
@@ -434,6 +452,41 @@ export function GameProvider({ children }) {
       } else {
         setAppPhase('waiting')
       }
+    })
+
+    // ── tournament ────────────────────────────────────────────────────
+    socket.on('tournament-joined',  (t) => { setTournament(t) })
+    socket.on('tournament-state',   (t) => { setTournament(t) })
+    socket.on('tournament-left',    ()  => { setTournament(null) })
+    socket.on('tournament-list',    (l) => { setTournamentList(Array.isArray(l) ? l : []) })
+    socket.on('tournament-overview',(o) => { setTournamentOverview(o) })
+
+    socket.on('tournament-final', (payload) => {
+      setTournamentFinal(payload)
+      addToast('ფინალი იწყება!', 'success')
+    })
+
+    socket.on('tournament-complete', (payload) => {
+      setTournamentResult(payload)
+      const names = (payload.winners || []).map(w => w.name).join(' და ')
+      if (names) addToast(`ტურნირის გამარჯვებული: ${names} 🏆`, 'success')
+    })
+
+    // Watching someone else's table. The server sends a masked snapshot, so
+    // `hand` arrives empty and the canvas simply has nothing of ours to draw.
+    socket.on('spectate-started', (payload) => {
+      setSpectatingBoth(payload)
+      roomCodeRef.current = payload.roomCode
+      setRoomCode(payload.roomCode)
+      setMySeat(null); mySeatRef.current = null
+      setHand([])
+      setAppPhase('game')
+    })
+
+    socket.on('spectate-stopped', () => {
+      setSpectatingBoth(null)
+      setHand([])
+      setAppPhase('lobby')
     })
 
     socket.on('player-joined', ({ players: p, gameKind: gk, startingStack: ss }) => {
@@ -1305,6 +1358,35 @@ export function GameProvider({ children }) {
     setResumableSeat(null)
   }, [])
 
+  // ── tournament actions ──────────────────────────────────────────────────
+  const createTournament = useCallback((name, avatar, size) => {
+    myNameRef.current = name
+    setMyName(name)
+    socketRef.current?.emit('tournament-create', { playerName: name, avatar, size })
+  }, [])
+
+  const joinTournament = useCallback((code, name, avatar) => {
+    myNameRef.current = name
+    setMyName(name)
+    socketRef.current?.emit('tournament-join', {
+      code: String(code || '').toUpperCase(), playerName: name, avatar,
+    })
+  }, [])
+
+  const leaveTournament  = useCallback(() => { socketRef.current?.emit('tournament-leave') }, [])
+  const refreshTournaments = useCallback(() => { socketRef.current?.emit('tournament-list') }, [])
+  const refreshOverview  = useCallback(() => { socketRef.current?.emit('tournament-overview') }, [])
+
+  const spectateTable = useCallback((roomCode) => {
+    socketRef.current?.emit('tournament-spectate', {
+      roomCode, playerName: myNameRef.current,
+    })
+  }, [])
+
+  const stopSpectating = useCallback(() => {
+    socketRef.current?.emit('tournament-stop-spectating')
+  }, [])
+
   const dismissResumeSeat = useCallback(() => {
     clearSeatMarker()
     setResumableSeat(null)
@@ -1402,6 +1484,10 @@ export function GameProvider({ children }) {
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
+    tournament, tournamentList, tournamentOverview, tournamentSeat,
+    tournamentFinal, tournamentResult, spectating,
+    createTournament, joinTournament, leaveTournament,
+    refreshTournaments, refreshOverview, spectateTable, stopSpectating,
     roomMode,
     rematch, requestRematch,
     gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,
@@ -1422,6 +1508,10 @@ export function GameProvider({ children }) {
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
+    tournament, tournamentList, tournamentOverview, tournamentSeat,
+    tournamentFinal, tournamentResult, spectating,
+    createTournament, joinTournament, leaveTournament,
+    refreshTournaments, refreshOverview, spectateTable, stopSpectating,
     roomMode,
     rematch, requestRematch,
     gameKind, startingStack, chips, pot, ante, zombies, auction, pledge,
