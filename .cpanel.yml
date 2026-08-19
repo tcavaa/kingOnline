@@ -5,10 +5,17 @@ deployment:
     # Backend code (never touches .env, .htaccess, logs or the
     # cPanel-managed node_modules symlink). db/ is code only — the data
     # lives in MySQL.
+    #
+    # NOTE: this list is deliberately explicit rather than `cp -R server/*`,
+    # so it can't clobber .env or the node_modules symlink. The cost is that
+    # ADDING A NEW server/<dir> MEANS ADDING A LINE HERE — miss it and the
+    # deploy succeeds while Passenger dies on MODULE_NOT_FOUND, because the
+    # require target simply never arrived.
     - /bin/cp -R server/game $APP/
     - /bin/cp -R server/durak $APP/
     - /bin/cp -R server/socket $APP/
     - /bin/cp -R server/spinking $APP/
+    - /bin/cp -R server/tournament $APP/
     - /bin/cp -R server/db $APP/
     - /bin/cp server/index.js $APP/
     - /bin/cp server/package.json $APP/
