@@ -128,6 +128,8 @@ export function GameProvider({ children }) {
   // Mode of the room we're currently in ('public' | 'championship') — shown
   // in the waiting room and on the game-over screen.
   const [roomMode, setRoomMode] = useState('public')
+  // Server wall-clock of the deal, origin for the in-game elapsed timer.
+  const [gameStartedAt, setGameStartedAt] = useState(null)
 
   // ── Tournament ──────────────────────────────────────────────────────────
   // `tournament` is our own lobby/bracket membership; `tournamentOverview` is
@@ -425,7 +427,7 @@ export function GameProvider({ children }) {
       setAppPhase('waiting')
     })
 
-    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode, gameKind: gk, startingStack: ss, tournament: tournamentTag }) => {
+    socket.on('room-joined', ({ roomCode: code, seat, reconnected, status, mode, gameKind: gk, startingStack: ss, tournament: tournamentTag, startedAt }) => {
       setRoomCode(code)
       roomCodeRef.current = code
       setMySeat(seat)
@@ -434,6 +436,7 @@ export function GameProvider({ children }) {
       if (mode) setRoomMode(mode === 'championship' ? 'championship' : 'public')
       // Set when the server seats us at a bracket table; drives the HUD's
       // tournament button and blocks the quit/rematch affordances.
+      if (startedAt) setGameStartedAt(startedAt)
       setTournamentSeat(tournamentTag || null)
       if (tournamentTag) setSpectatingBoth(null)
       if (gk) {
@@ -476,6 +479,7 @@ export function GameProvider({ children }) {
     // `hand` arrives empty and the canvas simply has nothing of ours to draw.
     socket.on('spectate-started', (payload) => {
       setSpectatingBoth(payload)
+      if (payload.startedAt) setGameStartedAt(payload.startedAt)
       roomCodeRef.current = payload.roomCode
       setRoomCode(payload.roomCode)
       setMySeat(null); mySeatRef.current = null
@@ -569,7 +573,8 @@ export function GameProvider({ children }) {
       setResumableSeat(null)
     })
 
-    socket.on('game-started', ({ round: r, leaderSeat: ls, players: p }) => {
+    socket.on('game-started', ({ round: r, leaderSeat: ls, players: p, startedAt }) => {
+      setGameStartedAt(startedAt || Date.now())
       setRound(r)
       setLeaderSeat(ls)
       setPlayers(p)
@@ -928,16 +933,15 @@ export function GameProvider({ children }) {
         } catch { /* ignore */ }
       }
       // Also flash a chat-bubble-style indicator above the targeted player.
-      // Built-in clips get an evocative label; user-added clips fall back to
-      // an upper-cased version of the id (e.g. "BABI", "JANMRTELOBA"), which
-      // is good enough until you want to customise each one.
+      // The name comes from the catalogue, which is what the admin actually
+      // typed. It used to be a hardcoded map of three built-ins with the
+      // upper-cased id as fallback — fine while every id was a readable word,
+      // but an uploaded clip named in Georgian has no ASCII slug, so its id
+      // is a token like `snd-ffd1d735` and that is what players saw. Reading
+      // the registry also means renaming a clip in /admin now actually
+      // changes what shows on the table.
       const target = typeof targetSeat === 'number' ? targetSeat : bySeat
-      const LABELS = {
-        yeehaw:  'YEE-HAW!',
-        gunshot: '*BANG*',
-        whistle: '~ whistle ~',
-      }
-      const label = LABELS[soundId] || soundId.toUpperCase()
+      const label = getSounds().find(s => s.id === soundId)?.label || soundId
       setChatBubbles(prev => ({ ...prev, [target]: { message: label, name: '', avatar: null } }))
       if (bubbleTimers.current[target]) clearTimeout(bubbleTimers.current[target])
       bubbleTimers.current[target] = setTimeout(() => {
@@ -1431,6 +1435,7 @@ export function GameProvider({ children }) {
     setPublicSeatBoth(null)
     setPublicSeatMode(null)
     setRoomMode('public')
+    setGameStartedAt(null)
     // Reset the Spin King slice so the next (possibly King) room starts clean.
     setGameKind('king')
     setStartingStack(null)
@@ -1484,6 +1489,7 @@ export function GameProvider({ children }) {
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
+    gameStartedAt,
     tournament, tournamentList, tournamentOverview, tournamentSeat,
     tournamentFinal, tournamentResult, spectating,
     createTournament, joinTournament, leaveTournament,
@@ -1508,6 +1514,7 @@ export function GameProvider({ children }) {
     quitProposal, proposeQuit, voteQuit,
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
+    gameStartedAt,
     tournament, tournamentList, tournamentOverview, tournamentSeat,
     tournamentFinal, tournamentResult, spectating,
     createTournament, joinTournament, leaveTournament,

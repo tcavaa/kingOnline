@@ -216,6 +216,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
         socket.emit('room-joined', {
           roomCode: rc, seat, reconnected: true, status, mode: roomMode,
           gameKind: roomKind, startingStack: roomStack,
+          startedAt: joinedRoom?.startedAt || null,
         });
         const room = gameManager.getRoom(rc);
         const state = gameManager.getStateForPlayer(rc, seat);
@@ -293,6 +294,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
           round: gameState.round,
           leaderSeat: gameState.leaderSeat,
           players: playersView(room.players),
+          startedAt: room.startedAt || null,
         });
         _emitHandDealt(io, room, gameState, roomCode);
         // Free the homepage seats for the next trio.
@@ -354,7 +356,10 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
         socket.emit('public-seated', { roomCode: rc, seat, mode: room.mode || 'public' });
         io.emit('public-room', gameManager.publicRoomView());
       } else {
-        socket.emit('room-joined', { roomCode: rc, seat, reconnected: true, status, mode: room.mode || 'public' });
+        socket.emit('room-joined', {
+          roomCode: rc, seat, reconnected: true, status, mode: room.mode || 'public',
+          startedAt: room.startedAt || null,
+        });
         const state = gameManager.getStateForPlayer(rc, seat);
         if (state) {
           socket.emit('game-state', { ...state, players: playersView(room.players) });
@@ -380,6 +385,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
         round: gameState.round,
         leaderSeat: gameState.leaderSeat,
         players: playersView(room.players),
+        startedAt: room.startedAt || null,
       });
       _emitHandDealt(io, room, gameState, roomCode);
       _broadcastSpinState(io, gameManager, roomCode);
@@ -1115,6 +1121,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
       socket.emit('spectate-started', {
         roomCode: rc,
         tournamentId: t.id,
+        startedAt: room.startedAt || null,
         players: playersView(room.players),
         stage: room.tournamentStage || null,
         table: room.tournamentTable ?? null,
@@ -1391,6 +1398,7 @@ function _makeTournamentBroadcaster(io, gameManager, tournamentManager) {
           status: 'playing',
           mode: 'championship',
           gameKind: 'king',
+          startedAt: room.startedAt || null,
           tournament: { id: t.id, code: t.code, stage, table: index },
         });
       }
@@ -1399,6 +1407,7 @@ function _makeTournamentBroadcaster(io, gameManager, tournamentManager) {
         round: gameState.round,
         leaderSeat: gameState.leaderSeat,
         players: playersView(room.players),
+        startedAt: room.startedAt || null,
       });
       _emitHandDealt(io, room, gameState, roomCode);
       io.to(t.id).emit('tournament-overview', overviewOf(t));

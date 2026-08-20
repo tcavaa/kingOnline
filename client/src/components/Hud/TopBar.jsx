@@ -6,6 +6,7 @@ import { useGame } from '../../context/GameContext'
 import { getGameType } from '../../constants/gameTypes'
 import { SuitIcon, SUIT_NAMES } from '../Icons'
 import { Pill } from './Pill'
+import GameTimer from './GameTimer'
 
 // Georgian display names for the suit codes / phase codes (display-only;
 // falls back to the original English value for anything unmapped).
@@ -62,8 +63,15 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
 
   return (
     <div className="absolute top-0 inset-x-0 z-20 px-3 lg:px-4 pt-3 lg:pt-4 flex items-start justify-between gap-2 pointer-events-none">
-      {/* Left: menu + room name */}
-      <div className="flex items-center gap-1.5 lg:gap-2 pointer-events-auto min-w-0">
+      {/* Left: menu + room name. `flex-1 basis-0` on both side groups makes
+          them claim equal width, which is what puts the centre column on the
+          real middle of the screen instead of wherever the wider side leaves
+          it. Only from `sm` up: on a narrow portrait phone the bar already
+          can't fit its contents, and forcing an equal split there collapsed
+          this group to zero width and took the menu button with it. Below
+          `sm` the original justify-between behaviour is kept — the clock is
+          then a few px off centre, which is invisible at that size. */}
+      <div className="sm:flex-1 sm:basis-0 flex items-center gap-1.5 lg:gap-2 pointer-events-auto min-w-0">
         <Pill onClick={onToggleMenu} className="px-2 lg:px-3" title="მენიუ">
           <Menu size={16} />
         </Pill>
@@ -81,7 +89,12 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
         </Pill>
       </div>
 
-      {/* Center: round + chosen type + trump */}
+      {/* Center: round + chosen type + trump, with the elapsed clock tucked
+          directly underneath. The clock lives inside this column rather than
+          being absolutely positioned in the layout, so it is laid out BELOW
+          the pills by flex and can never overlap them however tall they get
+          (they grow with the chosen-type and trump chips). */}
+      <div className="sm:shrink-0 flex flex-col items-center gap-1 min-w-0">
       <div className="flex items-center gap-1.5 lg:gap-2 pointer-events-auto min-w-0">
         <Pill className="px-2 lg:px-3"
               style={{
@@ -148,9 +161,13 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
         )}
       </div>
 
+        {/* Elapsed game clock — second row of the centre column. */}
+        <GameTimer />
+      </div>
+
       {/* Right: chat / settings / latency. Latency hides on phone landscape
           (purely diagnostic) so chat + settings stay inside the viewport. */}
-      <div className="flex items-center gap-1.5 lg:gap-2 pointer-events-auto">
+      <div className="sm:flex-1 sm:basis-0 flex items-center sm:justify-end gap-1.5 lg:gap-2 pointer-events-auto">
         <Pill onClick={onToggleChat}   className="px-2 lg:px-3" title="ჩატი"><MessageCircle size={16} /></Pill>
         <Pill onClick={onToggleScores} className="px-2 lg:px-3" title="ქულები"><Settings size={16} /></Pill>
         <Pill className="px-2 lg:px-3 flex-col leading-tight items-end hide-on-phone-landscape" title="კავშირი">

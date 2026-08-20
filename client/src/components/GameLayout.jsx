@@ -179,34 +179,36 @@ export default function GameLayout() {
         onToggleChat={toggleChat}
       />
 
-      {/* Tournament chrome: a way into the bracket from any table, plus a
-          banner making it obvious when you're watching rather than playing. */}
+      {/* Tournament chrome. Deliberately a LEFT-aligned column rather than
+          centred: the middle of that band now belongs to the clock, and the
+          spectator badge used to sit exactly on top of it. */}
       {(tournamentSeat || spectating) && (
-        <button
-          onClick={() => setBracketOpen(true)}
-          title="ტურნირის მიმოხილვა"
-          className="absolute z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform pointer-events-auto"
-          style={{
-            top: 'calc(env(safe-area-inset-top, 0px) + 60px)', left: 12,
-            background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-            border: '1px solid rgba(142,43,35,0.6)', color: '#3b2314',
-            boxShadow: '0 2px 0 rgba(58,36,24,0.25)',
-          }}>
-          <Swords size={14} /> ტურნირი
-        </button>
-      )}
-
-      {spectating && (
-        <div className="absolute z-30 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
-             style={{
-               top: 'calc(env(safe-area-inset-top, 0px) + 60px)',
-               background: 'rgba(49,83,107,0.92)', color: '#f6ead0',
-               border: '1px solid rgba(244,232,207,0.35)',
-             }}>
-          <Eye size={13} /> უყურებ
-          <button onClick={stopSpectating} className="underline ml-1 font-normal">
-            გასვლა
+        <div className="absolute z-30 flex flex-col items-start gap-1.5 pointer-events-none"
+             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 58px)', left: 12 }}>
+          <button
+            onClick={() => setBracketOpen(true)}
+            title="ტურნირის მიმოხილვა"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+            style={{
+              background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
+              border: '1px solid rgba(142,43,35,0.6)', color: '#3b2314',
+              boxShadow: '0 2px 0 rgba(58,36,24,0.25)',
+            }}>
+            <Swords size={14} /> ტურნირი
           </button>
+
+          {spectating && (
+            <div className="pointer-events-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+                 style={{
+                   background: 'rgba(49,83,107,0.92)', color: '#f6ead0',
+                   border: '1px solid rgba(244,232,207,0.35)',
+                 }}>
+              <Eye size={13} /> უყურებ
+              <button onClick={stopSpectating} className="underline ml-1 font-normal">
+                გასვლა
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -219,7 +221,7 @@ export default function GameLayout() {
           "waiting for X" chip (80–116px) so nothing overlaps. */}
       {roundQuote && (
         <div className="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none select-none text-center px-4 hide-on-phone-landscape"
-             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 126px)', maxWidth: 'min(560px, 72vw)' }}>
+             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 152px)', maxWidth: 'min(560px, 72vw)' }}>
           <p className="font-handwritten text-base lg:text-lg leading-snug"
              style={{ color: 'rgba(90,54,32,0.85)', textShadow: '0 1px 0 rgba(255,244,214,0.35)' }}>
             „{roundQuote.text}“

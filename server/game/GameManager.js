@@ -85,6 +85,7 @@ class GameManager {
       isPublic: !!room.isPublic,
       // Tournament tags travel with the snapshot so a restart mid-bracket
       // doesn't orphan the table from the tournament watching it.
+      startedAt: room.startedAt || null,
       tournamentId: room.tournamentId || null,
       tournamentTable: room.tournamentTable ?? null,
       tournamentStage: room.tournamentStage || null,
@@ -109,6 +110,7 @@ class GameManager {
       gameKind: snap.gameKind === 'spinking' ? 'spinking' : 'king',
       startingStack: snap.startingStack || null,
       isPublic: !!snap.isPublic,
+      startedAt: snap.startedAt || null,
       tournamentId: snap.tournamentId || null,
       tournamentTable: snap.tournamentTable ?? null,
       tournamentStage: snap.tournamentStage || null,
@@ -380,6 +382,11 @@ class GameManager {
       ? new SpinKingState(seatedPlayers, clampStack(room.startingStack ?? DEFAULT_STACK))
       : new GameState(seatedPlayers);
     room.status = 'playing';
+    // Wall-clock start, so the in-game timer is the same for all three
+    // players and survives both a refresh and a server restart. Deriving it
+    // client-side would give each player their own number, counting from
+    // whenever they happened to load the page.
+    room.startedAt = Date.now();
     console.log(`[GameManager] Game started in room ${roomCode}`);
     this._persist(roomCode);
     return room.gameState;
