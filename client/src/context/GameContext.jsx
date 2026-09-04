@@ -125,6 +125,10 @@ export function GameProvider({ children }) {
   // A seat we *could* go back to, read from localStorage on boot. Offered as
   // a button in the lobby — never applied on our own (see publicSeatStore).
   const [resumableSeat, setResumableSeat] = useState(null)
+  // Homepage: who's around, and which King tables can be watched.
+  const [onlinePlayers, setOnlinePlayers] = useState([])
+  const [liveGames, setLiveGames]         = useState([])
+  const [watcherCount, setWatcherCount]   = useState(0)
   // Mode of the room we're currently in ('public' | 'championship') — shown
   // in the waiting room and on the game-over screen.
   const [roomMode, setRoomMode] = useState('public')
@@ -244,6 +248,24 @@ export function GameProvider({ children }) {
     }, 9000)
     return () => clearTimeout(t)
   }, [gamePhase, currentTurn, leaderSeat, mySeat])
+
+  // Mirrors the server's `canSpeak`: a watcher who wandered in from the
+  // homepage gets text and reactions only, while a tournament watcher (a
+  // fellow entrant, and accountable) keeps voice and the sound board. Used to
+  // hide controls the server would refuse anyway.
+  const canSpeak = !spectating || !!spectating.tournamentId
+
+  // Announce presence from here rather than only from the lobby rail. The
+  // rail lives on the homepage, so a player who reloaded straight into a game
+  // never mounted it and never announced — they were absent from presence
+  // entirely until their game ended. `myName` is set the moment we know who
+  // we are, on any screen.
+  useEffect(() => {
+    if (!connected || !myName) return
+    socketRef.current?.emit('announce-presence', {
+      playerName: myName, avatar: myAvatarRef.current ?? null,
+    })
+  }, [connected, myName])
 
   // Keep the ref in step with the state — cheaper than threading it through
   // every setAppPhase call site.
@@ -458,6 +480,10 @@ export function GameProvider({ children }) {
     })
 
     // ── tournament ────────────────────────────────────────────────────
+    socket.on('online-players', (l) => setOnlinePlayers(Array.isArray(l) ? l : []))
+    socket.on('live-games',     (l) => setLiveGames(Array.isArray(l) ? l : []))
+    socket.on('watchers',       ({ count }) => setWatcherCount(count || 0))
+
     socket.on('tournament-joined',  (t) => { setTournament(t) })
     socket.on('tournament-state',   (t) => { setTournament(t) })
     socket.on('tournament-left',    ()  => { setTournament(null) })
@@ -489,6 +515,7 @@ export function GameProvider({ children }) {
 
     socket.on('spectate-stopped', () => {
       setSpectatingBoth(null)
+      setWatcherCount(0)
       setHand([])
       setAppPhase('lobby')
     })
@@ -1030,6 +1057,27 @@ export function GameProvider({ children }) {
     })
 
     // ── Chat ────────────────────────────────────────────────────────────
+    // Reactions arrive as individual toggles and are folded into the message
+    // they belong to. A reaction for a message we no longer hold (pruned out
+    // of the 50-message window, or sent before we joined) is simply dropped —
+    // there is nothing to attach it to.
+    socket.on('chat-reaction', ({ messageId, emoji, seat, name }) => {
+      setChatMessages(prev => prev.map(m => {
+        if (m.id !== messageId) return m
+        const by = m.reactions?.[emoji] || []
+        const mine = by.some(r => r.seat === seat && r.name === name)
+        // Same person, same emoji = un-react. Keeps one tap-back per person
+        // per emoji without the server tracking any state.
+        const next = mine
+          ? by.filter(r => !(r.seat === seat && r.name === name))
+          : [...by, { seat, name }]
+        const reactions = { ...(m.reactions || {}) }
+        if (next.length) reactions[emoji] = next
+        else delete reactions[emoji]
+        return { ...m, reactions }
+      }))
+    })
+
     socket.on('chat-message', (msg) => {
       setChatMessages(prev => [...prev.slice(-49), msg])
       // Their message landed — retire the typing indicator immediately.
@@ -1329,6 +1377,10 @@ export function GameProvider({ children }) {
   }, [])
   // Throttled "I'm typing" ping — at most one every 1.2s while keys are
   // being pressed; receivers expire the indicator on their own 2.5s timer.
+  const reactToMessage = useCallback((messageId, emoji) => {
+    socketRef.current?.emit('chat-react', { messageId, emoji })
+  }, [])
+
   const sendTyping     = useCallback(() => {
     const now = Date.now()
     if (now - typingSentAtRef.current < 1200) return
@@ -1387,8 +1439,35 @@ export function GameProvider({ children }) {
     })
   }, [])
 
+  // `stop-watching` covers both kinds of watcher — it clears the same
+  // spectator registry entry and additionally refreshes the homepage lists.
   const stopSpectating = useCallback(() => {
-    socketRef.current?.emit('tournament-stop-spectating')
+    socketRef.current?.emit('stop-watching')
+  }, [])
+
+  // ── homepage presence ───────────────────────────────────────────────────
+  const announcePresence = useCallback((name, avatar) => {
+    if (!name) return
+    socketRef.current?.emit('announce-presence', { playerName: name, avatar: avatar || null })
+  }, [])
+
+  const refreshLobby = useCallback(() => {
+    socketRef.current?.emit('lobby-info')
+  }, [])
+
+  // Name/avatar are passed in rather than read off the refs: those are only
+  // populated once you've created or joined a room, and watching happens
+  // straight from the lobby where they're still empty. Setting them here also
+  // means the watcher's chat messages carry the right name.
+  const watchGame = useCallback((roomCode, name, avatar = null) => {
+    const who = String(name || myNameRef.current || '').trim()
+    if (!who) return
+    myNameRef.current = who
+    setMyName(who)
+    myAvatarRef.current = avatar ?? myAvatarRef.current ?? null
+    socketRef.current?.emit('watch-game', {
+      roomCode, playerName: who, avatar: myAvatarRef.current,
+    })
   }, [])
 
   const dismissResumeSeat = useCallback(() => {
@@ -1470,10 +1549,10 @@ export function GameProvider({ children }) {
   // its state fields updates.
   const chatValue = useMemo(() => ({
     chatMessages, chatBubbles, typingSeats,
-    sendChat, sendVoice, sendTyping, playSound,
+    sendChat, sendVoice, sendTyping, playSound, reactToMessage, canSpeak,
   }), [
     chatMessages, chatBubbles, typingSeats,
-    sendChat, sendVoice, sendTyping, playSound,
+    sendChat, sendVoice, sendTyping, playSound, reactToMessage, canSpeak,
   ])
 
   const gameValue = useMemo(() => ({
@@ -1490,6 +1569,8 @@ export function GameProvider({ children }) {
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
     gameStartedAt,
+    onlinePlayers, liveGames, watcherCount,
+    announcePresence, refreshLobby, watchGame,
     tournament, tournamentList, tournamentOverview, tournamentSeat,
     tournamentFinal, tournamentResult, spectating,
     createTournament, joinTournament, leaveTournament,
@@ -1515,6 +1596,8 @@ export function GameProvider({ children }) {
     publicRoom, publicSeat, publicSeatMode, sitPublic, standPublic, setPublicEmoji,
     resumableSeat, resumeSeat, dismissResumeSeat,
     gameStartedAt,
+    onlinePlayers, liveGames, watcherCount,
+    announcePresence, refreshLobby, watchGame,
     tournament, tournamentList, tournamentOverview, tournamentSeat,
     tournamentFinal, tournamentResult, spectating,
     createTournament, joinTournament, leaveTournament,

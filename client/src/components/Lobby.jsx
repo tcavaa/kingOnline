@@ -9,6 +9,7 @@ import ProfileForm, { ProfilePicker } from './ProfileForm'
 import PinPromptModal from './PinPromptModal'
 import PublicRoomPanel from './PublicRoomPanel'
 import TournamentPanel from './Tournament/TournamentPanel'
+import OnlineRail      from './OnlineRail'
 import AvatarImg from './AvatarImg'
 
 function StarBar({ children }) {
@@ -167,6 +168,8 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
 
   return (
     <div className="saloon-bg flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
+      {/* Ambient presence rail, xl+ only — see OnlineRail. */}
+      <OnlineRail active={active} />
       {/* Top-right: Leaderboard */}
       <button onClick={onOpenLeaderboard}
               className="absolute top-4 right-4 z-20 western-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-bold transition-all active:scale-95"

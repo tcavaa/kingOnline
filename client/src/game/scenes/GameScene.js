@@ -529,7 +529,11 @@ export class GameScene extends Phaser.Scene {
 
   // ── Opponent face-down card fans on left/right ───────────────────────────
   _renderOpponentCards(state) {
-    const { mySeat = 0, cardCounts = {}, gamePhase, round } = state
+    const { cardCounts = {}, gamePhase, round } = state
+    // `?? 0`, not a destructuring default: a spectator's mySeat is null,
+    // and `= 0` only fires on undefined. Left as null it poisons every
+    // `(mySeat + n) % 3` below and one player silently stops being drawn.
+    const mySeat = state.mySeat ?? 0
 
     const round1Hidden = round === 1 && gamePhase === 'type_selection'
 
@@ -556,7 +560,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   _renderAvatars(state) {
-    const { players = [], mySeat = 0, cumulativeScores = {}, currentTurn, gamePhase, cardCounts = {}, leaderSeat, round } = state
+    const { players = [], cumulativeScores = {}, currentTurn, gamePhase, cardCounts = {}, leaderSeat, round } = state
+    // See the note in the hand-count renderer: null must be coerced here,
+    // otherwise the seat-0 slot resolves to `seat: null`, matches no
+    // player, and that player's avatar never appears for a watcher.
+    const mySeat = state.mySeat ?? 0
 
     const slots = [
       { rel: 0, seat: mySeat },
@@ -571,7 +579,10 @@ export class GameScene extends Phaser.Scene {
       const pos       = AVATAR_POS[rel]
       const accentHex = AVATAR_COLOR_HEX[rel]
       const accentInt = AVATAR_COLOR[rel]
-      const isOwn     = rel === 0
+      // A watcher occupies no seat: rel 0 is simply the player the table is
+      // being viewed from, not the person looking. Treating them as "own"
+      // would label a stranger "შენ" and hand the watcher their sound buttons.
+      const isOwn     = rel === 0 && !state.spectator
       const isActive  = gamePhase === 'playing' && currentTurn === seat
       const isLeader  = seat === leaderSeat
       const score     = cumulativeScores[seat] ?? 0
@@ -1023,7 +1034,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── Trick: 3 cards arranged as in the reference (overlap with rotation) ──
   _renderTrickArea(state) {
-    const { currentTrick = [], mySeat = 0 } = state
+    const { currentTrick = [] } = state
+    const mySeat = state.mySeat ?? 0
     if (!currentTrick.length) return
 
     // Track which card identities we've already animated this trick — so a
@@ -1150,7 +1162,8 @@ export class GameScene extends Phaser.Scene {
 
   // ── Chat bubbles above each speaking player's avatar ─────────────────────
   _renderChatBubbles(state) {
-    const { chatBubbles = {}, players = [], mySeat = 0 } = state
+    const { chatBubbles = {}, players = [] } = state
+    const mySeat = state.mySeat ?? 0
     if (!chatBubbles || !Object.keys(chatBubbles).length) return
 
     Object.entries(chatBubbles).forEach(([seatStr, msg]) => {

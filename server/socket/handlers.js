@@ -89,6 +89,12 @@ function _resolveSpeaker(gameManager, socketId) {
       name: watcher.name,
       avatar: watcher.avatar || null,
       spectator: true,
+      // Voice clips and sound buttons are held back from strangers who
+      // wandered in off the homepage — that is an audio channel into a game
+      // they aren't playing, and there's no accountability behind it. Inside
+      // a tournament every watcher is a fellow entrant, so they keep the full
+      // set. Text and reactions are open to both.
+      canSpeak: !!watcher.tournamentId,
     };
   }
 
@@ -103,16 +109,37 @@ function _resolveSpeaker(gameManager, socketId) {
         name: player.name,
         avatar: player.avatar || null,
         spectator: false,
+        canSpeak: true,
       };
     }
   }
   return null;
 }
 
+// Chat is relayed, never stored, so the server has no message table to point
+// a reaction at. A monotonic counter paired with the timestamp gives every
+// message a stable id that both ends agree on, which is all a reaction needs.
+let _chatSeq = 0;
+const _nextMessageId = () => `m${Date.now().toString(36)}${(_chatSeq++).toString(36)}`;
+
 // `_finishGame` lives at module scope (it's shared by several handlers), so it
 // can't reach registerHandlers' `tournamentManager` parameter. Stash it here
 // when the first connection wires things up.
 let tournamentManagerRef = null;
+
+/**
+ * Push a fresh homepage snapshot to everyone. Called whenever the set of
+ * watchable tables changes — a game starting or ending — so the lobby list
+ * doesn't sit there advertising a table that has already finished.
+ */
+function _refreshLobby(io, gameManager) {
+  io.emit('online-players', gameManager.onlineView());
+  io.emit('live-games', gameManager.watchableGames());
+}
+
+// The tap-back palette. Deliberately a small closed set — clients render
+// exactly these, and anything else is dropped on arrival.
+const REACTION_EMOJIS = new Set(['😂', '❤️', '😮', '👏', '🔥']);
 
 const CHAMPIONSHIP_LIMIT_MESSAGE =
   `Daily championship limit reached (${store.CHAMPIONSHIP_DAILY_LIMIT} games per day). Play a public game instead.`;
@@ -297,6 +324,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
           startedAt: room.startedAt || null,
         });
         _emitHandDealt(io, room, gameState, roomCode);
+        _refreshLobby(io, gameManager);
         // Free the homepage seats for the next trio.
         gameManager.clearPublicRoom(roomCode);
         io.emit('public-room', gameManager.publicRoomView());
@@ -389,6 +417,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
       });
       _emitHandDealt(io, room, gameState, roomCode);
       _broadcastSpinState(io, gameManager, roomCode);
+      _refreshLobby(io, gameManager);
     } catch (err) {
       emitError(err.message);
     }
@@ -691,7 +720,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
     try {
       if (!allowedSoundIds().has(soundId)) return;
       const who = _resolveSpeaker(gameManager, socketId);
-      if (!who) return;
+      if (!who || !who.canSpeak) return;
       // A spectator has no avatar on the felt, so a sound they fire has to
       // name the seat it pops over explicitly; without one there's nowhere to
       // draw the bubble and it's dropped.
@@ -852,7 +881,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
   socket.on('voice-message', ({ audio, mime, duration } = {}) => {
     try {
       const who = _resolveSpeaker(gameManager, socketId);
-      if (!who) return;
+      if (!who || !who.canSpeak) return;
       if (!audio) return;
       const size = audio.byteLength ?? audio.length ?? 0;
       if (!size || size > MAX_VOICE_BYTES) return;
@@ -860,6 +889,7 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
       if (now - lastVoiceAt < 800) return; // one clip per ~second per socket
       lastVoiceAt = now;
       io.to(who.roomCode).emit('voice-message', {
+        id: _nextMessageId(),
         seat: who.seat,
         spectator: who.spectator,
         name: who.name,
@@ -881,11 +911,38 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
       const trimmed = message.trim().slice(0, 240);
       if (!trimmed) return;
       io.to(who.roomCode).emit('chat-message', {
+        id: _nextMessageId(),
         seat: who.seat,
         spectator: who.spectator,
         name: who.name,
         avatar: who.avatar,
         message: trimmed,
+        at: Date.now(),
+      });
+    } catch (err) { /* no-op */ }
+  });
+
+  // ─── chat-react ───────────────────────────────────────────────────────────
+  // Tap-back on a chat message. Relayed, not stored: chat history itself is a
+  // 50-message in-memory window that a refresh clears, so persisting the
+  // reactions would outlive the messages they belong to. The server doesn't
+  // know which ids are real either — it just fans out to the room and lets
+  // each client match the id against what it is holding.
+  //
+  // `emoji` is checked against a fixed set rather than sanitised: an open
+  // string here would be a second, unrate-limited chat channel.
+  socket.on('chat-react', ({ messageId, emoji } = {}) => {
+    try {
+      const who = _resolveSpeaker(gameManager, socketId);
+      if (!who) return;
+      if (typeof messageId !== 'string' || !messageId || messageId.length > 40) return;
+      if (!REACTION_EMOJIS.has(emoji)) return;
+      io.to(who.roomCode).emit('chat-reaction', {
+        messageId,
+        emoji,
+        seat: who.seat,
+        name: who.name,
+        spectator: who.spectator,
         at: Date.now(),
       });
     } catch (err) { /* no-op */ }
@@ -999,6 +1056,95 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
     } catch (err) {
       emitError(err.message);
     }
+  });
+
+  // ─── presence + public watching ───────────────────────────────────────────
+  // Who's online, and which King tables a stranger can drop in on. Announced
+  // by the client once it knows which profile it's acting as; the lobby is
+  // otherwise invisible to the server because nobody there is in a room.
+
+  function _broadcastLobby() {
+    io.emit('online-players', gameManager.onlineView());
+    io.emit('live-games', gameManager.watchableGames());
+  }
+
+  socket.on('announce-presence', ({ playerName, avatar } = {}) => {
+    try {
+      gameManager.announcePresence(socketId, playerName, avatar || null);
+      _broadcastLobby();
+    } catch (err) { /* no-op */ }
+  });
+
+  socket.on('lobby-info', () => {
+    try {
+      socket.emit('online-players', gameManager.onlineView());
+      socket.emit('live-games', gameManager.watchableGames());
+    } catch (err) { /* no-op */ }
+  });
+
+  // Watch any live King table from the homepage. Same masked state and the
+  // same socket-room join as tournament spectating — the difference is only
+  // who is allowed in and what they may send once there (see canSpeak).
+  socket.on('watch-game', ({ roomCode, playerName, avatar } = {}) => {
+    try {
+      const rc = String(roomCode || '').toUpperCase();
+      const room = gameManager.getRoom(rc);
+      if (!room) return emitError('That table is no longer available.');
+      // King only — Durak and Spin King are deliberately not watchable.
+      if ((room.gameKind || 'king') !== 'king') {
+        return emitError('Only King games can be watched.');
+      }
+      if (room.status !== 'playing' || !room.gameState) {
+        return emitError('That game is not in progress.');
+      }
+
+      const name = String(playerName || '').trim();
+      if (!name) return emitError('playerName is required.');
+      // Watching a table you're seated at would replace your own hand with a
+      // masked state — the same trap the tournament path guards.
+      const mapping = gameManager.getMappingBySocketId(socketId);
+      if (mapping && mapping.roomCode === rc) {
+        return emitError('You are playing at that table.');
+      }
+      if (room.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+        return emitError('You are seated at that table.');
+      }
+
+      const previous = gameManager.removeSpectator(socketId);
+      if (previous && previous.roomCode !== rc) socket.leave(previous.roomCode);
+
+      // No tournamentId: this is a public watcher, so canSpeak stays false.
+      gameManager.addSpectator(socketId, rc, { name, avatar: avatar || null });
+      socket.join(rc);
+
+      socket.emit('spectate-started', {
+        roomCode: rc,
+        tournamentId: null,
+        startedAt: room.startedAt || null,
+        players: playersView(room.players),
+        stage: room.tournamentStage || null,
+        table: room.tournamentTable ?? null,
+      });
+      socket.emit('game-state', {
+        ...room.gameState.getStateForSpectator(),
+        players: playersView(room.players),
+      });
+      // Let the table know someone is watching, and refresh the lobby counts.
+      io.to(rc).emit('watchers', { count: gameManager.spectatorCount(rc) });
+      _broadcastLobby();
+    } catch (err) { emitError(err.message); }
+  });
+
+  socket.on('stop-watching', () => {
+    try {
+      const gone = gameManager.removeSpectator(socketId);
+      if (gone) {
+        socket.leave(gone.roomCode);
+        io.to(gone.roomCode).emit('watchers', { count: gameManager.spectatorCount(gone.roomCode) });
+      }
+      socket.emit('spectate-stopped');
+      _broadcastLobby();
+    } catch (err) { /* no-op */ }
   });
 
   // ─── tournament ───────────────────────────────────────────────────────────
@@ -1161,7 +1307,15 @@ function registerHandlers(io, socket, gameManager, tournamentManager) {
     try {
       // Watchers hold no seat, so they just stop watching. Left behind, they'd
       // leak into spectatorCount and keep receiving nothing forever.
-      gameManager.removeSpectator(socketId);
+      const wasWatching = gameManager.removeSpectator(socketId);
+      if (wasWatching) {
+        io.to(wasWatching.roomCode).emit('watchers', {
+          count: gameManager.spectatorCount(wasWatching.roomCode),
+        });
+      }
+      gameManager.forgetPresence(socketId);
+      io.emit('online-players', gameManager.onlineView());
+      io.emit('live-games', gameManager.watchableGames());
       if (tournamentManager) tournamentManager.markDisconnected(socketId);
 
       const info = gameManager.markDisconnected(socketId);
@@ -1348,6 +1502,14 @@ function _finishGame(io, room, roomCode, gameManager, extra = {}) {
   gs.phase = 'game_over';
   room.status = 'finished';
 
+  // Send the watchers home. The table they came to see is done, and leaving
+  // them attached would leave them showing as "watching" a finished game with
+  // no way back to the lobby.
+  for (const watcherId of gameManager.evictSpectators(roomCode)) {
+    io.to(watcherId).emit('spectate-stopped', { reason: 'game-over' });
+  }
+  _refreshLobby(io, gameManager);
+
   // A tagged table feeds the bracket: recording the last semifinal result is
   // what draws the finalists and opens the final.
   if (room.tournamentId && tournamentManagerRef) {
@@ -1410,6 +1572,7 @@ function _makeTournamentBroadcaster(io, gameManager, tournamentManager) {
         startedAt: room.startedAt || null,
       });
       _emitHandDealt(io, room, gameState, roomCode);
+      _refreshLobby(io, gameManager);
       io.to(t.id).emit('tournament-overview', overviewOf(t));
     },
 

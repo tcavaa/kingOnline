@@ -39,6 +39,8 @@ class GameManager {
     // those all resolve a sender via socketRoomMap, which a spectator is
     // deliberately absent from.
     this.spectators = new Map();   // socketId -> { roomCode, tournamentId, name, avatar }
+    // Everyone currently on the site, table or not. socketId -> { name, avatar, since }
+    this.presence = new Map();
   }
 
   // ── spectators ────────────────────────────────────────────────────────────
@@ -52,7 +54,32 @@ class GameManager {
     });
   }
 
-  getSpectator(socketId) { return this.spectators.get(socketId) || null; }
+  getSpectator(socketId) {
+    const s = this.spectators.get(socketId);
+    if (!s) return null;
+    // Lazy cleanup: the table may have been torn down while this watcher sat
+    // there. Without this they stay "watching" a room that no longer exists,
+    // and anything they say is relayed into a dead socket room.
+    if (!this.rooms.has(s.roomCode)) {
+      this.spectators.delete(socketId);
+      return null;
+    }
+    return s;
+  }
+
+  /**
+   * Drop everyone watching a table and hand back their socket ids so the
+   * caller can tell them. Used when a game ends or a room is torn down —
+   * a watcher left attached to a dead room shows as permanently "watching"
+   * in presence and can never be cleaned up by anything else.
+   */
+  evictSpectators(roomCode) {
+    const evicted = [];
+    for (const [socketId, s] of this.spectators) {
+      if (s.roomCode === roomCode) { evicted.push(socketId); this.spectators.delete(socketId); }
+    }
+    return evicted;
+  }
 
   removeSpectator(socketId) {
     const s = this.spectators.get(socketId);
@@ -65,6 +92,99 @@ class GameManager {
     let n = 0;
     for (const s of this.spectators.values()) if (s.roomCode === roomCode) n += 1;
     return n;
+  }
+
+  // ── presence ──────────────────────────────────────────────────────────────
+  //
+  // Who is on the site right now. Separate from rooms: a player sitting in the
+  // lobby belongs to no room, and that is exactly who this is for. Keyed by
+  // socket, but collapsed by NAME on the way out — two tabs is one person, not
+  // two, and showing them twice on the homepage rail would look broken.
+
+  announcePresence(socketId, name, avatar) {
+    const clean = String(name || '').trim();
+    if (!clean) return;
+    this.presence.set(socketId, {
+      name: clean,
+      avatar: avatar || null,
+      since: this.presence.get(socketId)?.since || Date.now(),
+    });
+  }
+
+  forgetPresence(socketId) { this.presence.delete(socketId); }
+
+  /**
+   * One entry per person, with what they're currently doing. Status is derived
+   * live from the room/spectator registries rather than stored, so it can't go
+   * stale when someone joins a table without telling the presence layer.
+   */
+  onlineView() {
+    const byName = new Map();
+    for (const [socketId, p] of this.presence) {
+      const key = p.name.toLowerCase();
+
+      let status = 'lobby';
+      let roomCode = null;
+      const watching = this.getSpectator(socketId);   // prunes dead rooms
+      if (watching) {
+        status = 'watching';
+        roomCode = watching.roomCode;
+      } else {
+        const mapping = this.socketRoomMap.get(socketId);
+        const room = mapping ? this.rooms.get(mapping.roomCode) : null;
+        if (room) {
+          roomCode = room.code;
+          status = room.status === 'playing' ? 'playing' : 'waiting';
+        }
+      }
+
+      // A person open in two tabs shows the more interesting state: at a
+      // table beats idling in the lobby.
+      const rank = { playing: 3, waiting: 2, watching: 1, lobby: 0 };
+      const existing = byName.get(key);
+      if (!existing || rank[status] > rank[existing.status]) {
+        byName.set(key, { name: p.name, avatar: p.avatar, status, roomCode, since: p.since });
+      }
+    }
+    return [...byName.values()].sort((a, b) => a.since - b.since);
+  }
+
+  /**
+   * Live King tables a stranger could watch. King only — Durak and Spin King
+   * are explicitly out — and only games actually in progress; a waiting room
+   * has nothing to show.
+   */
+  watchableGames() {
+    const out = [];
+    for (const room of this.rooms.values()) {
+      if ((room.gameKind || 'king') !== 'king') continue;
+      if (room.status !== 'playing' || !room.gameState) continue;
+      // Nobody home. A room whose players have all dropped sits in memory
+      // through its grace window (and can be rehydrated from live_games after
+      // a restart), so without this the homepage advertises dead tables that
+      // will never move again.
+      if (!room.players.some((p) => p.connected)) continue;
+      const gs = room.gameState;
+      out.push({
+        roomCode: room.code,
+        mode: room.mode || 'public',
+        tournament: room.tournamentId
+          ? { stage: room.tournamentStage || null, table: room.tournamentTable ?? null }
+          : null,
+        round: gs.round,
+        phase: gs.phase,
+        startedAt: room.startedAt || null,
+        watchers: this.spectatorCount(room.code),
+        players: room.players.map((p) => ({
+          name: p.name,
+          avatar: p.avatar || null,
+          seat: p.seat,
+          connected: !!p.connected,
+          score: gs.cumulativeScores?.[p.seat] ?? 0,
+        })),
+      });
+    }
+    return out.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   }
 
   // ── persistence ───────────────────────────────────────────────────────────
@@ -343,6 +463,7 @@ class GameManager {
    */
   destroyRoom(roomCode) {
     this.rooms.delete(roomCode);
+    this.evictSpectators(roomCode);
     store.deleteLiveGame(roomCode).catch(() => {});
   }
 
@@ -534,6 +655,7 @@ class GameManager {
       if (room.players.every((p) => !p.connected)) {
         console.log(`[GameManager] Room ${roomCode} grace expired — deleting in-memory copy.`);
         this.rooms.delete(roomCode);
+        this.evictSpectators(roomCode);
         // A finished room was already retired, so there's no row left. An
         // unfinished one keeps its live_games row so a future join can
         // rehydrate it.

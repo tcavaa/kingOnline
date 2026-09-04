@@ -25,7 +25,7 @@ function isTouchDevice() {
  */
 export default function SoundBoard() {
   const { mySeat } = useGame()
-  const { playSound } = useChat()
+  const { playSound, canSpeak } = useChat()
   const [open, setOpen] = useState(false)
   const [flash, setFlash] = useState(null)
   const [touch] = useState(isTouchDevice)
@@ -34,7 +34,9 @@ export default function SoundBoard() {
   const [sounds, setSoundList] = useState(getSounds)
   useEffect(() => subscribeSounds(setSoundList), [])
 
-  if (!touch) return null
+  // Homepage watchers are text-and-reactions only, and the server drops their
+  // sounds — showing the board would just be a button that does nothing.
+  if (!touch || !canSpeak) return null
 
   const fire = (id) => {
     if (!playSound) return

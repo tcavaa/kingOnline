@@ -85,12 +85,16 @@ export default function GameLayout() {
     // Spin King table dressing — absent/void on King tables, so the scene
     // renders exactly as before for the classic game.
     gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
+    // Lets the canvas tell "the seat this view is anchored to" apart from
+    // "the person looking" — a watcher is anchored to seat 0 but owns none.
+    spectator: !!spectating,
   }), [
     hand, cardCounts, centerCards, currentTrick, ledSuit,
     trickNumber, currentTurn, tricksTaken, mySeat, players,
     leaderSeat, gamePhase, chosenGameType, trumpSuit, round, cumulativeScores,
     trickAnimation, bubblesWithTyping, playPending,
     gameKind, chips, pot, zombies, prikupCount, prikupDead, pledge, roundStats, auction,
+    spectating,
   ])
 
   const handleCardPlay = useCallback((card) => playCard(card), [playCard])
@@ -185,6 +189,9 @@ export default function GameLayout() {
       {(tournamentSeat || spectating) && (
         <div className="absolute z-30 flex flex-col items-start gap-1.5 pointer-events-none"
              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 58px)', left: 12 }}>
+          {/* The bracket button belongs to tournament play only. A watcher who
+              came in off the homepage has no bracket to open. */}
+          {(tournamentSeat || spectating?.tournamentId) && (
           <button
             onClick={() => setBracketOpen(true)}
             title="ტურნირის მიმოხილვა"
@@ -196,9 +203,10 @@ export default function GameLayout() {
             }}>
             <Swords size={14} /> ტურნირი
           </button>
+          )}
 
           {spectating && (
-            <div className="pointer-events-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+            <div className="pointer-events-auto inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold"
                  style={{
                    background: 'rgba(49,83,107,0.92)', color: '#f6ead0',
                    border: '1px solid rgba(244,232,207,0.35)',

@@ -6,6 +6,10 @@ import AvatarImg from './AvatarImg'
 
 const MAX_RECORD_MS = 15 * 1000
 
+// Tap-back palette. Must stay in step with REACTION_EMOJIS in
+// server/socket/handlers.js — the server drops anything outside that set.
+const REACTIONS = ['😂', '❤️', '😮', '👏', '🔥']
+
 // Quick-pick emojis for the chat composer.
 const CHAT_EMOJIS = [
   '😀', '😂', '🤣', '😎', '😉', '😜', '🥳', '😱',
@@ -42,7 +46,10 @@ function VoiceBubble({ url, duration, mine }) {
 
 export default function ChatOverlay({ open, onClose }) {
   const { mySeat, players, addToast } = useGame()
-  const { chatMessages, sendChat, sendVoice, typingSeats, sendTyping } = useChat()
+  const { chatMessages, sendChat, sendVoice, typingSeats, sendTyping, reactToMessage, canSpeak } = useChat()
+  // Which message currently has its picker pinned open. Touch has no hover,
+  // so the palette needs an explicit open state rather than relying on CSS.
+  const [pickerFor, setPickerFor] = useState(null)
   const [text, setText] = useState('')
   const [emojiOpen, setEmojiOpen] = useState(false)
   const listRef = useRef(null)
@@ -166,7 +173,8 @@ export default function ChatOverlay({ open, onClose }) {
             // Keyed by sender+timestamp: the list is a sliding 50-message
             // window, so index keys would re-bind DOM to the wrong message
             // every time the oldest entry is pruned.
-            <div key={`${m.seat}:${m.at ?? i}`} className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
+            <div key={m.id || `${m.seat}:${m.at ?? i}`}
+                 className={`group flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
               <AvatarImg avatar={m.avatar} size={28} ring="rgba(142,43,35,0.55)" />
               <div className={`max-w-[75%] rounded-lg px-3 py-1.5 text-[12px] leading-snug font-typewriter ${isMine ? '' : ''}`}
                    style={{
@@ -188,7 +196,58 @@ export default function ChatOverlay({ open, onClose }) {
                 {m.type === 'voice'
                   ? <VoiceBubble url={m.url} duration={m.duration} mine={isMine} />
                   : <div>{m.message}</div>}
+
+                {/* Tap-backs already on this message. */}
+                {m.reactions && Object.keys(m.reactions).length > 0 && (
+                  <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? 'justify-end' : ''}`}>
+                    {Object.entries(m.reactions).map(([emoji, by]) => (
+                      <button
+                        key={emoji}
+                        onClick={() => m.id && reactToMessage(m.id, emoji)}
+                        title={by.map(r => r.name).join(', ')}
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] leading-none active:scale-90 transition-transform"
+                        style={{
+                          background: isMine ? 'rgba(255,226,190,0.18)' : 'rgba(120,70,30,0.10)',
+                          border: `1px solid ${isMine ? 'rgba(255,226,190,0.35)' : 'rgba(120,70,30,0.28)'}`,
+                        }}
+                      >
+                        <span>{emoji}</span>
+                        {by.length > 1 && (
+                          <span className="font-mono" style={{ color: isMine ? '#fdf2df' : '#3a2410' }}>
+                            {by.length}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Picker. Shown on hover for mouse and pinned open by a tap on
+                  touch, where there is no hover to reveal it. Messages sent
+                  before this shipped have no id and simply aren't reactable. */}
+              {m.id && (
+                <div className={`self-center flex items-center gap-0.5 transition-opacity
+                                 ${pickerFor === m.id ? 'opacity-100' : 'opacity-0 focus-within:opacity-100 group-hover:opacity-100'}`}>
+                  {pickerFor === m.id ? (
+                    REACTIONS.map(e => (
+                      <button key={e}
+                              onClick={() => { reactToMessage(m.id, e); setPickerFor(null) }}
+                              className="w-7 h-7 rounded-full text-base leading-none flex items-center justify-center active:scale-90 transition-transform"
+                              style={{ background: 'rgba(245,233,207,0.95)', border: '1px solid rgba(120,70,30,0.35)' }}>
+                        {e}
+                      </button>
+                    ))
+                  ) : (
+                    <button onClick={() => setPickerFor(m.id)}
+                            title="რეაქცია"
+                            className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                            style={{ background: 'rgba(245,233,207,0.9)', border: '1px solid rgba(120,70,30,0.3)' }}>
+                      <Smile size={13} style={{ color: 'rgba(120,70,30,0.85)' }} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
@@ -262,6 +321,9 @@ export default function ChatOverlay({ open, onClose }) {
             className="casino-input flex-1 px-3 py-2 text-sm focus:outline-none"
           />
         )}
+        {/* Voice is players and tournament watchers only — a homepage watcher
+            gets text and reactions, and the server drops their clips. */}
+        {canSpeak && (
         <button type="button" onClick={startRecording}
                 title={recording ? 'გაგზავნა' : 'ხმოვანი შეტყობინება'}
                 className="px-3 rounded-lg inline-flex items-center justify-center transition-all active:scale-95"
@@ -278,6 +340,7 @@ export default function ChatOverlay({ open, onClose }) {
                 }}>
           {recording ? <Send size={16} /> : <Mic size={16} />}
         </button>
+        )}
         {!recording && (
           <button type="submit"
                   className="px-3 rounded-lg inline-flex items-center justify-center font-western tracking-wider transition-all active:scale-95"
