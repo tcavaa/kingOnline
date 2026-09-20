@@ -60,11 +60,11 @@ export default function PledgeOverlay() {
         <div className="rounded-2xl px-5 py-2.5"
              style={{
                background: 'rgba(20,13,8,0.82)',
-               border: '1.5px solid rgba(184,134,11,0.65)',
+               border: '1.5px solid rgba(213,185,130,0.65)',
                boxShadow: '0 8px 28px rgba(10,6,3,0.5), inset 0 1px 0 rgba(255,255,255,0.08)',
              }}>
           <p className="text-[10px] font-typewriter uppercase tracking-[0.25em]"
-             style={{ color: gt?.color || '#e3b04b' }}>
+             style={{ color: gt?.color || '#d5b982' }}>
             {gtName}
           </p>
           <p className="text-base lg:text-xl font-typewriter font-black leading-tight"
@@ -103,10 +103,10 @@ export default function PledgeOverlay() {
                   <button key={t.id} onClick={() => setTierSel(sel ? null : t.id)}
                           className="rounded-full px-3 py-1 text-[11px] font-typewriter font-bold transition-all active:scale-95 whitespace-nowrap"
                           style={{
-                            background: sel ? 'rgba(184,134,11,0.9)' : 'rgba(20,13,8,0.78)',
-                            border: sel ? '1.5px solid #f4d06f' : '1px solid rgba(184,134,11,0.5)',
+                            background: sel ? 'rgba(213,185,130,0.9)' : 'rgba(20,13,8,0.78)',
+                            border: sel ? '1.5px solid #f4d06f' : '1px solid rgba(213,185,130,0.5)',
                             color: sel ? '#1a120a' : '#e8dcbf',
-                            boxShadow: sel ? '0 0 14px rgba(184,134,11,0.5)' : '0 2px 8px rgba(10,6,3,0.4)',
+                            boxShadow: sel ? '0 0 14px rgba(213,185,130,0.5)' : '0 2px 8px rgba(10,6,3,0.4)',
                           }}>
                     ⇧ {t.label}
                   </button>
@@ -118,7 +118,7 @@ export default function PledgeOverlay() {
           {/* Pot odds — what the call buys you */}
           {opened && callDelta > 0 && (
             <p className="rounded-full px-3 py-0.5 text-[10px] font-typewriter font-bold"
-               style={{ background: 'rgba(20,13,8,0.78)', border: '1px solid rgba(76,122,47,0.5)', color: '#b8e6a3' }}>
+               style={{ background: 'rgba(20,13,8,0.78)', border: '1px solid rgba(122,199,165,0.5)', color: '#b8e6a3' }}>
               ქოლი {callDelta.toLocaleString()} → ბანკი {(pot + callDelta).toLocaleString()}
               {' '}({((pot + callDelta) / callDelta).toFixed(1)}×)
             </p>
@@ -127,25 +127,25 @@ export default function PledgeOverlay() {
           <div className="flex items-center gap-1.5 rounded-2xl px-2 py-1.5"
                style={{
                  background: 'rgba(20,13,8,0.82)',
-                 border: '1px solid rgba(122,83,44,0.55)',
+                 border: '1px solid rgba(151,176,162,0.55)',
                  boxShadow: '0 8px 28px rgba(10,6,3,0.5)',
                }}>
             <button onClick={() => pledgeAct({ action: 'fold' })}
                     className="py-2 px-3.5 rounded-xl text-xs lg:text-sm font-bold uppercase tracking-wider transition-all active:scale-95 font-typewriter"
-                    style={{ background: 'rgba(165,55,43,0.25)', border: '1px solid rgba(165,55,43,0.7)', color: '#ffb1a6' }}>
+                    style={{ background: 'rgba(239,145,139,0.25)', border: '1px solid rgba(239,145,139,0.7)', color: '#ffb1a6' }}>
               ფოლდი
             </button>
             {opened && (
               <button onClick={() => pledgeAct({ action: 'call' })}
                       className="py-2 px-3.5 rounded-xl text-xs lg:text-sm font-bold uppercase tracking-wider transition-all active:scale-95 font-typewriter"
-                      style={{ background: 'rgba(76,122,47,0.28)', border: '1px solid rgba(76,122,47,0.7)', color: '#b8e6a3' }}>
+                      style={{ background: 'rgba(122,199,165,0.28)', border: '1px solid rgba(122,199,165,0.7)', color: '#b8e6a3' }}>
                 {callDelta > 0 ? `ქოლი · ${callDelta.toLocaleString()}` : 'ჩეკი'}
               </button>
             )}
             <div className="flex items-center gap-1 mx-0.5">
               <button onClick={() => setRaise(r => clampRaise((Number(r) || raiseMin) - ante))}
                       className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all"
-                      style={{ background: 'rgba(142,43,35,0.3)', border: '1px solid rgba(142,43,35,0.6)', color: '#ffb1a6' }}>
+                      style={{ background: 'rgba(213,185,130,0.3)', border: '1px solid rgba(213,185,130,0.6)', color: '#ffb1a6' }}>
                 <Minus size={14} />
               </button>
               <input
@@ -156,13 +156,13 @@ export default function PledgeOverlay() {
                 className="font-typewriter text-center text-base font-black rounded-lg"
                 style={{
                   width: '5.5rem', padding: '0.35rem 0.25rem',
-                  background: 'rgba(244,232,207,0.95)', color: '#3b2314',
-                  border: '1px solid rgba(184,134,11,0.6)',
+                  background: 'rgba(244,232,207,0.95)', color: '#eeeae1',
+                  border: '1px solid rgba(213,185,130,0.6)',
                 }}
               />
               <button onClick={() => setRaise(r => clampRaise((Number(r) || 0) + ante))}
                       className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all"
-                      style={{ background: 'rgba(76,122,47,0.3)', border: '1px solid rgba(76,122,47,0.6)', color: '#b8e6a3' }}>
+                      style={{ background: 'rgba(122,199,165,0.3)', border: '1px solid rgba(122,199,165,0.6)', color: '#b8e6a3' }}>
                 <Plus size={14} />
               </button>
             </div>

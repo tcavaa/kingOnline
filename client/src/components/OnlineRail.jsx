@@ -8,10 +8,10 @@ const TOTAL_ROUNDS = 27
 // Dot colours match the HUD's language: green at a table, blue watching,
 // grey idling in the lobby.
 const DOT = {
-  playing:  '#4c7a2f',
-  waiting:  '#b98a2f',
+  playing:  '#7ac7a5',
+  waiting:  '#d5b982',
   watching: '#31536b',
-  lobby:    'rgba(59,35,20,0.35)',
+  lobby:    'rgba(225,233,225,0.35)',
 }
 
 /** The card that opens beside a group on hover. */
@@ -31,16 +31,16 @@ function TableCard({ game, seated, hasProfile, onWatch }) {
     <div className="absolute left-full top-0 pl-2 z-30">
     <div className="w-52 rounded-xl p-2.5"
          style={{
-           background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-           border: '1px solid rgba(122,83,44,0.45)',
-           boxShadow: '0 8px 24px rgba(58,36,24,0.28)',
+           background: 'linear-gradient(180deg, #172725 0%, #13221f 100%)',
+           border: '1px solid rgba(151,176,162,0.45)',
+           boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
          }}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-western uppercase tracking-wider"
-              style={{ color: '#8e2b23' }}>
+              style={{ color: '#d5b982' }}>
           {game.tournament
             ? (game.tournament.stage === 'final' ? 'ფინალი' : 'ნახევარფინალი')
-            : (game.mode === 'championship' ? 'ლიგა' : 'უბრალო')}
+            : (game.mode === 'championship' ? 'ლიგა' : 'კლასიკური')}
         </span>
         {game.watchers > 0 && (
           <span className="text-[9px] font-mono inline-flex items-center gap-0.5"
@@ -51,24 +51,24 @@ function TableCard({ game, seated, hasProfile, onWatch }) {
       </div>
 
       {/* Rounds played / left — the shape of the game at a glance. */}
-      <div className="text-[10px] font-typewriter mb-1" style={{ color: 'rgba(59,35,20,0.65)' }}>
+      <div className="text-[10px] font-typewriter mb-1" style={{ color: 'rgba(225,233,225,0.65)' }}>
         რაუნდი {game.round}/{TOTAL_ROUNDS} · დარჩა {left}
       </div>
-      <div className="h-1 rounded-full mb-2 overflow-hidden" style={{ background: 'rgba(122,83,44,0.18)' }}>
+      <div className="h-1 rounded-full mb-2 overflow-hidden" style={{ background: 'rgba(151,176,162,0.18)' }}>
         <div className="h-full rounded-full"
-             style={{ width: `${(game.round / TOTAL_ROUNDS) * 100}%`, background: '#8e2b23' }} />
+             style={{ width: `${(game.round / TOTAL_ROUNDS) * 100}%`, background: '#d5b982' }} />
       </div>
 
       <div className="flex flex-col gap-1 mb-2">
         {[...game.players].sort((a, b) => b.score - a.score).map((p) => (
           <div key={p.seat} className="flex items-center gap-1.5">
-            <AvatarImg avatar={p.avatar} size={18} ring="rgba(142,43,35,0.35)" />
+            <AvatarImg avatar={p.avatar} size={18} ring="rgba(213,185,130,0.35)" />
             <span className="text-[11px] truncate flex-1 min-w-0"
-                  style={{ color: '#3b2314', opacity: p.connected ? 1 : 0.45 }}>
+                  style={{ color: '#eeeae1', opacity: p.connected ? 1 : 0.45 }}>
               {p.name}
             </span>
             <span className="text-[11px] font-mono font-bold tabular-nums"
-                  style={{ color: p.score < 0 ? '#a5372b' : '#4c7a2f' }}>
+                  style={{ color: p.score < 0 ? '#ef918b' : '#7ac7a5' }}>
               {p.score}
             </span>
           </div>
@@ -164,12 +164,12 @@ export default function OnlineRail({ active }) {
     <div className="hidden xl:flex fixed left-3 top-1/2 -translate-y-1/2 z-20 flex-col items-center gap-2
                     py-2.5 px-2 rounded-2xl"
          style={{
-           background: 'rgba(248,239,221,0.72)',
-           border: '1px solid rgba(122,83,44,0.3)',
+           background: 'rgba(23,39,35,0.72)',
+           border: '1px solid rgba(151,176,162,0.3)',
            backdropFilter: 'blur(3px)',
          }}>
       <div className="text-[9px] uppercase tracking-widest font-western inline-flex items-center gap-1"
-           style={{ color: 'rgba(142,43,35,0.8)' }}>
+           style={{ color: 'rgba(213,185,130,0.8)' }}>
         <Users size={10} /> {shown}
       </div>
 
@@ -187,18 +187,18 @@ export default function OnlineRail({ active }) {
               aria-label={g.players.map(p => p.name).join(' · ')}
               className="flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl transition-colors"
               style={{
-                background: openRoom === g.roomCode ? 'rgba(142,43,35,0.10)' : 'transparent',
-                border: '1px solid rgba(122,83,44,0.22)',
+                background: openRoom === g.roomCode ? 'rgba(213,185,130,0.10)' : 'transparent',
+                border: '1px solid rgba(151,176,162,0.22)',
               }}
             >
               {g.players.map((p, i) => (
                 <span key={p.seat} className="block"
                       style={{ marginTop: i === 0 ? 0 : -8 }}>
-                  <AvatarImg avatar={p.avatar} size={26} ring="rgba(76,122,47,0.7)" />
+                  <AvatarImg avatar={p.avatar} size={26} ring="rgba(122,199,165,0.7)" />
                 </span>
               ))}
               <span className="text-[8px] font-mono leading-none mt-0.5"
-                    style={{ color: 'rgba(59,35,20,0.55)' }}>
+                    style={{ color: 'rgba(225,233,225,0.55)' }}>
                 {g.round}/{TOTAL_ROUNDS}
               </span>
             </button>
@@ -213,17 +213,17 @@ export default function OnlineRail({ active }) {
       {/* Everyone else: one avatar each. */}
       {visibleLoose.map((p) => (
         <div key={p.name} className="relative" title={`${p.name}`}>
-          <AvatarImg avatar={p.avatar} size={28} ring="rgba(142,43,35,0.4)" />
+          <AvatarImg avatar={p.avatar} size={28} ring="rgba(213,185,130,0.4)" />
           <span className="absolute -bottom-0.5 -right-0.5 rounded-full"
                 style={{
                   width: 9, height: 9, background: DOT[p.status] || DOT.lobby,
-                  border: '1.5px solid #f8efdd',
+                  border: '1.5px solid #172725',
                 }} />
         </div>
       ))}
 
       {overflowCount > 0 && (
-        <span className="text-[9px] font-mono" style={{ color: 'rgba(59,35,20,0.5)' }}
+        <span className="text-[9px] font-mono" style={{ color: 'rgba(225,233,225,0.5)' }}
               title={loose.slice(MAX_LOOSE).map(p => p.name).join(', ')}>
           +{overflowCount}
         </span>

@@ -1,32 +1,32 @@
-import { scoreColorClass } from '../../utils/scoreColor'
-/** Running cumulative score per round (the Tally Trail table). */
 export default function ProgressionTable({ rows, players }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead style={{ background: 'rgba(142,43,35,0.07)' }}>
+    <div className="k-table-scroll">
+      <table className="k-data-table">
+        <thead>
           <tr>
-            <th className="px-3 py-2 text-left">ხელი</th>
-            {players.map(p => <th key={p.seat} className="px-3 py-2 text-center">{p.name}</th>)}
+            <th>რაუნდი</th>
+            {players.map((p) => (
+              <th key={p.seat}>{p.name}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} style={{ borderTop: '1px solid rgba(122,83,44,0.18)' }}>
-              <td className="px-3 py-2 font-mono text-amber-dim">{r.round}</td>
-              {players.map(p => {
-                const v = r[p.seat] ?? 0
-                const cls = scoreColorClass(v)
-                return (
-                  <td key={p.seat} className={`px-3 py-2 text-center font-mono font-semibold ${cls}`}>
-                    {v > 0 ? '+' : ''}{v}
-                  </td>
-                )
-              })}
+            <tr key={i}>
+              <th>{String(r.round).padStart(2, "0")}</th>
+              {players.map((p) => (
+                <td
+                  key={p.seat}
+                  className={r[p.seat] < 0 ? "is-negative" : "is-positive"}
+                >
+                  {r[p.seat] > 0 ? "+" : ""}
+                  {r[p.seat] ?? 0}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  )
+  );
 }

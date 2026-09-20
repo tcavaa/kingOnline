@@ -51,7 +51,7 @@ export default function SettlementResult() {
     if (myPayout > 0) {
       confetti({
         particleCount: 110, spread: 75, origin: { y: 0.6 },
-        colors: ['#e3b04b', '#b8860b', '#8e2b23', '#f8efdd'],
+        colors: ['#d5b982', '#b8860b', '#d5b982', '#172725'],
       })
     }
   }, [stl, done, myPayout])
@@ -80,26 +80,26 @@ export default function SettlementResult() {
       panelClassName="max-w-md p-3 lg:p-6 text-center my-auto">
       <div onClick={() => setStep(9)} className="cursor-pointer">
         <h2 className="text-sm lg:text-xl font-western uppercase tracking-wider text-cream"
-            style={{ textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
+            style={{ textShadow: 'none' }}>
           ხელი {stl.round} — ანგარიში
         </h2>
 
         <div className="flex items-center justify-center gap-2 mt-1 mb-2 lg:mb-3 flex-wrap">
           {gt && (
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] lg:text-xs font-typewriter"
-                  style={{ background: `linear-gradient(180deg, ${gt.color}33, ${gt.color}11)`, color: '#3b2314', border: `1px solid ${gt.color}80` }}>
+                  style={{ background: `linear-gradient(180deg, ${gt.color}33, ${gt.color}11)`, color: '#eeeae1', border: `1px solid ${gt.color}80` }}>
               {TypeIcon && <TypeIcon size={11} style={{ color: gt.color }} />}
               <strong style={{ color: gt.color }}>{gtName}</strong>
             </span>
           )}
           {finalTier && (
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] lg:text-xs font-typewriter font-bold"
-                  style={{ background: 'rgba(184,134,11,0.14)', border: '1px solid rgba(184,134,11,0.5)', color: '#7a4d09' }}>
+                  style={{ background: 'rgba(213,185,130,0.14)', border: '1px solid rgba(213,185,130,0.5)', color: '#7a4d09' }}>
               პირობა: {finalTier.label}
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] lg:text-xs font-typewriter"
-                style={{ background: 'rgba(76,122,47,0.1)', border: '1px solid rgba(76,122,47,0.35)', color: '#3f5a28' }}>
+                style={{ background: 'rgba(122,199,165,0.1)', border: '1px solid rgba(122,199,165,0.35)', color: '#3f5a28' }}>
             <Coins size={11} /> ბანკი: <strong>{stl.potBefore.toLocaleString()}</strong>
             <ChipStack amount={stl.potBefore} chipW={13} maxPerCol={5} className="ml-1" />
           </span>
@@ -115,12 +115,12 @@ export default function SettlementResult() {
             const isMvp = stl.mvpSeats?.includes(p.seat)
             return (
               <div key={p.seat} className="flex items-center gap-2 py-1.5"
-                   style={{ borderBottom: p.seat !== sortedPlayers[sortedPlayers.length - 1].seat ? '1px solid rgba(122,83,44,0.18)' : 'none' }}>
+                   style={{ borderBottom: p.seat !== sortedPlayers[sortedPlayers.length - 1].seat ? '1px solid rgba(151,176,162,0.18)' : 'none' }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] lg:text-xs font-typewriter font-bold truncate text-cream-soft">
                     {nameOf(p.seat)}{isMvp && shown && <span className="ml-1" title="რაუნდის MVP">🏅</span>}
                   </p>
-                  <p className="text-[9px] lg:text-[10px] font-typewriter truncate" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                  <p className="text-[9px] lg:text-[10px] font-typewriter truncate" style={{ color: 'rgba(225,233,225,0.55)' }}>
                     {r.entered
                       ? (r.committed > 0 ? `ფსონი ${r.committed.toLocaleString()} ბანკში` : 'ჩეკით შევიდა')
                       : r.committed > 0 ? `ფოლდი · ${r.committed.toLocaleString()} ბანკში` : 'არ ჩართულა'}
@@ -131,21 +131,21 @@ export default function SettlementResult() {
                   {r.entered && (
                     <span className="text-[9px] lg:text-[10px] font-typewriter font-black px-1.5 py-0.5 rounded-full flex-shrink-0"
                           style={{
-                            background: r.met ? 'rgba(76,122,47,0.14)' : 'rgba(165,55,43,0.12)',
-                            border: r.met ? '1px solid rgba(76,122,47,0.45)' : '1px solid rgba(165,55,43,0.45)',
-                            color: r.met ? '#4c7a2f' : '#a5372b',
+                            background: r.met ? 'rgba(122,199,165,0.14)' : 'rgba(239,145,139,0.12)',
+                            border: r.met ? '1px solid rgba(122,199,165,0.45)' : '1px solid rgba(239,145,139,0.45)',
+                            color: r.met ? '#7ac7a5' : '#ef918b',
                           }}>
                       {r.met ? '✓ შესრულდა' : '✗ ჩავარდა'}
                     </span>
                   )}
                   <div className="w-24 text-right flex-shrink-0">
                     <p className="text-sm lg:text-base font-black font-mono leading-tight"
-                       style={{ color: payout > 0 ? '#4c7a2f' : 'rgba(59,35,20,0.45)' }}>
+                       style={{ color: payout > 0 ? '#7ac7a5' : 'rgba(225,233,225,0.45)' }}>
                       {payout > 0 ? `+${payout.toLocaleString()}` : '0'}
                     </p>
                     <div className="flex items-center justify-end gap-1">
                       <ChipStack amount={after} chipW={10} maxPerCol={4} />
-                      <span className="text-[9px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+                      <span className="text-[9px] font-typewriter" style={{ color: 'rgba(225,233,225,0.55)' }}>
                         {after.toLocaleString()}
                       </span>
                     </div>
@@ -157,7 +157,7 @@ export default function SettlementResult() {
         </div>
 
         {!done && (
-          <p className="text-[10px] lg:text-xs font-typewriter animate-pulse mb-1" style={{ color: 'rgba(59,35,20,0.55)' }}>
+          <p className="text-[10px] lg:text-xs font-typewriter animate-pulse mb-1" style={{ color: 'rgba(225,233,225,0.55)' }}>
             იხსნება… (დააჭირე გამოსატოვებლად)
           </p>
         )}
@@ -166,14 +166,14 @@ export default function SettlementResult() {
           <>
             {stl.mvpSeats?.length > 0 && stl.mvpShare > 0 && (
               <div className="rounded-lg px-3 py-1.5 mb-2 inline-flex items-center gap-2 text-[11px] lg:text-xs font-typewriter font-bold"
-                   style={{ background: 'rgba(184,134,11,0.16)', border: '1px solid rgba(184,134,11,0.55)', color: '#7a4d09' }}>
+                   style={{ background: 'rgba(213,185,130,0.16)', border: '1px solid rgba(213,185,130,0.55)', color: '#7a4d09' }}>
                 <Medal size={13} /> რაუნდის MVP: {stl.mvpSeats.map(nameOf).join(' & ')} · +{stl.mvpShare.toLocaleString()}
               </div>
             )}
 
             {stl.rolledOver && (
               <div className="rounded-lg px-3 py-2 mb-2 inline-flex items-center gap-2 text-[11px] lg:text-xs font-typewriter font-bold"
-                   style={{ background: 'rgba(184,134,11,0.14)', border: '1px solid rgba(184,134,11,0.5)', color: '#7a4d09' }}>
+                   style={{ background: 'rgba(213,185,130,0.14)', border: '1px solid rgba(213,185,130,0.5)', color: '#7a4d09' }}>
                 <RotateCcw size={13} /> პირობა ვერავინ შეასრულა — ბანკი ({stl.potAfter.toLocaleString()}) გადადის შემდეგ ხელში!
               </div>
             )}
@@ -196,14 +196,14 @@ export default function SettlementResult() {
 
             {anteUp && (
               <div className="rounded-lg px-3 py-1.5 mb-2 inline-flex items-center gap-2 text-[11px] lg:text-xs font-typewriter font-bold"
-                   style={{ background: 'rgba(165,55,43,0.12)', border: '1px solid rgba(165,55,43,0.5)', color: '#a5372b' }}>
+                   style={{ background: 'rgba(239,145,139,0.12)', border: '1px solid rgba(239,145,139,0.5)', color: '#ef918b' }}>
                 <TrendingUp size={13} /> შემდეგი ხელიდან ანტე იზრდება: {stl.nextAnte.toLocaleString()}
               </div>
             )}
 
             {stl.matchEnd ? (
               <div className="rounded-lg px-3 py-2.5 text-xs lg:text-sm font-typewriter font-bold"
-                   style={{ background: 'rgba(184,134,11,0.16)', border: '1px solid rgba(184,134,11,0.6)', color: '#7a4d09' }}>
+                   style={{ background: 'rgba(213,185,130,0.16)', border: '1px solid rgba(213,185,130,0.6)', color: '#7a4d09' }}>
                 🏆 {winnerName} იღებს ყველა ჩიპს — მატჩი დასრულდა!
               </div>
             ) : isCreator ? (

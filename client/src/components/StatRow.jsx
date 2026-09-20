@@ -6,8 +6,8 @@
 export default function StatRow({ label, value, color, className = '' }) {
   return (
     <div className={`flex items-center justify-between gap-2 ${className}`}>
-      <span style={{ color: 'rgba(142,43,35,0.7)' }}>{label}</span>
-      <span className="font-mono font-bold" style={{ color: color || '#3b2314' }}>{value}</span>
+      <span style={{ color: 'rgba(213,185,130,0.7)' }}>{label}</span>
+      <span className="font-mono font-bold" style={{ color: color || '#eeeae1' }}>{value}</span>
     </div>
   )
 }

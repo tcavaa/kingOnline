@@ -42,12 +42,12 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
     return (
       <ModalShell className="items-center z-40 px-4" panelClassName="max-w-sm p-4 lg:p-5">
           <div className="flex items-center gap-2 mb-2">
-            <Icon size={18} style={{ color: '#8e2b23' }} />
-            <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
+            <Icon size={18} style={{ color: '#d5b982' }} />
+            <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#eeeae1' }}>
               {title}
             </h2>
           </div>
-          <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.85)' }}>
+          <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(225,233,225,0.85)' }}>
             {body}
           </p>
           <div className="flex gap-2">
@@ -82,12 +82,12 @@ export default function QuitModal({ confirmKind, onCloseConfirm }) {
   return (
     <ModalShell className="items-center z-40 px-4" panelClassName="max-w-sm p-4 lg:p-5">
         <div className="flex items-center gap-2 mb-2">
-          <Icon size={18} style={{ color: '#8e2b23' }} />
-          <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#3b2314' }}>
+          <Icon size={18} style={{ color: '#d5b982' }} />
+          <h2 className="text-sm lg:text-base font-western uppercase tracking-wide" style={{ color: '#eeeae1' }}>
             {title}
           </h2>
         </div>
-        <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.85)' }}>
+        <p className="text-xs lg:text-sm font-typewriter mb-4" style={{ color: 'rgba(225,233,225,0.85)' }}>
           {body}
         </p>
         <div className="flex gap-2">

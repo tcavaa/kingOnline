@@ -1,14 +1,14 @@
 {
   "name": "King Card Game",
   "short_name": "King",
-  "description": "3-player saloon-style King card game.",
+  "description": "KING — a modern card club.",
   "start_url": "/",
   "display": "fullscreen",
-  "orientation": "landscape",
-  "background_color": "#1c100a",
-  "theme_color": "#daa520",
+  "orientation": "any",
+  "background_color": "#0c1716",
+  "theme_color": "#0c1716",
   "icons": [
-    { "src": "/favicon.png",        "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/avatar-default.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/art/app-icon.png",        "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/art/app-icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
   ]
 }

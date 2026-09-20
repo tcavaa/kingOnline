@@ -22,6 +22,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
+          if (id.includes('/canvas-confetti/')) return 'celebration'
           if (id.includes('/phaser/'))     return 'phaser'
           if (id.includes('/recharts/') ||
               id.includes('/d3-') ||

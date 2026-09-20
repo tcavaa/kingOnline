@@ -13,7 +13,7 @@ export default function ModalShell({ className = '', panelClassName = '', overla
   return (
     <div className={`absolute inset-0 flex justify-center western-backdrop ${className}`}>
       {overlay}
-      <div className={`w-full rounded-2xl western-panel ${panelClassName}`}>
+      <div className={`w-full k-modal-panel western-panel ${panelClassName}`}>
         {children}
       </div>
     </div>

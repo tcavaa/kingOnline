@@ -22,16 +22,16 @@ function TableCard({ table, isFinal, myRoomCode, onSpectate }) {
   return (
     <div className="rounded-xl p-3"
          style={{
-           background: mine ? 'rgba(142,43,35,0.08)' : 'rgba(255,255,255,0.45)',
-           border: `1px solid ${mine ? 'rgba(142,43,35,0.45)' : 'rgba(122,83,44,0.25)'}`,
+           background: mine ? 'rgba(213,185,130,0.08)' : 'rgba(255,255,255,0.45)',
+           border: `1px solid ${mine ? 'rgba(213,185,130,0.45)' : 'rgba(151,176,162,0.25)'}`,
          }}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-western inline-flex items-center gap-1.5" style={{ color: '#8e2b23' }}>
+        <span className="text-sm font-western inline-flex items-center gap-1.5" style={{ color: '#d5b982' }}>
           {isFinal ? <Trophy size={14} /> : <Swords size={14} />}
           {table.label}
-          {mine && <span className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.5)' }}>(შენი)</span>}
+          {mine && <span className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.5)' }}>(შენი)</span>}
         </span>
-        <span className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+        <span className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.55)' }}>
           {finished
             ? 'დასრულდა'
             : table.round ? `რაუნდი ${table.round}/27 · ${PHASE_LABEL[table.phase] || ''}` : '—'}
@@ -44,14 +44,14 @@ function TableCard({ table, isFinal, myRoomCode, onSpectate }) {
             <AvatarImg src={p.avatar} alt=""
                        className="w-5 h-5 rounded-full object-cover shrink-0"
                        style={{ opacity: p.connected === false ? 0.4 : 1 }} />
-            <span className="text-xs truncate flex-1 min-w-0" style={{ color: '#3b2314' }}>
+            <span className="text-xs truncate flex-1 min-w-0" style={{ color: '#eeeae1' }}>
               {p.name}
               {p.connected === false && (
-                <span className="text-[9px] ml-1" style={{ color: '#a5372b' }}>offline</span>
+                <span className="text-[9px] ml-1" style={{ color: '#ef918b' }}>offline</span>
               )}
             </span>
             <span className="text-xs font-bold font-mono tabular-nums"
-                  style={{ color: (p.score ?? 0) < 0 ? '#a5372b' : '#4c7a2f' }}>
+                  style={{ color: (p.score ?? 0) < 0 ? '#ef918b' : '#7ac7a5' }}>
               {p.score ?? 0}
             </span>
           </div>
@@ -95,24 +95,24 @@ export default function BracketOverview({ onClose }) {
          onClick={onClose}>
       <div className="w-full max-w-md max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
            style={{
-             background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-             border: '1px solid rgba(122,83,44,0.45)',
-             boxShadow: '0 12px 48px rgba(58,36,24,0.25)',
+             background: 'linear-gradient(180deg, #172725 0%, #13221f 100%)',
+             border: '1px solid rgba(151,176,162,0.45)',
+             boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
            }}
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
-          <h3 className="text-sm font-western uppercase tracking-wider" style={{ color: '#3b2314' }}>
+             style={{ borderBottom: '1px solid rgba(151,176,162,0.32)' }}>
+          <h3 className="text-sm font-western uppercase tracking-wider" style={{ color: '#eeeae1' }}>
             ტურნირი {ov?.code ? `· ${ov.code}` : ''}
           </h3>
-          <button onClick={onClose} aria-label="დახურვა" style={{ color: '#3b2314' }}>
+          <button onClick={onClose} aria-label="დახურვა" style={{ color: '#eeeae1' }}>
             <X size={20} />
           </button>
         </div>
 
         <div className="p-3 overflow-y-auto flex flex-col gap-2.5">
           {!ov ? (
-            <div className="text-sm font-typewriter py-6 text-center" style={{ color: 'rgba(59,35,20,0.55)' }}>
+            <div className="text-sm font-typewriter py-6 text-center" style={{ color: 'rgba(225,233,225,0.55)' }}>
               იტვირთება…
             </div>
           ) : (
@@ -140,20 +140,20 @@ export default function BracketOverview({ onClose }) {
                     {ov.standings.map((s) => (
                       <div key={s.name}
                            className="flex items-center gap-2 px-2 py-1 rounded"
-                           style={{ background: s.advanced ? 'rgba(76,122,47,0.1)' : 'transparent' }}>
-                        <span className="text-[10px] font-mono w-4" style={{ color: 'rgba(59,35,20,0.45)' }}>
+                           style={{ background: s.advanced ? 'rgba(122,199,165,0.1)' : 'transparent' }}>
+                        <span className="text-[10px] font-mono w-4" style={{ color: 'rgba(225,233,225,0.45)' }}>
                           {s.rank}
                         </span>
-                        <span className="text-xs flex-1 truncate" style={{ color: '#3b2314' }}>
+                        <span className="text-xs flex-1 truncate" style={{ color: '#eeeae1' }}>
                           {s.name}
                           {s.wildcard && (
-                            <span className="text-[9px] ml-1" style={{ color: '#b98a2f' }}>wildcard</span>
+                            <span className="text-[9px] ml-1" style={{ color: '#d5b982' }}>wildcard</span>
                           )}
                         </span>
-                        <span className="text-xs font-mono tabular-nums" style={{ color: '#3b2314' }}>
+                        <span className="text-xs font-mono tabular-nums" style={{ color: '#eeeae1' }}>
                           {s.score}
                         </span>
-                        {s.advanced && <Trophy size={11} style={{ color: '#4c7a2f' }} />}
+                        {s.advanced && <Trophy size={11} style={{ color: '#7ac7a5' }} />}
                       </div>
                     ))}
                   </div>

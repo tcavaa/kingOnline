@@ -1,67 +1,92 @@
-import { ACHIEVEMENT_DEFS } from '../utils/achievements'
-
-/**
- * Renders a set of achievement badges.
- *
- * @param {object}  achievements  { [code]: count } — counts > 0 are shown.
- * @param {'full'|'inline'} variant
- *   'full'   — stacked icon + label cards (game-over screen, profiles).
- *   'inline' — just the icons in a row (history list rows).
- * @param {number} size  icon size in px.
- */
-export default function AchievementBadges({ achievements, variant = 'full', size }) {
-  const entries = Object.entries(achievements || {}).filter(([, count]) => count > 0)
-  if (!entries.length) return null
-
-  if (variant === 'inline') {
-    const px = size || 14
+import { ACHIEVEMENT_DEFS } from "../utils/achievements";
+const GENERATED = new Set([
+  "PERFECT_PLUS",
+  "PLUS_PERFECTIONIST",
+  "UNTOUCHABLE",
+  "NEVER_BELOW_ZERO",
+  "UNDERDOG",
+]);
+function Emblem({ code, def }) {
+  if (GENERATED.has(code))
     return (
-      <span className="inline-flex flex-wrap items-center gap-1 align-middle">
-        {entries.map(([code, count]) => {
-          const def = ACHIEVEMENT_DEFS[code]
-          if (!def) return null
-          const Icon = def.Icon
-          return (
-            <span key={code} className="inline-flex items-center"
-                  title={`${def.label}: ${def.desc}${count > 1 ? ` (×${count})` : ''}`}>
-              <Icon size={px} style={{ color: def.color }} />
-              {count > 1 && (
-                <span className="text-[9px] font-bold ml-0.5" style={{ color: def.color }}>×{count}</span>
-              )}
-            </span>
-          )
-        })}
-      </span>
-    )
-  }
-
-  const px = size || 22
+      <img
+        src={`/art/achievements/${code}.webp`}
+        width="80"
+        height="80"
+        loading="lazy"
+        decoding="async"
+        alt=""
+      />
+    );
+  const Icon = def.Icon;
   return (
-    <div className="flex flex-wrap gap-2">
+    <span className="k-vector-emblem">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <path
+          d="M40 4 69 21 69 59 40 76 11 59 11 21Z"
+          fill="#252b24"
+          stroke="#7e8975"
+        />
+        <path
+          d="m40 10 24 14v32L40 70 16 56V24Z"
+          fill="none"
+          stroke="#cad1b9"
+          strokeWidth=".5"
+        />
+        <path d="M28 66h24" stroke="#d7fa52" strokeWidth="2" />
+      </svg>
+      <Icon size={28} strokeWidth={1.2} />
+    </span>
+  );
+}
+export default function AchievementBadges({
+  achievements,
+  variant = "full",
+  size,
+}) {
+  const entries = Object.entries(achievements || {}).filter(
+    ([code, n]) => n > 0 && ACHIEVEMENT_DEFS[code],
+  );
+  if (!entries.length) return null;
+  return (
+    <div
+      className={`k-achievements ${variant === "inline" ? "is-inline" : ""}`}
+    >
       {entries.map(([code, count]) => {
-        const def = ACHIEVEMENT_DEFS[code]
-        if (!def) return null
-        const Icon = def.Icon
+        const def = ACHIEVEMENT_DEFS[code];
         return (
-          <div key={code}
-               title={`${def.label}: ${def.desc}`}
-               className="flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5"
-               style={{
-                 minWidth: 66,
-                 background: 'rgba(236,222,196,0.85)',
-                 border: `1px solid ${def.color}55`,
-               }}>
-            <Icon size={px} style={{ color: def.color }} />
-            <div className="text-[9px] uppercase tracking-wide text-center leading-tight"
-                 style={{ color: '#3b2314' }}>
-              {def.label}
+          <div
+            key={code}
+            className="k-achievement"
+            title={`${def.label}: ${def.desc}${count > 1 ? ` (×${count})` : ""}`}
+          >
+            <div
+              className="k-achievement-art"
+              style={
+                variant === "inline"
+                  ? {
+                      width: Math.max(24, size || 24),
+                      height: Math.max(24, size || 24),
+                    }
+                  : undefined
+              }
+            >
+              <Emblem code={code} def={def} />
             </div>
+            {variant === "inline" ? (
+              <span className="sr-only">{def.label}</span>
+            ) : (
+              <div>
+                <strong>{def.label}</strong>
+                <p>{def.desc}</p>
+              </div>
+            )}
             {count > 1 && (
-              <div className="text-[10px] font-bold" style={{ color: def.color }}>×{count}</div>
+              <small className="k-achievement-count">×{count}</small>
             )}
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

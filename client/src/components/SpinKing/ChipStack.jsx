@@ -12,7 +12,7 @@ export default function ChipStack({ amount, chipW = 18, maxPerCol = 6, className
     // Zero/empty stack — a faint outline so layouts don't jump.
     return (
       <span className={`inline-block rounded-full ${className}`}
-            style={{ width: chipW, height: chipH, border: '1px dashed rgba(59,35,20,0.35)' }} />
+            style={{ width: chipW, height: chipH, border: '1px dashed rgba(225,233,225,0.35)' }} />
     )
   }
   return (

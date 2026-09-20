@@ -16,8 +16,8 @@ const RANK_ORDER = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6']
 function SuitChip({ suit, label }) {
   return (
     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-black"
-          style={{ background: 'rgba(255,250,235,0.95)', border: `2px solid ${SUIT_COLOR[suit]}`, color: SUIT_COLOR[suit] }}>
-      {label && <span className="text-[10px] font-typewriter font-bold uppercase" style={{ color: 'rgba(59,35,20,0.6)' }}>{label}</span>}
+          style={{ background: '#eeeae1', border: `2px solid ${SUIT_COLOR[suit]}`, color: SUIT_COLOR[suit] }}>
+      {label && <span className="text-[10px] font-typewriter font-bold uppercase" style={{ color: 'rgba(225,233,225,0.6)' }}>{label}</span>}
       {SUIT_GLYPH[suit]} {SUIT_NAME[suit]}
     </span>
   )
@@ -28,19 +28,19 @@ function SuitPickerModal({ title, onPick, onCancel }) {
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4"
          style={{ background: 'rgba(20,12,8,0.55)', backdropFilter: 'blur(3px)' }}>
       <div className="western-panel p-6 w-full max-w-xs text-center">
-        <h3 className="text-base font-western uppercase mb-4" style={{ color: '#3b2314' }}>{title}</h3>
+        <h3 className="text-base font-western uppercase mb-4" style={{ color: '#eeeae1' }}>{title}</h3>
         <div className="grid grid-cols-2 gap-3">
           {SUITS.map((s) => (
             <button key={s} onClick={() => onPick(s)}
                     className="py-3 rounded-xl text-lg font-black transition-all active:scale-95"
-                    style={{ background: 'rgba(255,250,235,0.9)', border: `2px solid ${SUIT_COLOR[s]}`, color: SUIT_COLOR[s] }}>
+                    style={{ background: '#eeeae1', border: `2px solid ${SUIT_COLOR[s]}`, color: SUIT_COLOR[s] }}>
               {SUIT_GLYPH[s]}<br />
               <span className="text-[11px] font-typewriter font-bold">{SUIT_NAME[s]}</span>
             </button>
           ))}
         </div>
         {onCancel && (
-          <button onClick={onCancel} className="mt-4 text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.6)' }}>
+          <button onClick={onCancel} className="mt-4 text-xs font-typewriter" style={{ color: 'rgba(225,233,225,0.6)' }}>
             გაუქმება
           </button>
         )}
@@ -54,14 +54,14 @@ function TopBarButton({ onClick, title, children, danger, badge }) {
     <button onClick={onClick} title={title}
             className="relative inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all active:scale-95"
             style={{
-              background: danger ? 'rgba(165,55,43,0.12)' : 'rgba(122,83,44,0.12)',
-              border: danger ? '1px solid rgba(165,55,43,0.45)' : '1px solid rgba(122,83,44,0.35)',
-              color: danger ? '#a5372b' : '#3b2314',
+              background: danger ? 'rgba(239,145,139,0.12)' : 'rgba(151,176,162,0.12)',
+              border: danger ? '1px solid rgba(239,145,139,0.45)' : '1px solid rgba(151,176,162,0.35)',
+              color: danger ? '#ef918b' : '#eeeae1',
             }}>
       {children}
       {badge > 0 && (
         <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center"
-              style={{ background: '#a5372b', color: '#fdf2df' }}>
+              style={{ background: '#ef918b', color: '#f5f2e9' }}>
           {badge > 9 ? '9+' : badge}
         </span>
       )}
@@ -77,20 +77,20 @@ function ScoreDrawer({ open, onClose, players, game }) {
       {open && <div className="durak-drawer-backdrop" onClick={onClose} />}
       <div className={`durak-drawer ${open ? 'open' : ''}`}>
         <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderBottom: '2px solid rgba(122,83,44,0.35)' }}>
-          <h3 className="text-sm font-western uppercase inline-flex items-center gap-2" style={{ color: '#3b2314' }}>
+             style={{ borderBottom: '2px solid rgba(151,176,162,0.35)' }}>
+          <h3 className="text-sm font-western uppercase inline-flex items-center gap-2" style={{ color: '#eeeae1' }}>
             <ScrollText size={15} /> ქულების ფურცელი
           </h3>
-          <button onClick={onClose}><X size={16} style={{ color: '#3b2314' }} /></button>
+          <button onClick={onClose}><X size={16} style={{ color: '#eeeae1' }} /></button>
         </div>
         <div className="flex-1 overflow-auto p-3">
           <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th className="px-1.5 py-1.5 text-left font-typewriter text-[10px] uppercase" style={{ color: 'rgba(59,35,20,0.6)' }}>ხელი</th>
+                <th className="px-1.5 py-1.5 text-left font-typewriter text-[10px] uppercase" style={{ color: 'rgba(225,233,225,0.6)' }}>ხელი</th>
                 {players.map((p) => (
                   <th key={p.seat} className="px-1.5 py-1.5 text-center font-western text-[11px]"
-                      style={{ color: game.eliminated[p.seat] ? 'rgba(165,55,43,0.8)' : '#3b2314',
+                      style={{ color: game.eliminated[p.seat] ? 'rgba(239,145,139,0.8)' : '#eeeae1',
                                textDecoration: game.eliminated[p.seat] ? 'line-through' : 'none' }}>
                     {p.name}
                   </th>
@@ -100,18 +100,18 @@ function ScoreDrawer({ open, onClose, players, game }) {
             <tbody>
               {history.length === 0 && (
                 <tr><td colSpan={players.length + 1} className="px-1.5 py-3 text-center font-typewriter"
-                        style={{ color: 'rgba(59,35,20,0.5)' }}>ჯერ არც ერთი ხელი არ დასრულებულა.</td></tr>
+                        style={{ color: 'rgba(225,233,225,0.5)' }}>ჯერ არც ერთი ხელი არ დასრულებულა.</td></tr>
               )}
               {history.map((h) => (
-                <tr key={h.handNumber} style={{ borderTop: '1px solid rgba(122,83,44,0.25)' }}>
-                  <td className="px-1.5 py-1.5 font-mono" style={{ color: 'rgba(59,35,20,0.6)' }}>{h.handNumber}</td>
+                <tr key={h.handNumber} style={{ borderTop: '1px solid rgba(151,176,162,0.25)' }}>
+                  <td className="px-1.5 py-1.5 font-mono" style={{ color: 'rgba(225,233,225,0.6)' }}>{h.handNumber}</td>
                   {players.map((p) => {
                     const d = h.perSeat[p.seat]
                     const isWin = h.winnerSeat === p.seat
                     return (
                       <td key={p.seat} className="px-1.5 py-1.5 text-center font-mono font-bold"
-                          style={{ color: d === undefined ? 'rgba(59,35,20,0.3)' : d < 0 ? '#4c7a2f' : d === 0 ? '#4c7a2f' : '#3b2314',
-                                   background: isWin ? 'rgba(76,122,47,0.1)' : 'transparent' }}>
+                          style={{ color: d === undefined ? 'rgba(225,233,225,0.3)' : d < 0 ? '#7ac7a5' : d === 0 ? '#7ac7a5' : '#eeeae1',
+                                   background: isWin ? 'rgba(122,199,165,0.1)' : 'transparent' }}>
                         {d === undefined ? '—' : d > 0 ? `+${d}` : d}
                       </td>
                     )
@@ -120,18 +120,18 @@ function ScoreDrawer({ open, onClose, players, game }) {
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: '2px solid rgba(122,83,44,0.45)' }}>
-                <td className="px-1.5 py-2 font-western text-[10px] uppercase" style={{ color: '#3b2314' }}>Σ</td>
+              <tr style={{ borderTop: '2px solid rgba(151,176,162,0.45)' }}>
+                <td className="px-1.5 py-2 font-western text-[10px] uppercase" style={{ color: '#eeeae1' }}>Σ</td>
                 {players.map((p) => (
                   <td key={p.seat} className="px-1.5 py-2 text-center font-mono font-black"
-                      style={{ color: game.scores[p.seat] >= game.targetScore ? '#a5372b' : '#1f3d2e' }}>
+                      style={{ color: game.scores[p.seat] >= game.targetScore ? '#ef918b' : '#254c40' }}>
                     {game.scores[p.seat] ?? 0}
                   </td>
                 ))}
               </tr>
             </tfoot>
           </table>
-          <p className="mt-3 text-[10px] font-typewriter text-center" style={{ color: 'rgba(59,35,20,0.5)' }}>
+          <p className="mt-3 text-[10px] font-typewriter text-center" style={{ color: 'rgba(225,233,225,0.5)' }}>
             წაგების ქულა: {game.targetScore}
           </p>
         </div>
@@ -260,9 +260,9 @@ export default function DurakTable({ onExit }) {
   const stackCards = game.recentDiscards || (game.topCard ? [game.topCard] : [])
 
   return (
-    <div className="saloon-bg min-h-screen flex flex-col px-3 py-3" style={{ minHeight: '100dvh' }}>
+    <div className="k-durak-table min-h-screen flex flex-col" style={{ minHeight: '100dvh' }}>
       {/* ── top bar ── */}
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <div className="k-durak-command flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5">
           <TopBarButton onClick={onExit} title="კინგზე დაბრუნება (ადგილი შენარჩუნდება)">
             <ArrowLeft size={15} />
@@ -270,16 +270,16 @@ export default function DurakTable({ onExit }) {
           <button onClick={copyCode} title="კოდის კოპირება"
                   className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-lg text-[12px] font-typewriter font-bold tracking-[0.15em] active:scale-95"
                   style={{
-                    background: copied ? 'rgba(76,122,47,0.15)' : 'rgba(122,83,44,0.12)',
-                    border: copied ? '1px solid rgba(76,122,47,0.5)' : '1px solid rgba(122,83,44,0.35)',
-                    color: copied ? '#4c7a2f' : '#3b2314',
+                    background: copied ? 'rgba(122,199,165,0.15)' : 'rgba(151,176,162,0.12)',
+                    border: copied ? '1px solid rgba(122,199,165,0.5)' : '1px solid rgba(151,176,162,0.35)',
+                    color: copied ? '#7ac7a5' : '#eeeae1',
                   }}>
             {room.roomCode} {copied ? <Check size={12} strokeWidth={3} /> : <Copy size={12} />}
           </button>
         </div>
         <div className="text-center">
-          <div className="text-base font-western leading-none" style={{ color: '#1f3d2e' }}>ჩეხური დურაკა</div>
-          <div className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+          <div className="text-base font-western leading-none" style={{ color: '#9dceb3' }}>ჩეხური დურაკა</div>
+          <div className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.55)' }}>
             ხელი {game.handNumber} · ლიმიტი {game.targetScore} · დასტა {game.drawableCount}
           </div>
         </div>
@@ -302,7 +302,7 @@ export default function DurakTable({ onExit }) {
       </div>
 
       {/* ── opponents ── */}
-      <div className="flex flex-wrap justify-center gap-3 mb-3">
+      <div className="k-durak-opponents flex flex-wrap justify-center gap-3 mb-3">
         {opponents.map((p) => {
           const isTurn = game.phase === 'playing' && game.currentSeat === p.seat
           const out = game.eliminated[p.seat]
@@ -311,8 +311,8 @@ export default function DurakTable({ onExit }) {
             <div key={p.seat} className={`relative flex flex-col items-center gap-1 ${isTurn ? 'durak-turn-pulse' : ''}`}
                  style={{
                    padding: '6px 10px', borderRadius: 14,
-                   background: isTurn ? 'rgba(31,61,46,0.14)' : 'rgba(255,250,235,0.6)',
-                   border: isTurn ? '2px solid rgba(31,61,46,0.75)' : '1px solid rgba(122,83,44,0.3)',
+                   background: isTurn ? 'rgba(31,61,46,0.14)' : 'rgba(27,43,37,0.6)',
+                   border: isTurn ? '2px solid rgba(31,61,46,0.75)' : '1px solid rgba(151,176,162,0.3)',
                    opacity: out ? 0.5 : 1,
                  }}>
               {bubbles[p.seat]
@@ -322,20 +322,20 @@ export default function DurakTable({ onExit }) {
                   : null}
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <AvatarImg avatar={p.avatar} size={30} ring={isTurn ? 'rgba(31,61,46,0.8)' : 'rgba(122,83,44,0.4)'} />
+                  <AvatarImg avatar={p.avatar} size={30} ring={isTurn ? 'rgba(31,61,46,0.8)' : 'rgba(151,176,162,0.4)'} />
                   {!p.connected && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
                 </div>
                 <div className="leading-tight">
-                  <div className="text-[11px] font-western font-bold" style={{ color: '#3b2314', textDecoration: out ? 'line-through' : 'none' }}>
+                  <div className="text-[11px] font-western font-bold" style={{ color: '#eeeae1', textDecoration: out ? 'line-through' : 'none' }}>
                     {p.name}
                     {game.kartaFlags[p.seat] && count === 1 && (
                       <span className="ml-1 text-[9px] px-1 py-px rounded font-typewriter"
-                            style={{ background: 'rgba(192,138,38,0.25)', color: '#8a5a12', border: '1px solid rgba(192,138,38,0.5)' }}>
+                            style={{ background: 'rgba(192,138,38,0.25)', color: '#d5b982', border: '1px solid rgba(192,138,38,0.5)' }}>
                         კარტა!
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.6)' }}>
+                  <div className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.6)' }}>
                     {out ? 'გამოვიდა' : <>{count} კარტი · {game.scores[p.seat] ?? 0} ქ.</>}
                   </div>
                 </div>
@@ -354,7 +354,7 @@ export default function DurakTable({ onExit }) {
                     )
                   })}
                   {count > 8 && (
-                    <span className="ml-1.5 text-[10px] font-black font-typewriter" style={{ color: 'rgba(59,35,20,0.65)' }}>
+                    <span className="ml-1.5 text-[10px] font-black font-typewriter" style={{ color: 'rgba(225,233,225,0.65)' }}>
                       ×{count}
                     </span>
                   )}
@@ -366,17 +366,17 @@ export default function DurakTable({ onExit }) {
       </div>
 
       {/* ── table center ── */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+      <div className="k-durak-center flex-1 flex flex-col items-center justify-center gap-3">
         {game.awaitingSuitFrom !== null && game.awaitingSuitFrom !== mySeat && (
           <div className="text-xs font-typewriter px-3 py-1.5 rounded-full"
-               style={{ background: 'rgba(192,138,38,0.15)', border: '1px solid rgba(192,138,38,0.5)', color: '#8a5a12' }}>
+               style={{ background: 'rgba(192,138,38,0.15)', border: '1px solid rgba(192,138,38,0.5)', color: '#d5b982' }}>
             {nameOf(game.awaitingSuitFrom)} ირჩევს ფერს…
           </div>
         )}
         <div className="flex items-end gap-8">
           <div className="flex flex-col items-center gap-1">
             <DurakCardBack label={game.drawPileCount} />
-            <span className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>დასტა</span>
+            <span className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.55)' }}>დასტა</span>
           </div>
           {/* stacked discard pile */}
           <div className="flex flex-col items-center gap-1">
@@ -394,7 +394,7 @@ export default function DurakTable({ onExit }) {
                 )
               })}
             </div>
-            <span className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.55)' }}>
+            <span className="text-[10px] font-typewriter" style={{ color: 'rgba(225,233,225,0.55)' }}>
               მაგიდა · {game.discardCount}
             </span>
           </div>
@@ -404,14 +404,14 @@ export default function DurakTable({ onExit }) {
           {game.requestedSuit && <SuitChip suit={game.requestedSuit} label="ითხოვს" />}
           {game.pendingDraw > 0 && (
             <span className="px-3 py-1 rounded-full text-sm font-black animate-pulse"
-                  style={{ background: 'rgba(165,55,43,0.14)', border: '2px solid rgba(165,55,43,0.6)', color: '#a5372b' }}>
+                  style={{ background: 'rgba(239,145,139,0.14)', border: '2px solid rgba(239,145,139,0.6)', color: '#ef918b' }}>
               +{game.pendingDraw}
             </span>
           )}
         </div>
 
         <div className="text-sm font-typewriter font-bold"
-             style={{ color: myTurn ? '#1f3d2e' : 'rgba(59,35,20,0.6)' }}>
+             style={{ color: myTurn ? '#d7fa52' : 'rgba(225,233,225,0.6)' }}>
           {game.phase === 'playing' && (
             myTurn
               ? (game.playedThisTurn ? '⤵ დააჭირე „სვლის დასრულებას"' : '➤ შენი სვლაა')
@@ -424,7 +424,7 @@ export default function DurakTable({ onExit }) {
 
       {/* ── actions ── */}
       {!iAmEliminated && game.phase === 'playing' && (
-        <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+        <div className="k-durak-actions flex items-center justify-center gap-2 mb-3 flex-wrap">
           {/* კარტა is always on screen so nobody hunts for it — it lights
               up the moment you're down to one unannounced card. */}
           <button onClick={sayKarta}
@@ -436,21 +436,21 @@ export default function DurakTable({ onExit }) {
           {myTurn && game.pendingDraw > 0 && !game.playedThisTurn && (
             <button onClick={takePenalty}
                     className="px-5 py-2.5 rounded-xl text-sm font-black active:scale-95"
-                    style={{ background: 'rgba(165,55,43,0.9)', border: '2px solid rgba(111,31,26,0.6)', color: '#fdf2df' }}>
+                    style={{ background: 'rgba(239,145,139,0.9)', border: '2px solid rgba(111,31,26,0.6)', color: '#f5f2e9' }}>
               აიღე +{game.pendingDraw}
             </button>
           )}
           {myTurn && game.pendingDraw === 0 && !game.playedThisTurn && (
             <button onClick={drawCard} disabled={game.drawnThisTurn || !game.canDraw}
                     className="px-5 py-2.5 rounded-xl text-sm font-bold active:scale-95 disabled:opacity-40"
-                    style={{ background: 'rgba(31,61,46,0.85)', border: '2px solid rgba(20,40,30,0.6)', color: '#f4e8cf' }}>
+                    style={{ background: 'rgba(31,61,46,0.85)', border: '2px solid rgba(20,40,30,0.6)', color: '#dce4dc' }}>
               +1 კარტი
             </button>
           )}
           {myTurn && (
             <button onClick={pass} disabled={!canFinishTurn}
                     className={`px-5 py-2.5 rounded-xl text-sm font-bold active:scale-95 disabled:opacity-40 ${game.playedThisTurn ? 'animate-pulse' : ''}`}
-                    style={{ background: 'rgba(122,83,44,0.95)', border: '2px solid rgba(90,54,32,0.6)', color: '#f4e8cf' }}>
+                    style={{ background: 'rgba(151,176,162,0.95)', border: '2px solid rgba(90,54,32,0.6)', color: '#dce4dc' }}>
               სვლის დასრულება
             </button>
           )}
@@ -459,7 +459,7 @@ export default function DurakTable({ onExit }) {
 
       {iAmEliminated && game.phase === 'playing' && (
         <div className="mb-3 text-center text-xs font-typewriter inline-flex items-center gap-2 justify-center"
-             style={{ color: 'rgba(59,35,20,0.6)' }}>
+             style={{ color: 'rgba(225,233,225,0.6)' }}>
           <Eye size={13} /> შენ გამოხვედი — უყურებ თამაშს
         </div>
       )}
@@ -510,7 +510,7 @@ export default function DurakTable({ onExit }) {
                  boxShadow: '0 14px 44px rgba(20,12,8,0.55), inset 0 1px 0 rgba(255,255,255,0.2)',
                }}>
             <div className="text-3xl mb-1">🏆</div>
-            <div className="text-xl font-western uppercase tracking-wider" style={{ color: '#f4e8cf' }}>
+            <div className="text-xl font-western uppercase tracking-wider" style={{ color: '#dce4dc' }}>
               {game.phase === 'match_end'
                 ? `${nameOf(game.matchWinner)} მოიგო მატჩი!`
                 : `${nameOf(game.lastResults.winnerSeat)} იგებს ხელს!`}
@@ -527,14 +527,14 @@ export default function DurakTable({ onExit }) {
              style={{ background: 'rgba(20,12,8,0.6)', backdropFilter: 'blur(4px)' }}>
           <div className="western-panel p-6 w-full max-w-md">
             <h3 className="text-lg font-western uppercase text-center mb-1 inline-flex items-center gap-2 w-full justify-center"
-                style={{ color: '#1f3d2e' }}>
+                style={{ color: '#9dceb3' }}>
               <Trophy size={18} style={{ color: '#b8860b' }} />
               {game.phase === 'match_end'
                 ? `${nameOf(game.matchWinner)} მოიგო მატჩი!`
                 : `ხელი ${game.lastResults.handNumber}: ${nameOf(game.lastResults.winnerSeat)} იგებს`}
             </h3>
             {game.lastResults.bonus !== 0 && (
-              <p className="text-center text-xs font-typewriter mb-2" style={{ color: '#4c7a2f' }}>
+              <p className="text-center text-xs font-typewriter mb-2" style={{ color: '#7ac7a5' }}>
                 დამათი დაასრულა: {game.lastResults.bonus} ქულა
               </p>
             )}
@@ -547,22 +547,22 @@ export default function DurakTable({ onExit }) {
                 return (
                   <div key={p.seat} className="flex items-center justify-between px-3 py-2 rounded-lg mb-1.5"
                        style={{
-                         background: p.seat === game.lastResults.winnerSeat ? 'rgba(76,122,47,0.12)' : 'rgba(255,250,235,0.6)',
-                         border: '1px solid rgba(122,83,44,0.25)',
+                         background: p.seat === game.lastResults.winnerSeat ? 'rgba(122,199,165,0.12)' : 'rgba(27,43,37,0.6)',
+                         border: '1px solid rgba(151,176,162,0.25)',
                          opacity: out && !(r && r.eliminatedNow) ? 0.55 : 1,
                        }}>
-                    <span className="text-sm font-bold font-western" style={{ color: '#3b2314' }}>
+                    <span className="text-sm font-bold font-western" style={{ color: '#eeeae1' }}>
                       {p.name}
                       {r && r.eliminatedNow && (
                         <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-typewriter"
-                              style={{ background: 'rgba(165,55,43,0.15)', color: '#a5372b', border: '1px solid rgba(165,55,43,0.4)' }}>
+                              style={{ background: 'rgba(239,145,139,0.15)', color: '#ef918b', border: '1px solid rgba(239,145,139,0.4)' }}>
                           გამოეთიშა
                         </span>
                       )}
                     </span>
-                    <span className="text-sm font-mono font-bold" style={{ color: 'rgba(59,35,20,0.8)' }}>
+                    <span className="text-sm font-mono font-bold" style={{ color: 'rgba(225,233,225,0.8)' }}>
                       {r ? (r.delta >= 0 ? `+${r.delta}` : r.delta) : ''}
-                      <span className="ml-2 text-xs" style={{ color: 'rgba(59,35,20,0.55)' }}>Σ {total}</span>
+                      <span className="ml-2 text-xs" style={{ color: 'rgba(225,233,225,0.55)' }}>Σ {total}</span>
                     </span>
                   </div>
                 )
@@ -583,7 +583,7 @@ export default function DurakTable({ onExit }) {
               )}
               <button onClick={() => { leaveRoom(); onExit() }}
                       className="w-full py-2 text-xs font-typewriter rounded-lg"
-                      style={{ background: 'rgba(122,83,44,0.08)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
+                      style={{ background: 'rgba(151,176,162,0.08)', border: '1px solid rgba(151,176,162,0.3)', color: '#eeeae1' }}>
                 ოთახის დატოვება
               </button>
             </div>

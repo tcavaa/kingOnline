@@ -19,7 +19,7 @@ function VoiceBubble({ url, duration, mine }) {
   const [playingUrl, setPlayingUrl] = useState(() => voicePlayer.playingUrl())
   useEffect(() => voicePlayer.subscribe(setPlayingUrl), [])
   const playing = playingUrl === url
-  const accent = mine ? '#fdf2df' : '#1f3d2e'
+  const accent = mine ? '#f5f2e9' : '#254c40'
   return (
     <button onClick={() => voicePlayer.toggle(url)}
             className="inline-flex items-center gap-2 py-0.5 active:scale-95 transition-all"
@@ -122,17 +122,17 @@ export default function DurakChat({ open, onClose }) {
       {open && <div className="durak-drawer-backdrop" onClick={onClose} />}
       <div className={`durak-drawer ${open ? 'open' : ''}`}>
         <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderBottom: '2px solid rgba(122,83,44,0.35)' }}>
+             style={{ borderBottom: '2px solid rgba(151,176,162,0.35)' }}>
           <h3 className="text-sm font-western uppercase tracking-wider inline-flex items-center gap-2"
-              style={{ color: '#3b2314' }}>
-            <MessageCircle size={14} style={{ color: '#1f3d2e' }} /> სუფრის საუბარი
+              style={{ color: '#eeeae1' }}>
+            <MessageCircle size={14} style={{ color: '#9dceb3' }} /> ჩატი
           </h3>
-          <button onClick={onClose} style={{ color: 'rgba(59,35,20,0.7)' }}><X size={16} /></button>
+          <button onClick={onClose} style={{ color: 'rgba(225,233,225,0.7)' }}><X size={16} /></button>
         </div>
 
         <div ref={listRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
           {chatMessages.length === 0 && (
-            <div className="text-center text-xs mt-6 font-typewriter italic" style={{ color: 'rgba(59,35,20,0.45)' }}>
+            <div className="text-center text-xs mt-6 font-typewriter italic" style={{ color: 'rgba(225,233,225,0.45)' }}>
               ─── ჯერ სიჩუმეა… ───
             </div>
           )}
@@ -144,9 +144,9 @@ export default function DurakChat({ open, onClose }) {
                 <div className="max-w-[75%] rounded-lg px-3 py-1.5 text-[12px] leading-snug font-typewriter"
                      style={{
                        background: isMine
-                         ? 'linear-gradient(180deg, #2c5642 0%, #1f3d2e 100%)'
+                         ? 'linear-gradient(180deg, #2c5642 0%, #254c40 100%)'
                          : 'linear-gradient(180deg, rgba(245,233,207,0.95), rgba(220,200,165,0.92))',
-                       color: isMine ? '#f4e8cf' : '#3a2410',
+                       color: isMine ? '#dce4dc' : '#3a2410',
                        border: isMine ? '1px solid rgba(244,232,207,0.4)' : '1px solid rgba(120,70,30,0.45)',
                        boxShadow: '0 2px 0 rgba(0,0,0,0.25)',
                      }}>
@@ -181,7 +181,7 @@ export default function DurakChat({ open, onClose }) {
 
         {emojiOpen && !recording && (
           <div className="px-3 pb-1 pt-2 grid grid-cols-8 gap-1"
-               style={{ borderTop: '1px solid rgba(122,83,44,0.32)', background: 'rgba(255,250,238,0.55)' }}>
+               style={{ borderTop: '1px solid rgba(151,176,162,0.32)', background: 'rgba(26,44,38,0.55)' }}>
             {CHAT_EMOJIS.map((e) => (
               <button key={e} type="button" onClick={() => addEmoji(e)}
                       className="h-8 rounded-md text-lg leading-none flex items-center justify-center transition-all active:scale-90 hover:bg-black/5">
@@ -192,27 +192,27 @@ export default function DurakChat({ open, onClose }) {
         )}
 
         <form onSubmit={submit} className="p-3 flex gap-2"
-              style={{ borderTop: emojiOpen && !recording ? 'none' : '1px solid rgba(122,83,44,0.32)' }}>
+              style={{ borderTop: emojiOpen && !recording ? 'none' : '1px solid rgba(151,176,162,0.32)' }}>
           {!recording && (
             <button type="button" onClick={() => setEmojiOpen((o) => !o)} title="ემოჯი"
                     className="px-2.5 rounded-lg inline-flex items-center justify-center transition-all active:scale-95"
                     style={{
-                      background: emojiOpen ? 'rgba(31,61,46,0.15)' : 'rgba(255,250,238,0.9)',
-                      border: emojiOpen ? '1px solid rgba(31,61,46,0.55)' : '1px solid rgba(122,83,44,0.45)',
-                      color: '#1f3d2e',
+                      background: emojiOpen ? 'rgba(31,61,46,0.15)' : 'rgba(26,44,38,0.9)',
+                      border: emojiOpen ? '1px solid rgba(31,61,46,0.55)' : '1px solid rgba(151,176,162,0.45)',
+                      color: '#9dceb3',
                     }}>
               <Smile size={16} />
             </button>
           )}
           {recording ? (
             <div className="flex-1 px-3 py-2 text-sm flex items-center justify-between rounded-lg"
-                 style={{ background: 'rgba(255,250,235,0.9)', border: '1px solid rgba(122,83,44,0.4)' }}>
-              <span className="inline-flex items-center gap-2 font-typewriter" style={{ color: '#a5372b' }}>
-                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#a5372b' }} />
+                 style={{ background: 'rgba(27,43,37,0.9)', border: '1px solid rgba(151,176,162,0.4)' }}>
+              <span className="inline-flex items-center gap-2 font-typewriter" style={{ color: '#ef918b' }}>
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ef918b' }} />
                 იწერება… {recSecs}/15 წმ
               </span>
               <button type="button" onClick={() => stopRecording(true)} title="გაუქმება"
-                      style={{ color: 'rgba(59,35,20,0.6)' }}>
+                      style={{ color: 'rgba(225,233,225,0.6)' }}>
                 <Trash2 size={15} />
               </button>
             </div>
@@ -223,7 +223,7 @@ export default function DurakChat({ open, onClose }) {
               onChange={(e) => { setText(e.target.value); if (e.target.value) sendTyping() }}
               placeholder="თქვი რამე…"
               className="flex-1 px-3 py-2 rounded-lg text-sm font-typewriter focus:outline-none"
-              style={{ background: 'rgba(255,250,235,0.9)', border: '1px solid rgba(122,83,44,0.4)', color: '#3b2314' }}
+              style={{ background: 'rgba(27,43,37,0.9)', border: '1px solid rgba(151,176,162,0.4)', color: '#eeeae1' }}
             />
           )}
           <button type="button" onClick={startRecording}
@@ -231,17 +231,17 @@ export default function DurakChat({ open, onClose }) {
                   className="px-3 rounded-lg inline-flex items-center justify-center transition-all active:scale-95"
                   style={recording ? {
                     background: 'linear-gradient(180deg, #a03428 0%, #711f18 100%)',
-                    border: '1px solid rgba(255,226,190,0.45)', color: '#fdf2df',
+                    border: '1px solid rgba(255,226,190,0.45)', color: '#f5f2e9',
                   } : {
-                    background: 'rgba(255,250,238,0.9)',
-                    border: '1px solid rgba(122,83,44,0.45)', color: '#1f3d2e',
+                    background: 'rgba(26,44,38,0.9)',
+                    border: '1px solid rgba(151,176,162,0.45)', color: '#9dceb3',
                   }}>
             {recording ? <Send size={16} /> : <Mic size={16} />}
           </button>
           {!recording && (
             <button type="submit"
                     className="px-3 rounded-lg inline-flex items-center justify-center transition-all active:scale-95"
-                    style={{ background: '#1f3d2e', border: '1px solid rgba(20,40,30,0.6)', color: '#f4e8cf' }}>
+                    style={{ background: '#254c40', border: '1px solid rgba(20,40,30,0.6)', color: '#dce4dc' }}>
               <Send size={16} />
             </button>
           )}

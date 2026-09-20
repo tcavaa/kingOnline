@@ -1,184 +1,113 @@
-import { useRef, useState , memo } from 'react'
+import { useEffect, useRef, useState, memo } from "react";
 import {
-  Menu, Copy, Check, MessageCircle, Settings, SignalHigh, Star,
-} from 'lucide-react'
-import { useGame } from '../../context/GameContext'
-import { getGameType } from '../../constants/gameTypes'
-import { SuitIcon, SUIT_NAMES } from '../Icons'
-import { Pill } from './Pill'
-import GameTimer from './GameTimer'
-
-// Georgian display names for the suit codes / phase codes (display-only;
-// falls back to the original English value for anything unmapped).
-const SUIT_NAMES_KA = { H: 'გული', D: 'აგური', S: 'ყვავი', C: 'ჯვარი' }
-const PHASE_LABELS_KA = {
-  waiting:         'მოლოდინი',
-  type_selection:  'თამაშის არჩევა',
-  trump_selection: 'კოზირის არჩევა',
-  discard:         'კარტების გადადება',
-  playing:         'თამაში',
-  round_end:       'ხელი დასრულდა',
-  game_over:       'თამაშის დასასრული',
-  // Spin King phases
-  spin:            'ბედის ბორბალი',
-  auction:         'პრიკუპის ფსონები',
-  pledge:          'ფსონები',
-  match_end:       'მატჩი დასრულდა',
-}
-
-/**
- * Top bar across the canvas: hamburger menu, room name, round / game-type /
- * trump pills, and the chat / settings / latency icons on the right.
- */
-function TopBar({ onToggleMenu, onToggleScores, onToggleChat }) {
-  const { round, chosenGameType, trumpSuit, roomCode, gamePhase, gameKind } = useGame()
-  const gt = getGameType(chosenGameType)
-  const TypeIcon = gt?.Icon
-  // Spin King has no round cap — the match runs until one stack holds all
-  // the chips, so the "/27" suffix would be a lie there.
-  const isSpinKing = gameKind === 'spinking'
-
-  // Tap-to-copy on the room-code pill, with a brief "copied" confirmation.
-  const [copied, setCopied] = useState(false)
-  const copyTimer = useRef(null)
-  const copyRoomCode = () => {
-    if (!roomCode) return
-    const done = () => {
-      setCopied(true)
-      if (copyTimer.current) clearTimeout(copyTimer.current)
-      copyTimer.current = setTimeout(() => setCopied(false), 1600)
-    }
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(roomCode).then(done).catch(() => { /* ignore */ })
-    } else {
-      // Legacy fallback for non-secure contexts
-      const ta = document.createElement('textarea')
-      ta.value = roomCode
-      document.body.appendChild(ta)
-      ta.select()
-      try { document.execCommand('copy'); done() } catch { /* ignore */ }
-      document.body.removeChild(ta)
-    }
-  }
-
+  Menu,
+  Copy,
+  Check,
+  MessageCircle,
+  ChartNoAxesColumnIncreasing,
+} from "lucide-react";
+import { useGame } from "../../context/GameContext";
+import { getGameType } from "../../constants/gameTypes";
+import GameTimer from "./GameTimer";
+const PHASES = {
+  type_selection: "აირჩიე თამაში",
+  trump_selection: "აირჩიე კოზირი",
+  discard: "გადადე კარტები",
+  playing: "თამაში მიმდინარეობს",
+  round_end: "რაუნდი დასრულდა",
+  spin: "სპინ კინგი",
+  auction: "აუქციონი",
+  pledge: "ფსონები",
+};
+const SUITS = { H: "♥", D: "♦", S: "♠", C: "♣" };
+function TopBar({ onToggleMenu, onToggleScores, onToggleChat, waiting }) {
+  const {
+    round,
+    chosenGameType,
+    trumpSuit,
+    roomCode,
+    gamePhase,
+    gameKind,
+    connected,
+  } = useGame();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1600);
+    } catch {}
+  };
+  const type = getGameType(chosenGameType);
   return (
-    <div className="absolute top-0 inset-x-0 z-20 px-3 lg:px-4 pt-3 lg:pt-4 flex items-start justify-between gap-2 pointer-events-none">
-      {/* Left: menu + room name. `flex-1 basis-0` on both side groups makes
-          them claim equal width, which is what puts the centre column on the
-          real middle of the screen instead of wherever the wider side leaves
-          it. Only from `sm` up: on a narrow portrait phone the bar already
-          can't fit its contents, and forcing an equal split there collapsed
-          this group to zero width and took the menu button with it. Below
-          `sm` the original justify-between behaviour is kept — the clock is
-          then a few px off centre, which is invisible at that size. */}
-      <div className="sm:flex-1 sm:basis-0 flex items-center gap-1.5 lg:gap-2 pointer-events-auto min-w-0">
-        <Pill onClick={onToggleMenu} className="px-2 lg:px-3" title="მენიუ">
-          <Menu size={16} />
-        </Pill>
-        <Pill onClick={copyRoomCode} className="min-w-0 lg:min-w-[180px] justify-between"
-              title="კოდის კოპირება">
-          <div className="flex flex-col items-start leading-tight min-w-0">
-            <span className="text-[9px] lg:text-[10px] uppercase tracking-widest text-amber-dim">
-              {copied ? 'დაკოპირდა ✓' : 'ოთახი'}
-            </span>
-            <span className="text-xs lg:text-sm font-bold truncate max-w-[5.5rem] lg:max-w-none">{roomCode || 'კლასიკური ოთახი'}</span>
-          </div>
-          {copied
-            ? <Check size={12} className="shrink-0" style={{ color: '#4c7a2f' }} />
-            : <Copy size={12} className="text-amber-dim shrink-0" />}
-        </Pill>
+    <header className="k-game-header">
+      <div className="k-game-brand">
+        <button
+          className="k-game-icon"
+          aria-label="მენიუ"
+          onClick={onToggleMenu}
+        >
+          <Menu size={20} />
+        </button>
+        <span>
+          kıng<small>TABLE / {roomCode}</small>
+        </span>
+        <button
+          className="k-game-copy"
+          aria-label="კოდის კოპირება"
+          onClick={copy}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
       </div>
-
-      {/* Center: round + chosen type + trump, with the elapsed clock tucked
-          directly underneath. The clock lives inside this column rather than
-          being absolutely positioned in the layout, so it is laid out BELOW
-          the pills by flex and can never overlap them however tall they get
-          (they grow with the chosen-type and trump chips). */}
-      <div className="sm:shrink-0 flex flex-col items-center gap-1 min-w-0">
-      <div className="flex items-center gap-1.5 lg:gap-2 pointer-events-auto min-w-0">
-        <Pill className="px-2 lg:px-3"
-              style={{
-                background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-                border: '1px solid rgba(142,43,35,0.55)',
-                boxShadow: '0 2px 0 rgba(58,36,24,0.25), inset 0 1px 0 rgba(255,255,255,0.18)',
-              }}>
-          <Star size={12} fill="#8e2b23" className="text-amber" />
-          <div className="flex flex-col items-start leading-tight">
-            <span className="text-[8px] lg:text-[9px] uppercase tracking-[0.2em] font-western"
-                  style={{ color: 'rgba(142,43,35,0.85)' }}>ხელი</span>
-            <span className="font-western text-xs lg:text-sm" style={{ color: '#3b2314' }}>
-              <span className="text-sm lg:text-base text-amber">{round}</span>
-              {!isSpinKing && (
-                <>
-                  <span className="opacity-70 mx-0.5">/</span>
-                  <span>27</span>
-                </>
-              )}
-              {isSpinKing && <span className="opacity-70 ml-0.5">🎰</span>}
+      <div className="k-round-group">
+        {waiting && (
+          <div className="k-turn-status" role="status">
+            <span className="k-live-dot" />
+            <span>
+              <b>{waiting.name}</b>
+              <small>ველოდებით {waiting.label}</small>
             </span>
           </div>
-        </Pill>
-
-        {gt && (
-          <Pill className="px-2 lg:px-3 min-w-0"
-                style={{
-                  background: `linear-gradient(180deg, ${gt.color}33, ${gt.color}11)`,
-                  border: `1px solid ${gt.color}88`,
-                  color: '#3b2314',
-                  boxShadow: `0 2px 0 rgba(58,36,24,0.25), 0 0 14px ${gt.color}33, inset 0 1px 0 rgba(255,255,255,0.15)`,
-                }}>
-            {TypeIcon && <TypeIcon size={12} style={{ color: gt.color }} />}
-            <span className="font-western uppercase tracking-wide text-[10px] lg:text-xs truncate max-w-[5rem] lg:max-w-none">{gt.name}</span>
-          </Pill>
         )}
-
-        {trumpSuit && (
-          <Pill className="px-2 lg:px-3 trump-sparkle"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(142,43,35,0.22), rgba(142,43,35,0.1))',
-                  border: '1px solid rgba(142,43,35,0.6)',
-                  color: '#3b2314',
-                }}>
-            <Star size={12} fill="#8e2b23" className="text-amber" />
-            <SuitIcon suit={trumpSuit} size={12} mono style={{ color: '#8e2b23' }} />
-            <span className="font-western uppercase tracking-wide text-[10px] lg:text-xs">{SUIT_NAMES_KA[trumpSuit] || SUIT_NAMES[trumpSuit]}</span>
-          </Pill>
-        )}
-
-        {/* The phase pill is informational-only — hide it on landscape
-            phones where every pixel of horizontal space is contested. */}
-        {gamePhase && (
-          <Pill className="px-2 lg:px-3 hide-on-phone-landscape"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(236,222,196,0.85), rgba(226,208,176,0.9))',
-                  border: '1px solid rgba(122,83,44,0.3)',
-                  color: 'rgba(59,35,20,0.8)',
-                }}>
-            <span className="text-[10px] lg:text-[11px] font-typewriter uppercase tracking-wider">
-              {PHASE_LABELS_KA[gamePhase] || gamePhase.replace(/_/g, ' ')}
-            </span>
-          </Pill>
-        )}
+        <div className="k-game-round">
+          <span>ROUND</span>
+          <strong>{String(round).padStart(2, "0")}</strong>
+          <small>{gameKind === "spinking" ? "SPIN" : "/ 27"}</small>
+          <i />
+          <b>
+            {type?.name || PHASES[gamePhase] || "კინგი"}
+            {trumpSuit && <em> {SUITS[trumpSuit]}</em>}
+          </b>
+        </div>
       </div>
-
-        {/* Elapsed game clock — second row of the centre column. */}
+      <div className="k-game-tools">
+        <span
+          className="k-game-connection"
+          title={connected ? "დაკავშირებულია" : "კავშირი წყდება"}
+        >
+          <i className={connected ? "on" : ""} />
+        </span>
         <GameTimer />
+        <button
+          className="k-game-icon"
+          aria-label="ქულები"
+          onClick={onToggleScores}
+        >
+          <ChartNoAxesColumnIncreasing size={19} />
+        </button>
+        <button
+          className="k-game-icon"
+          aria-label="ჩატი"
+          onClick={onToggleChat}
+        >
+          <MessageCircle size={19} />
+        </button>
       </div>
-
-      {/* Right: chat / settings / latency. Latency hides on phone landscape
-          (purely diagnostic) so chat + settings stay inside the viewport. */}
-      <div className="sm:flex-1 sm:basis-0 flex items-center sm:justify-end gap-1.5 lg:gap-2 pointer-events-auto">
-        <Pill onClick={onToggleChat}   className="px-2 lg:px-3" title="ჩატი"><MessageCircle size={16} /></Pill>
-        <Pill onClick={onToggleScores} className="px-2 lg:px-3" title="ქულები"><Settings size={16} /></Pill>
-        <Pill className="px-2 lg:px-3 flex-col leading-tight items-end hide-on-phone-landscape" title="კავშირი">
-          <SignalHigh size={14} />
-          <span className="text-[9px] font-mono text-cream-soft">48ms</span>
-        </Pill>
-      </div>
-    </div>
-  )
+    </header>
+  );
 }
-
-// Leaf HUD chrome: props are stable callbacks, so memo() shields it from
-// GameLayout's unrelated re-renders (chat traffic, drawer toggles).
-export default memo(TopBar)
+export default memo(TopBar);

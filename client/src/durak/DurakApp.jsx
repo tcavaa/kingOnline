@@ -1,326 +1,415 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Play, Users, Copy, Check } from 'lucide-react'
-import { DurakProvider, useDurak } from './DurakContext'
-import DurakTable from './DurakTable'
-import AvatarImg from '../components/AvatarImg'
-import { unlockDurakSounds } from './sounds'
-import './durak.css'
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, ArrowRight, Plus, Copy, Check } from "lucide-react";
+import { DurakProvider, useDurak } from "./DurakContext";
+import DurakTable from "./DurakTable";
+import AvatarImg from "../components/AvatarImg";
+import { unlockDurakSounds } from "./sounds";
+import "./durak.css";
+import ClubShell, { Wordmark } from "../components/ui/ClubShell";
+import Sheet from "../components/ui/Sheet";
 
 const TOAST_STYLES = {
-  error:   { bg: 'linear-gradient(180deg, #a03428, #6f1f1a)',  color: '#fdf2df', icon: '💥' },
-  warning: { bg: 'linear-gradient(180deg, #e3b04b, #c08a26)',  color: '#2b1a08', icon: '⚠️' },
-  info:    { bg: 'linear-gradient(180deg, #fdf6e5, #f0e2c4)',  color: '#3b2314', icon: '🃏' },
-}
+  error: {
+    bg: "linear-gradient(180deg, #a03428, #284b41)",
+    color: "#f5f2e9",
+    icon: "💥",
+  },
+  warning: {
+    bg: "linear-gradient(180deg, #d5b982, #bea06b)",
+    color: "#2b1a08",
+    icon: "⚠️",
+  },
+  info: {
+    bg: "linear-gradient(180deg, #fdf6e5, #f0e2c4)",
+    color: "#eeeae1",
+    icon: "🃏",
+  },
+};
 
 /**
  * Game announcements. Centered under the opponents' row (above the table
  * cards) so they never cover the chat / score-sheet / exit buttons.
  */
 function DurakToasts() {
-  const { toasts } = useDurak()
+  const { toasts } = useDurak();
   return (
-    <div className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"
-         style={{ top: '27%', maxWidth: '90vw' }}>
+    <div
+      className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"
+      style={{ top: "27%", maxWidth: "90vw" }}
+    >
       {toasts.map((t) => {
-        const s = TOAST_STYLES[t.type] ?? TOAST_STYLES.info
+        const s = TOAST_STYLES[t.type] ?? TOAST_STYLES.info;
         return (
-          <div key={t.id}
-               className="durak-toast-pop inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold"
-               style={{
-                 background: s.bg, color: s.color,
-                 border: '2px solid rgba(255,255,255,0.5)',
-                 boxShadow: '0 6px 22px rgba(20,12,8,0.4), inset 0 1px 0 rgba(255,255,255,0.35)',
-               }}>
+          <div
+            key={t.id}
+            className="durak-toast-pop inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold"
+            style={{
+              background: s.bg,
+              color: s.color,
+              border: "2px solid rgba(255,255,255,0.5)",
+              boxShadow:
+                "0 6px 22px rgba(20,12,8,0.4), inset 0 1px 0 rgba(255,255,255,0.35)",
+            }}
+          >
             <span className="text-base leading-none">{s.icon}</span>
             {t.message}
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 /** Small banner while the socket is re-establishing mid-game. */
 function ReconnectBanner() {
-  const { connected, phase } = useDurak()
-  if (connected || phase !== 'room') return null
+  const { connected, phase } = useDurak();
+  if (connected || phase !== "room") return null;
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-typewriter font-bold"
-         style={{ background: 'rgba(111,31,26,0.95)', color: '#fdf2df', border: '1px solid rgba(255,226,190,0.45)' }}>
+    <div
+      className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-typewriter font-bold"
+      style={{
+        background: "rgba(111,31,26,0.95)",
+        color: "#f5f2e9",
+        border: "1px solid rgba(255,226,190,0.45)",
+      }}
+    >
       <span className="w-2 h-2 rounded-full bg-red-300 animate-pulse" />
       კავშირი აღდგება…
     </div>
-  )
+  );
 }
 
 function DurakLobby({ onExit }) {
-  const { connected, profile, createRoom, joinRoom, publicRoom, sitPublic } = useDurak()
-  const [target, setTarget] = useState('301')
-  const [code, setCode] = useState('')
-
+  const { connected, profile, createRoom, joinRoom, publicRoom, sitPublic } =
+    useDurak();
+  const [target, setTarget] = useState("301");
+  const [code, setCode] = useState("");
+  const [dialog, setDialog] = useState(null);
+  const ready = connected && !!profile?.name;
   return (
-    <div className="saloon-bg min-h-screen flex flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-xl">
-        <button onClick={onExit}
-                className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold font-typewriter"
-                style={{ background: 'rgba(122,83,44,0.1)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
-          <ArrowLeft size={14} /> კინგზე დაბრუნება
-        </button>
-
-        <div className="text-center mb-6 select-none">
-          <h1 className="text-5xl font-western"
-              style={{ color: '#1f3d2e', textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(31,61,46,0.3)', letterSpacing: '0.06em' }}>
-            ჩეხური დურაკა
+    <ClubShell
+      page="durak"
+      onHome={onExit}
+      title="ჩეხური დურაკა"
+      connected={connected}
+    >
+      <section className="k-ranking-heading k-durak-intro">
+        <div>
+          <span className="k-eyebrow">A CHANGE OF PACE / DURAK</span>
+          <h1>
+            ბოლო კარტი.
+            <br />
+            <em>ახალი დასაწყისი.</em>
           </h1>
-          <div className="mt-1 text-[11px] uppercase tracking-[0.4em] font-western" style={{ color: 'rgba(31,61,46,0.8)' }}>
-            ✦ &nbsp; 2–6 მოთამაშე · 36 კარტი &nbsp; ✦
-          </div>
-          <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-typewriter"
-               style={{
-                 background: connected ? 'rgba(76,122,47,0.12)' : 'rgba(165,55,43,0.12)',
-                 border: connected ? '1px solid rgba(76,122,47,0.4)' : '1px solid rgba(165,55,43,0.4)',
-                 color: connected ? '#4c7a2f' : '#a5372b',
-               }}>
-            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
-            {connected ? 'კავშირი გამართულია' : 'ვემზადებით…'}
-          </div>
+          <p>
+            36 კარტი. 2–6 მოთამაშე. ერთი გამარჯვებული.
+            <br />
+            მოიშორე კარტები და დარჩი თამაშში.
+          </p>
         </div>
-
-        {!profile?.name ? (
-          <div className="western-panel p-6 text-center">
-            <p className="text-sm font-typewriter" style={{ color: 'rgba(59,35,20,0.7)' }}>
-              ჯერ აირჩიე პროფილი კინგის მთავარ გვერდზე, მერე დაბრუნდი აქ.
-            </p>
-          </div>
-        ) : (
-          <>
-          {/* Public quick-match table — first sitter owns the losing score. */}
-          <div className="western-panel p-5 mb-5">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <h2 className="text-sm font-western text-ink uppercase inline-flex items-center gap-2">
-                <Users size={14} /> საჯარო მაგიდა
-              </h2>
-              {publicRoom.roomCode ? (
-                <span className="text-[11px] font-typewriter" style={{ color: 'rgba(31,61,46,0.85)' }}>
-                  ლიმიტი: <strong>{publicRoom.targetScore}</strong> · {publicRoom.players.length}/6
-                </span>
-              ) : (
-                <span className="text-[11px] font-typewriter" style={{ color: 'rgba(59,35,20,0.5)' }}>
-                  მაგიდა ცარიელია
-                </span>
-              )}
-            </div>
-            {publicRoom.players.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {publicRoom.players.map((p) => (
-                  <span key={p.seat}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-western"
-                        style={{ background: 'rgba(31,61,46,0.08)', border: '1px solid rgba(31,61,46,0.3)', color: '#3b2314' }}>
-                    <AvatarImg avatar={p.avatar} size={18} ring="rgba(31,61,46,0.4)" />
-                    {p.name}
-                    {p.seat === publicRoom.creatorSeat && ' ⚑'}
-                  </span>
-                ))}
-              </div>
-            )}
-            <p className="text-[10px] font-typewriter mb-3" style={{ color: 'rgba(59,35,20,0.55)' }}>
-              {publicRoom.roomCode
-                ? 'დაჯექი და შეუერთდი — თამაშს პირველი მჯდომი დაიწყებს.'
-                : 'პირველი მჯდომი ხსნის მაგიდას და წყვეტს წაგების ქულას.'}
-            </p>
-            <button
-              onClick={sitPublic}
-              disabled={!connected}
-              className="casino-btn-primary w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
-            >
-              {publicRoom.roomCode ? 'დაჯექი მაგიდასთან' : 'გახსენი საჯარო მაგიდა'}
+        <span className="k-durak-symbol" aria-hidden="true">
+          ♣
+        </span>
+      </section>
+      <section className="k-durak-match">
+        <div>
+          <span className="k-eyebrow">01 / THE OPEN TABLE</span>
+          <h2>
+            შემოუერთდი
+            <br />
+            თამაშს.
+          </h2>
+          <p>
+            {publicRoom.roomCode
+              ? `მაგიდა ${publicRoom.roomCode} · ლიმიტი ${publicRoom.targetScore}`
+              : "ახალი კომპანია უკვე ერთი სვლით ახლოსაა."}
+          </p>
+          <button className="k-button" disabled={!ready} onClick={sitPublic}>
+            {publicRoom.roomCode
+              ? "დაჯექი მაგიდასთან"
+              : "გახსენი საჯარო მაგიდა"}
+            <ArrowRight size={18} />
+          </button>
+          {!profile?.name && (
+            <button className="k-link" onClick={onExit}>
+              ჯერ აირჩიე პროფილი <ArrowRight size={16} />
             </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="western-panel p-6 flex flex-col">
-              <h2 className="text-lg font-western text-ink uppercase mb-1">ახალი ოთახი</h2>
-              <p className="text-xs font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.55)' }}>
-                ვინც ამ ქულას მიაღწევს — გამოდის. ბოლო დარჩენილი იგებს.
-              </p>
-              <label className="block text-xs mb-1.5 uppercase font-western tracking-widest"
-                     style={{ color: 'rgba(31,61,46,0.75)' }}>წაგების ქულა</label>
-              <input type="number" min={50} max={5000} value={target}
-                     onChange={(e) => setTarget(e.target.value)}
-                     className="casino-input font-typewriter text-center mb-4" placeholder="301" />
-              <button
-                onClick={() => createRoom(Number(target) || 301)}
-                disabled={!connected}
-                className="casino-btn-primary mt-auto w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
-              >
-                ოთახის შექმნა
-              </button>
-            </div>
-
-            <div className="western-panel p-6 flex flex-col">
-              <h2 className="text-lg font-western text-ink uppercase mb-1">შესვლა კოდით</h2>
-              <p className="text-xs font-typewriter mb-4" style={{ color: 'rgba(59,35,20,0.55)' }}>
-                მეგობრის ოთახის კოდი ჩაწერე.
-              </p>
-              <label className="block text-xs mb-1.5 uppercase font-western tracking-widest"
-                     style={{ color: 'rgba(31,61,46,0.75)' }}>ოთახის კოდი</label>
-              <input type="text" maxLength={6} value={code}
-                     onChange={(e) => setCode(e.target.value.toUpperCase())}
-                     placeholder="DXXXXX"
-                     className="casino-input font-typewriter tracking-[0.3em] uppercase text-center mb-4" />
-              <button
-                onClick={() => code.trim() && joinRoom(code.trim())}
-                disabled={!connected || !code.trim()}
-                className="casino-btn-gold mt-auto w-full py-2.5 text-sm tracking-wider uppercase active:scale-95"
-              >
-                შეუერთდი
-              </button>
-            </div>
-          </div>
-          </>
-        )}
+          )}
+        </div>
+        <div className="k-six-seats">
+          {Array.from({ length: 6 }, (_, i) => {
+            const p = publicRoom.players[i];
+            return (
+              <div key={i}>
+                {p ? (
+                  <AvatarImg avatar={p.avatar} size={52} />
+                ) : (
+                  <span>
+                    <Plus size={20} />
+                  </span>
+                )}
+                <strong>{p?.name || "ღია ადგილი"}</strong>
+                <small>SEAT / 0{i + 1}</small>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <div className="k-durak-options">
+        <button onClick={() => setDialog("create")}>
+          <span className="k-eyebrow">02 / YOUR RULES</span>
+          <h3>
+            შენი მაგიდა.
+            <br />
+            შენი კომპანია.
+          </h3>
+          <span className="k-circle-arrow">
+            <Plus size={23} />
+          </span>
+          <small>შექმენი პირადი ოთახი</small>
+        </button>
+        <button onClick={() => setDialog("join")}>
+          <span className="k-eyebrow">03 / YOU'RE INVITED</span>
+          <h3>
+            მეგობრები
+            <br />
+            გელოდებიან?
+          </h3>
+          <span className="k-circle-arrow">
+            <ArrowRight size={23} />
+          </span>
+          <small>შემოდი მოწვევის კოდით</small>
+        </button>
       </div>
-    </div>
-  )
+      {dialog && (
+        <Sheet
+          title={
+            dialog === "create" ? "შენი თამაშის წესები." : "მოწვევა მიღებულია."
+          }
+          onClose={() => setDialog(null)}
+        >
+          <form
+            className="k-profile-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (ready)
+                dialog === "create"
+                  ? createRoom(
+                      Math.max(50, Math.min(5000, Number(target) || 301)),
+                    )
+                  : code.trim() && joinRoom(code.trim().toUpperCase());
+            }}
+          >
+            {dialog === "create" ? (
+              <label className="k-form-field">
+                <span>ქულების ლიმიტი</span>
+                <input
+                  type="number"
+                  min={50}
+                  max={5000}
+                  required
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                />
+                <small>
+                  ვინც ლიმიტს მიაღწევს, თამაშს ტოვებს. ბოლო დარჩენილი იგებს.
+                </small>
+              </label>
+            ) : (
+              <label className="k-form-field">
+                <span>ოთახის კოდი</span>
+                <input
+                  required
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  placeholder="DXXXXX"
+                />
+              </label>
+            )}
+            <button
+              className="k-button"
+              disabled={!ready || (dialog === "join" && !code.trim())}
+            >
+              {dialog === "create" ? "შექმენი მაგიდა" : "შეუერთდი თამაშს"}
+              <ArrowRight size={18} />
+            </button>
+            {!profile?.name && (
+              <button type="button" className="k-link" onClick={onExit}>
+                აირჩიე პროფილი
+              </button>
+            )}
+          </form>
+        </Sheet>
+      )}
+    </ClubShell>
+  );
 }
 
 function DurakWaiting({ onExit }) {
-  const { room, mySeat, startMatch, leaveRoom, setTargetScore } = useDurak()
-  const [copied, setCopied] = useState(false)
-  const [editTarget, setEditTarget] = useState(null) // string while editing
-  const isCreator = mySeat === room.creatorSeat
-  const canStart = isCreator && room.players.length >= 2
-
-  const applyTarget = () => {
-    const n = Number(editTarget)
-    if (Number.isFinite(n) && n > 0) setTargetScore(n)
-    setEditTarget(null)
-  }
-
+  const { room, mySeat, startMatch, leaveRoom, setTargetScore, connected } =
+    useDurak();
+  const [copied, setCopied] = useState(false);
+  const [target, setTarget] = useState(room.targetScore);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => setTarget(room.targetScore), [room.targetScore]);
+  const isCreator = mySeat === room.creatorSeat;
   const copyCode = async () => {
     try {
-      await navigator.clipboard.writeText(room.roomCode)
-      setCopied(true); setTimeout(() => setCopied(false), 2000)
-    } catch { /* ignore */ }
-  }
-
+      await navigator.clipboard.writeText(room.roomCode);
+      setCopied(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  const applyTarget = () => {
+    const n = Math.max(50, Math.min(5000, Math.round(Number(target) || 301)));
+    setTarget(n);
+    if (n !== room.targetScore) setTargetScore(n);
+  };
   return (
-    <div className="saloon-bg min-h-screen flex flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-5">
-          <h1 className="text-3xl font-western" style={{ color: '#1f3d2e' }}>
-            ჩეხური დურაკა{room.isPublic && <span className="ml-2 text-sm font-typewriter" style={{ color: 'rgba(31,61,46,0.7)' }}>· საჯარო</span>}
+    <div className="k-wait-page">
+      <header className="k-wait-nav">
+        <Wordmark />
+        <button className="k-link" onClick={leaveRoom}>
+          <ArrowLeft size={17} />
+          მაგიდის დატოვება
+        </button>
+        <span>DURAK / {room.isPublic ? "OPEN TABLE" : "PRIVATE"}</span>
+      </header>
+      <main className="k-wait-layout">
+        <section className="k-wait-copy">
+          <span className="k-eyebrow">GOOD COMPANY. GREAT GAME.</span>
+          <h1>
+            შენი მაგიდა
+            <br />
+            <em>გელოდება.</em>
           </h1>
-          <div className="text-sm font-typewriter mt-1 flex items-center justify-center gap-2 flex-wrap"
-               style={{ color: 'rgba(59,35,20,0.55)' }}>
-            {editTarget === null ? (
-              <>
-                <span>წაგების ქულა: <strong style={{ color: '#1f3d2e' }}>{room.targetScore}</strong></span>
-                {isCreator && (
-                  <button onClick={() => setEditTarget(String(room.targetScore))}
-                          className="text-[11px] px-2 py-0.5 rounded-lg font-typewriter"
-                          style={{ background: 'rgba(31,61,46,0.08)', border: '1px solid rgba(31,61,46,0.35)', color: '#1f3d2e' }}>
-                    შეცვლა
-                  </button>
-                )}
-              </>
+          <p>
+            თამაში იწყება ორი მოთამაშით.
+            <br />
+            მოიწვიე კიდევ ოთხი მეგობარი.
+          </p>
+          <div className="k-invite-ticket">
+            <span>მოწვევის კოდი</span>
+            <div>
+              <strong>{room.roomCode}</strong>
+              <button
+                className="k-icon-button"
+                onClick={copyCode}
+                aria-label="კოდის კოპირება"
+              >
+                {copied ? <Check size={20} /> : <Copy size={20} />}
+              </button>
+            </div>
+            <small role="status">
+              {copied ? "კოდი დაკოპირდა." : "გაუზიარე კოდი მეგობრებს."}
+            </small>
+          </div>
+          <label className="k-stack-field">
+            ქულების ლიმიტი
+            {isCreator ? (
+              <input
+                className="k-input"
+                type="number"
+                min={50}
+                max={5000}
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                onBlur={applyTarget}
+                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              />
             ) : (
-              <span className="inline-flex items-center gap-2">
-                <input type="number" min={50} max={5000} value={editTarget} autoFocus
-                       onChange={(e) => setEditTarget(e.target.value)}
-                       onKeyDown={(e) => { if (e.key === 'Enter') applyTarget() }}
-                       className="w-24 px-2 py-1 rounded-lg text-center font-typewriter text-sm"
-                       style={{ background: '#fffdf6', border: '1px solid rgba(31,61,46,0.5)', color: '#1f3d2e' }} />
-                <button onClick={applyTarget}
-                        className="text-[11px] px-2 py-1 rounded-lg font-bold font-typewriter"
-                        style={{ background: '#1f3d2e', color: '#f4e8cf' }}>
-                  OK
-                </button>
-              </span>
+              <strong>{room.targetScore}</strong>
             )}
-            <span>· 2–6 მოთამაშე</span>
-          </div>
-        </div>
-
-        <div className="western-panel p-6 mb-4 text-center">
-          <p className="text-[11px] uppercase tracking-[0.3em] mb-3 font-western" style={{ color: 'rgba(31,61,46,0.75)' }}>
-            ოთახის კოდი
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-3xl font-typewriter font-black tracking-[0.3em]" style={{ color: '#1f3d2e' }}>
-              {room.roomCode}
-            </span>
-            <button onClick={copyCode}
-                    className="text-xs rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5 font-typewriter"
-                    style={{
-                      background: copied ? 'rgba(76,122,47,0.15)' : 'rgba(122,83,44,0.07)',
-                      border: copied ? '1px solid rgba(76,122,47,0.5)' : '1px solid rgba(122,83,44,0.4)',
-                      color: copied ? '#4c7a2f' : '#3b2314',
-                    }}>
-              {copied ? <><Check size={12} strokeWidth={3} /> დაკოპირდა</> : <><Copy size={12} /> კოპირება</>}
-            </button>
-          </div>
-        </div>
-
-        <div className="western-panel p-5 mb-4">
-          <p className="text-[11px] uppercase tracking-[0.3em] mb-3 font-western inline-flex items-center gap-2"
-             style={{ color: 'rgba(31,61,46,0.75)' }}>
-            <Users size={12} /> მოთამაშეები ({room.players.length}/6)
-          </p>
-          <div className="flex flex-col gap-2">
-            {room.players.map((p) => (
-              <div key={p.seat} className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                   style={{ background: 'rgba(31,61,46,0.06)', border: '1px solid rgba(31,61,46,0.25)' }}>
-                <AvatarImg avatar={p.avatar} size={34} ring="rgba(31,61,46,0.5)" />
-                <span className="text-sm font-bold font-western flex-1" style={{ color: '#3b2314' }}>
-                  {p.name}
-                  {p.seat === mySeat && <span className="ml-2 text-[10px] font-typewriter" style={{ color: 'rgba(31,61,46,0.7)' }}>(შენ)</span>}
-                </span>
-                {p.seat === room.creatorSeat && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-typewriter"
-                        style={{ background: 'rgba(31,61,46,0.12)', color: '#1f3d2e', border: '1px solid rgba(31,61,46,0.35)' }}>
-                    თამადა
-                  </span>
-                )}
-                {!p.connected && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="გათიშულია" />}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {isCreator ? (
-          <button onClick={startMatch} disabled={!canStart}
-                  className="casino-btn-primary w-full py-3 text-sm tracking-widest uppercase mb-3 inline-flex items-center justify-center gap-2 active:scale-95">
-            <Play size={14} fill="currentColor" />
-            {room.players.length < 2 ? 'მინიმუმ 2 მოთამაშე…' : 'თამაშის დაწყება'}
+          </label>
+          <button
+            className="k-button"
+            disabled={!connected || !isCreator || room.players.length < 2}
+            onClick={startMatch}
+          >
+            {isCreator
+              ? room.players.length < 2
+                ? "ველოდებით მეორე მოთამაშეს"
+                : "დავიწყოთ თამაში"
+              : "წამყვანი დაიწყებს თამაშს"}
+            <ArrowRight size={18} />
           </button>
-        ) : (
-          <p className="text-center text-sm py-3 mb-3 font-typewriter" style={{ color: 'rgba(59,35,20,0.6)' }}>
-            ველოდებით თამადას…
-          </p>
-        )}
-
-        <button onClick={() => { leaveRoom(); }}
-                className="w-full py-2 text-xs font-typewriter rounded-lg"
-                style={{ background: 'rgba(165,55,43,0.08)', border: '1px solid rgba(165,55,43,0.35)', color: '#a5372b' }}>
-          ოთახის დატოვება
-        </button>
-        <button onClick={onExit}
-                className="mt-2 w-full py-2 text-xs font-typewriter rounded-lg"
-                style={{ background: 'rgba(122,83,44,0.07)', border: '1px solid rgba(122,83,44,0.3)', color: '#3b2314' }}>
-          <span className="inline-flex items-center gap-1.5"><ArrowLeft size={12} /> კინგზე დაბრუნება (ადგილი შენარჩუნდება)</span>
-        </button>
-      </div>
+          <button className="k-link" onClick={onExit}>
+            კინგზე დაბრუნება · ადგილი შენარჩუნდება
+          </button>
+        </section>
+        <section className="k-durak-wait">
+          <span className="k-eyebrow">
+            YOUR COMPANY / {room.players.length} OF 6
+          </span>
+          <span className="k-durak-wait-suit" aria-hidden="true">
+            ♣
+          </span>
+          <div className="k-six-seats">
+            {Array.from({ length: 6 }, (_, i) => {
+              const p = room.players[i];
+              return (
+                <div key={i}>
+                  {p ? (
+                    <AvatarImg avatar={p.avatar} size={64} />
+                  ) : (
+                    <span>
+                      <Plus size={24} />
+                    </span>
+                  )}
+                  <strong>{p?.name || "ღია ადგილი"}</strong>
+                  <small>
+                    {p
+                      ? p.connected === false
+                        ? "კავშირი წყდება…"
+                        : p.seat === mySeat
+                          ? "შენი ადგილი"
+                          : p.seat === room.creatorSeat
+                            ? "წამყვანი"
+                            : "მზადაა"
+                      : "მოიწვიე მეგობარი"}
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+      <footer className="k-wait-footer">
+        THE LAST CARD IS A NEW BEGINNING.
+      </footer>
     </div>
-  )
+  );
 }
 
 function DurakInner({ onExit }) {
-  const { phase, room } = useDurak()
+  const { phase, room } = useDurak();
 
-  if (phase !== 'room' || !room) return (<><DurakToasts /><ReconnectBanner /><DurakLobby onExit={onExit} /></>)
-  if (room.status === 'waiting') return (<><DurakToasts /><ReconnectBanner /><DurakWaiting onExit={onExit} /></>)
-  return (<><DurakToasts /><ReconnectBanner /><DurakTable onExit={onExit} /></>)
+  if (phase !== "room" || !room)
+    return (
+      <>
+        <DurakToasts />
+        <ReconnectBanner />
+        <DurakLobby onExit={onExit} />
+      </>
+    );
+  if (room.status === "waiting")
+    return (
+      <>
+        <DurakToasts />
+        <ReconnectBanner />
+        <DurakWaiting onExit={onExit} />
+      </>
+    );
+  return (
+    <>
+      <DurakToasts />
+      <ReconnectBanner />
+      <DurakTable onExit={onExit} />
+    </>
+  );
 }
 
 /**
@@ -332,14 +421,16 @@ export default function DurakApp({ profile, onExit }) {
   // Prime the sound elements on the first tap/click inside the durak
   // section — required by browser autoplay policies.
   useEffect(() => {
-    const unlock = () => { unlockDurakSounds() }
-    document.addEventListener('pointerdown', unlock, { once: true })
-    return () => document.removeEventListener('pointerdown', unlock)
-  }, [])
+    const unlock = () => {
+      unlockDurakSounds();
+    };
+    document.addEventListener("pointerdown", unlock, { once: true });
+    return () => document.removeEventListener("pointerdown", unlock);
+  }, []);
 
   return (
     <DurakProvider profile={profile}>
       <DurakInner onExit={onExit} />
     </DurakProvider>
-  )
+  );
 }

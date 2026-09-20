@@ -41,15 +41,15 @@ function GameTimer() {
     <div
       className="pointer-events-none select-none inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full"
       style={{
-        background: 'rgba(248,239,221,0.82)',
-        border: '1px solid rgba(122,83,44,0.35)',
-        boxShadow: '0 1px 0 rgba(58,36,24,0.15)',
+        background: 'rgba(23,39,35,0.82)',
+        border: '1px solid rgba(151,176,162,0.35)',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.15)',
         backdropFilter: 'blur(2px)',
       }}
       title="თამაშის ხანგრძლივობა"
     >
       <span className="text-[11px] lg:text-xs font-mono font-bold tabular-nums leading-none"
-            style={{ color: 'rgba(59,35,20,0.85)' }}>
+            style={{ color: 'rgba(225,233,225,0.85)' }}>
         {format(now - gameStartedAt)}
       </span>
     </div>

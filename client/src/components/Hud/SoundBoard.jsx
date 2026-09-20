@@ -1,137 +1,77 @@
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { Volume2, X } from 'lucide-react'
-import { useGame, useChat } from '../../context/GameContext'
-import { getSounds, subscribeSounds } from '../../lib/soundRegistry'
-
-// Touch devices only: on desktop the compact in-canvas avatar buttons are
-// easy to click with a mouse, so this big button (and its modal) would be
-// redundant. Mirrors the GameScene check that hides the canvas buttons on
-// touch — the two are mutually exclusive.
-function isTouchDevice() {
-  if (typeof window === 'undefined') return false
-  return ('ontouchstart' in window) ||
-    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
-}
-
-/**
- * Mobile-friendly sound trigger. The in-canvas avatar buttons are tiny and
- * easy to miss on a phone, so this exposes a single large button (≈2.5× the
- * other HUD icons) next to the own avatar. Tapping it opens a modal of big,
- * finger-sized sound buttons that broadcast a reaction to the whole room.
- *
- * The modal stays open after each tap so you can fire several in a row; close
- * it with the ✕ or by tapping the backdrop.
- */
+import { useState, useEffect, useRef } from "react";
+import { AudioLines, Play } from "lucide-react";
+import { useGame, useChat } from "../../context/GameContext";
+import { getSounds, subscribeSounds } from "../../lib/soundRegistry";
+import Sheet from "../ui/Sheet";
 export default function SoundBoard() {
-  const { mySeat } = useGame()
-  const { playSound, canSpeak } = useChat()
-  const [open, setOpen] = useState(false)
-  const [flash, setFlash] = useState(null)
-  const [touch] = useState(isTouchDevice)
-  // Admin-managed catalogue: starts as the built-in fallback and swaps to
-  // the server list once GameContext's fetch lands.
-  const [sounds, setSoundList] = useState(getSounds)
-  useEffect(() => subscribeSounds(setSoundList), [])
-
-  // Homepage watchers are text-and-reactions only, and the server drops their
-  // sounds — showing the board would just be a button that does nothing.
-  if (!touch || !canSpeak) return null
-
+  const { mySeat } = useGame();
+  const { playSound, canSpeak } = useChat();
+  const [open, setOpen] = useState(false);
+  const [flash, setFlash] = useState(null);
+  const timer = useRef(null);
+  const [sounds, setSoundList] = useState(getSounds);
+  useEffect(() => subscribeSounds(setSoundList), []);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  if (!canSpeak) return null;
   const fire = (id) => {
-    if (!playSound) return
-    // Target our own seat so the bubble pops over our avatar, same as the
-    // in-canvas buttons.
-    playSound(id, mySeat)
-    setFlash(id)
-    setTimeout(() => setFlash(f => (f === id ? null : f)), 250)
-  }
-
-  // Rendered via a portal to document.body so it escapes the transformed
-  // wrapper that positions the trigger — a `position: fixed` element inside a
-  // `transform`ed ancestor is positioned relative to that ancestor (which is
-  // only as wide as the button), which made the modal a thin vertical strip.
-  const modal = open && createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3"
-         style={{ background: 'rgba(32,18,10,0.72)', backdropFilter: 'blur(4px)' }}
-         onClick={() => setOpen(false)}>
-      <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
-           style={{
-             background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-             border: '1px solid rgba(122,83,44,0.45)',
-             boxShadow: '0 12px 48px rgba(58,36,24,0.25)',
-           }}
-           onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
-          <h3 className="text-sm font-western uppercase tracking-wider" style={{ color: '#3b2314' }}>
-            ხმები
-          </h3>
-          <button onClick={() => setOpen(false)} className="text-cream-soft hover:opacity-80"
-                  aria-label="ხმების დახურვა">
-            <X size={20} />
-          </button>
+    playSound?.(id, mySeat);
+    setFlash(id);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setFlash(null), 500);
+  };
+  return (
+    <>
+      <section className="k-desktop-sounds" aria-label="თამაშის ხმები">
+        <header>
+          <AudioLines size={16} />
+          <span>TABLE / SOUNDS</span>
+          <small>{sounds.length}</small>
+        </header>
+        <div className="k-direct-sounds">
+          {sounds.map((s) => (
+            <button
+              key={s.id}
+              title={s.label}
+              aria-label={`ხმის დაკვრა: ${s.label}`}
+              className={flash === s.id ? "is-playing" : ""}
+              onClick={() => fire(s.id)}
+            >
+              <Play size={11} />
+              <span>{s.label}</span>
+            </button>
+          ))}
         </div>
-
-        <div className="p-3 overflow-y-auto">
-          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
-            {sounds.map(s => (
+      </section>
+      <button
+        className="k-voice-trigger"
+        aria-label="ხმების გახსნა"
+        onClick={() => setOpen(true)}
+      >
+        <AudioLines size={20} />
+        <span>ხმები</span>
+      </button>
+      {open && (
+        <Sheet
+          onClose={() => setOpen(false)}
+          title="ხმის კოლექცია"
+          eyebrow="TABLE / AUDIO"
+        >
+          <p className="k-muted">აირჩიე ხმა და გაუზიარე მაგიდას.</p>
+          <div className="k-sound-library">
+            {sounds.map((s, i) => (
               <button
                 key={s.id}
                 onClick={() => fire(s.id)}
-                title={s.label}
-                className="flex flex-col items-center gap-1.5 rounded-xl py-2.5 px-1 active:scale-95 transition-transform"
-                style={{
-                  background: flash === s.id ? `${s.color}33` : 'rgba(236,222,196,0.85)',
-                  border: `1.5px solid ${s.color}`,
-                }}
+                className={flash === s.id ? "is-playing" : ""}
               >
-                <span className="flex items-center justify-center rounded-full font-bold"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        background: '#f8efdd',
-                        border: `2px solid ${s.color}`,
-                        color: '#3b2314',
-                        fontFamily: 'Roboto Slab, Georgia, serif',
-                        fontSize: 18,
-                      }}>
-                  {s.glyph}
-                </span>
-                <span className="text-[10px] text-center leading-tight truncate w-full"
-                      style={{ color: '#3b2314' }}>
-                  {s.label}
-                </span>
+                <small>{String(i + 1).padStart(2, "0")}</small>
+                <span>{s.label}</span>
+                {flash === s.id ? <AudioLines size={18} /> : <Play size={15} />}
               </button>
             ))}
           </div>
-        </div>
-      </div>
-    </div>,
-    document.body
-  )
-
-  return (
-    <>
-      {/* Trigger — deliberately larger than the neighbouring icon pills. */}
-      <button
-        onClick={() => setOpen(true)}
-        title="ხმები"
-        aria-label="ხმების გახსნა"
-        className="pointer-events-auto inline-flex items-center justify-center rounded-2xl active:scale-95 transition-transform shrink-0"
-        style={{
-          width: 46,
-          height: 46,
-          background: 'linear-gradient(180deg, #f8efdd 0%, #ecd9b6 100%)',
-          border: '1px solid rgba(142,43,35,0.6)',
-          color: '#3b2314',
-          boxShadow: '0 2px 0 rgba(58,36,24,0.25), 0 0 14px rgba(142,43,35,0.25), inset 0 1px 0 rgba(255,255,255,0.18)',
-        }}
-      >
-        <Volume2 size={28} />
-      </button>
-
-      {modal}
+        </Sheet>
+      )}
     </>
-  )
+  );
 }

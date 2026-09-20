@@ -2,7 +2,7 @@
 
 export const SUIT_GLYPH = { S: '♠', H: '♥', D: '♦', C: '♣' }
 export const SUIT_NAME  = { S: 'ყვავი', H: 'გული', D: 'აგური', C: 'ჯვარი' }
-export const SUIT_COLOR = { S: '#26221e', H: '#b3261e', D: '#c2410c', C: '#1f3d2e' }
+export const SUIT_COLOR = { S: '#26221e', H: '#b3261e', D: '#c2410c', C: '#254c40' }
 
 export default function DurakCard({ card, size = 'md', raised = false, dimmed = false, onClick }) {
   if (!card) return null
@@ -24,7 +24,7 @@ export default function DurakCard({ card, size = 'md', raised = false, dimmed = 
         background: 'linear-gradient(160deg, #fffdf6 0%, #f3ecd9 100%)',
         border: '1px solid rgba(90,54,32,0.4)',
         boxShadow: raised
-          ? '0 8px 18px rgba(40,20,10,0.35), 0 0 0 2px rgba(142,43,35,0.55)'
+          ? '0 8px 18px rgba(40,20,10,0.35), 0 0 0 2px rgba(213,185,130,0.55)'
           : '0 2px 6px rgba(40,20,10,0.25)',
         transform: raised ? 'translateY(-10px)' : 'none',
         opacity: dimmed ? 0.45 : 1,
@@ -65,8 +65,8 @@ export function DurakCardBack({ size = 'md', label, style }) {
          style={{
            width: dims.w, height: dims.h,
            borderRadius: size === 'xs' ? 3 : 8,
-           background: 'repeating-linear-gradient(45deg, #7a2620 0 6px, #8e2b23 6px 12px)',
-           border: '1px solid rgba(59,35,20,0.55)',
+           background: "#123126 url('/art/card-back.webp') center / cover",
+           border: '1px solid rgba(225,233,225,0.55)',
            boxShadow: size === 'xs'
              ? '0 1px 2px rgba(40,20,10,0.35)'
              : '0 2px 6px rgba(40,20,10,0.3), inset 0 0 0 3px rgba(255,240,210,0.25)',

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { GameProvider, useGame } from './context/GameContext'
 import Lobby        from './components/Lobby'
 import WaitingRoom  from './components/WaitingRoom'
@@ -34,39 +34,37 @@ function isAdminPath() {
 function ScreenLoader() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center gap-3"
-         style={{ background: '#e9d7b6' }}>
-      <img src="/ornament.webp" alt=""
-           className="w-12 h-12 object-contain select-none animate-spin"
-           style={{ animationDuration: '1.4s' }} />
+         style={{ background: '#0b1615' }}>
+
       <span className="text-sm font-typewriter" style={{ color: 'rgba(90,54,32,0.85)' }}>
-        მაგიდა იშლება…
+        თამაში იტვირთება…
       </span>
     </div>
   )
 }
 
 const TOAST_STYLES = {
-  error:   { bg: 'rgba(111,31,26,0.96)',  border: 'rgba(255,226,190,0.45)', color: '#fdf2df' },
-  success: { bg: 'rgba(76,122,47,0.95)',  border: 'rgba(244,232,207,0.45)', color: '#f6ead0' },
-  warning: { bg: 'rgba(192,138,38,0.96)', border: 'rgba(255,244,214,0.5)',  color: '#3b2314' },
-  info:    { bg: 'rgba(248,239,221,0.97)',border: 'rgba(142,43,35,0.45)',   color: '#3b2314' },
+  error:   { bg: 'rgba(111,31,26,0.96)',  border: 'rgba(255,226,190,0.45)', color: '#f5f2e9' },
+  success: { bg: 'rgba(122,199,165,0.95)',  border: 'rgba(244,232,207,0.45)', color: '#10211d' },
+  warning: { bg: '#262e22', border: '#a4ba7e', color: '#edf2e2' },
+  info:    { bg: 'rgba(23,39,35,0.97)',border: 'rgba(213,185,130,0.45)',   color: '#eeeae1' },
 }
 
 function ToastContainer() {
   const { toasts } = useGame()
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map(toast => {
         const s = TOAST_STYLES[toast.type] ?? TOAST_STYLES.info
         return (
           <div key={toast.id}
-               className="toast-enter px-4 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-xs pointer-events-auto"
+               className="toast-enter px-4 py-3 rounded-sm shadow-lg text-xs font-medium max-w-xs pointer-events-auto"
                style={{
                  background: s.bg,
                  border: `1px solid ${s.border}`,
                  color: s.color,
                  backdropFilter: 'blur(12px)',
-                 boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${s.border}`,
+                 boxShadow: '0 8px 30px #0003',
                }}>
             {toast.message}
           </div>
@@ -81,31 +79,9 @@ function AppInner() {
   const [view, setView] = useState(() => (readDurakSession() ? 'durak' : 'main')) // 'main' | 'leaderboard' | 'durak'
   const [durakProfile, setDurakProfile] = useState(null)
 
-  // Warm the game-screen chunks in the background once the lobby has painted
-  // and the main thread is idle: a lobby visitor is about to play, so by the
-  // time the 3rd seat fills the Phaser chunk is already cached and the
-  // Suspense fallback never shows. Leaderboard stays cold — it's optional.
-  useEffect(() => {
-    const warm = () => {
-      import('./components/GameLayout')
-      import('./components/GameOverScreen')
-    }
-    let idleId = null
-    let timerId = null
-    if (typeof requestIdleCallback === 'function') {
-      idleId = requestIdleCallback(warm, { timeout: 4000 })
-    } else {
-      timerId = setTimeout(warm, 2500) // Safari has no requestIdleCallback
-    }
-    return () => {
-      if (idleId !== null && typeof cancelIdleCallback === 'function') cancelIdleCallback(idleId)
-      if (timerId !== null) clearTimeout(timerId)
-    }
-  }, [])
-
   return (
     <div className="min-h-screen text-ink"
-         style={{ background: '#3a2418', minHeight: '100dvh' }}>
+         style={{ background: '#091211', minHeight: '100dvh' }}>
       <ToastContainer />
       <Suspense fallback={<ScreenLoader />}>
         {view === 'durak' ? (
@@ -135,7 +111,7 @@ export default function App() {
   // client-side transition, so there's nothing to re-evaluate.
   if (isAdminPath()) {
     return (
-      <div className="min-h-screen text-ink" style={{ background: '#3a2418', minHeight: '100dvh' }}>
+      <div className="min-h-screen text-ink" style={{ background: '#091211', minHeight: '100dvh' }}>
         <Suspense fallback={<ScreenLoader />}>
           <AdminApp />
         </Suspense>

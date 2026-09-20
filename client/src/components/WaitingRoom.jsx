@@ -1,224 +1,172 @@
-import { useEffect, useState } from 'react'
-import { Check, Copy, Play, User, Trophy, Dices, Coins } from 'lucide-react'
-import { useGame } from '../context/GameContext'
-
-function Dots() {
-  return (
-    <span className="inline-flex gap-1 ml-1.5">
-      {[0, 1, 2].map(i => (
-        <span key={i} className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"
-              style={{ animationDelay: `${i * 150}ms` }} />
-      ))}
-    </span>
-  )
-}
-
-const SEAT_COLOR = ['#8e2b23', '#7a532c', '#4c7a2f']
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, ArrowRight, Plus, ArrowLeft } from "lucide-react";
+import { useGame } from "../context/GameContext";
+import AvatarImg from "./AvatarImg";
+import { Wordmark } from "./ui/ClubShell";
 
 export default function WaitingRoom() {
   const {
-    roomCode, players, mySeat, isCreator, startGame, roomMode,
-    gameKind, startingStack, setTableStack,
-  } = useGame()
-  const [copied, setCopied] = useState(false)
-  const isChampionship = roomMode === 'championship'
-  const isSpinKing = gameKind === 'spinking'
-
-  // Local draft of the chip stack; committed on blur/Enter. Non-creators
-  // (and the creator, after the server clamps) get live values pushed via
-  // `starting-stack-updated` → startingStack.
-  const [stackDraft, setStackDraft] = useState(startingStack || 1000)
-  useEffect(() => { if (startingStack) setStackDraft(startingStack) }, [startingStack])
-  const commitStack = () => {
-    const v = Math.round(Number(stackDraft))
-    if (!Number.isFinite(v)) { setStackDraft(startingStack || 1000); return }
-    if (v !== startingStack) setTableStack(v)
-  }
-
+    roomCode,
+    players,
+    mySeat,
+    isCreator,
+    startGame,
+    roomMode,
+    gameKind,
+    startingStack,
+    setTableStack,
+    leaveRoom,
+  } = useGame();
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(null);
+  useEffect(() => {
+    import("./GameLayout");
+  }, []);
+  const [stackDraft, setStackDraft] = useState(startingStack || 1000);
+  useEffect(() => {
+    if (startingStack) setStackDraft(startingStack);
+  }, [startingStack]);
+  useEffect(() => () => clearTimeout(copyTimer.current), []);
   const copyCode = async () => {
-    try { await navigator.clipboard.writeText(roomCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }
-    catch { /* ignore */ }
-  }
-
-  const canStart = isCreator && players.length === 3
-
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+      clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  const commitStack = () => {
+    const n = Number(stackDraft);
+    const v = Number.isFinite(n)
+      ? Math.max(30, Math.min(1000000, Math.round(n)))
+      : startingStack || 1000;
+    setStackDraft(v);
+    if (v !== startingStack) setTableStack(v);
+  };
+  const canStart =
+    isCreator &&
+    players.length === 3 &&
+    players.every((p) => p.connected !== false);
   return (
-    <div className="saloon-bg min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
-      <div className="absolute inset-0 card-pattern pointer-events-none" />
-
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-6">
-          <p className="text-amber-400/70 text-[11px] tracking-[0.5em] uppercase font-western mb-2">
-            ✦ &nbsp; დუქანი &nbsp; ✦
-          </p>
-          <h1 className="text-4xl font-western"
-              style={{ color: '#8e2b23', textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 4px 12px rgba(58,36,24,0.25)' }}>
-            მოსაცდელი ოთახი
+    <div className="k-wait-page">
+      <header className="k-wait-nav">
+        <Wordmark />
+        <button className="k-link" onClick={leaveRoom}>
+          <ArrowLeft size={17} />
+          სივრცეში დაბრუნება
+        </button>
+        <span>
+          {gameKind === "spinking"
+            ? "SPIN KING"
+            : roomMode === "championship"
+              ? "KING / RANKED"
+              : "KING / CLASSIC"}
+        </span>
+      </header>
+      <main className="k-wait-layout">
+        <section className="k-wait-copy">
+          <span className="k-eyebrow">THE TABLE IS YOURS</span>
+          <h1>
+            კარგი კომპანია.
+            <br />
+            <em>უკეთესი თამაში.</em>
           </h1>
-          <p className="text-sm font-typewriter mt-1" style={{ color: 'rgba(59,35,20,0.55)' }}>
-            გაუზიარე კოდი 2 მეგობარს
+          <p>
+            შენი ადგილი უკვე აქ არის.
+            <br />
+            მოიწვიე მეგობრები და დაიწყეთ თამაში.
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-typewriter font-bold"
-               style={{
-                 background: isSpinKing ? 'rgba(184,134,11,0.16)' : isChampionship ? 'rgba(184,134,11,0.14)' : 'rgba(122,83,44,0.1)',
-                 border: (isSpinKing || isChampionship) ? '1px solid rgba(184,134,11,0.55)' : '1px solid rgba(122,83,44,0.35)',
-                 color: (isSpinKing || isChampionship) ? '#b8860b' : '#3b2314',
-               }}>
-            {isSpinKing
-              ? <>სპინ კინგი 🎰 — თამაში ჩიპებზე</>
-              : isChampionship
-                ? <><Trophy size={11} /> ლიგის თამაში — ითვლება სეზონში</>
-                : <><Dices size={11} /> უბრალო თამაში</>}
-          </div>
-        </div>
-
-        {/* Room code card */}
-        <div className="western-panel p-6 mb-5 text-center">
-          <p className="text-[11px] uppercase tracking-[0.3em] mb-3 font-western"
-             style={{ color: 'rgba(142,43,35,0.7)' }}>ოთახის კოდი</p>
-          <div className="flex items-center justify-center gap-4 mb-2">
-            <span className="text-4xl font-typewriter font-black tracking-[0.35em]"
-                  style={{ color: '#8e2b23', textShadow: '0 1px 0 rgba(255,255,255,0.4), 0 0 24px rgba(142,43,35,0.25)' }}>
-              {roomCode}
-            </span>
-            <button
-              onClick={copyCode}
-              className="text-xs rounded-lg px-3 py-1.5 inline-flex items-center gap-1.5 font-typewriter"
-              style={{
-                background: copied ? 'rgba(76,122,47,0.15)' : 'rgba(142,43,35,0.07)',
-                border: copied ? '1px solid rgba(76,122,47,0.5)' : '1px solid rgba(122,83,44,0.4)',
-                color: copied ? '#4c7a2f' : '#3b2314',
-              }}
-            >
+          <div className="k-invite-ticket">
+            <span>შენი მოწვევის კოდი</span>
+            <div>
+              <strong>{roomCode}</strong>
+              <button
+                className="k-icon-button"
+                onClick={copyCode}
+                aria-label="კოდის კოპირება"
+              >
+                {copied ? <Check size={20} /> : <Copy size={20} />}
+              </button>
+            </div>
+            <small role="status">
               {copied
-                ? <><Check size={12} strokeWidth={3} /><span>დაკოპირდა</span></>
-                : <><Copy size={12} /><span>კოდის კოპირება</span></>}
-            </button>
+                ? "კოდი დაკოპირდა. გაუზიარე მეგობრებს."
+                : "დააკოპირე. გაუზიარე. ითამაშე."}
+            </small>
           </div>
-          <p className="text-xs font-typewriter" style={{ color: 'rgba(59,35,20,0.4)' }}>
-            ეს კოდი სჭირდებათ მეგობრებს შენს დუქანში შესასვლელად
-          </p>
-        </div>
-
-        {/* Spin King: starting chip stack (creator edits; everyone sees) */}
-        {isSpinKing && (
-          <div className="western-panel p-4 mb-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Coins size={16} style={{ color: '#b8860b' }} />
-                <div className="leading-tight">
-                  <p className="text-[11px] uppercase tracking-[0.25em] font-western"
-                     style={{ color: 'rgba(142,43,35,0.7)' }}>საწყისი ჩიპები</p>
-                  <p className="text-[10px] font-typewriter" style={{ color: 'rgba(59,35,20,0.5)' }}>
-                    ანტე ყოველ ხელზე: {Math.max(1, Math.round((startingStack || 1000) / 100))}
-                  </p>
-                </div>
-              </div>
+          {gameKind === "spinking" && (
+            <label className="k-stack-field">
+              საწყისი ჩიპები
               {isCreator ? (
                 <input
-                  type="number" min={30} max={1000000} step={50}
+                  className="k-input"
+                  type="number"
+                  min={30}
+                  max={1000000}
                   value={stackDraft}
-                  onChange={e => setStackDraft(e.target.value)}
+                  onChange={(e) => setStackDraft(e.target.value)}
                   onBlur={commitStack}
-                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                  className="casino-input font-typewriter text-center text-lg font-bold"
-                  style={{ width: '8rem' }}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                 />
               ) : (
-                <span className="text-2xl font-typewriter font-black"
-                      style={{ color: '#8a5a0b' }}>
-                  {(startingStack || 0).toLocaleString()}
-                </span>
+                <strong>{startingStack}</strong>
               )}
-            </div>
+            </label>
+          )}
+          <button className="k-button" disabled={!canStart} onClick={startGame}>
+            {canStart
+              ? "დავიწყოთ თამაში"
+              : isCreator
+                ? `ველოდებით მოთამაშეებს (${players.length}/3)`
+                : "წამყვანი დაიწყებს თამაშს"}
+            <ArrowRight size={20} />
+          </button>
+        </section>
+        <section className="k-wait-table" aria-label="მოთამაშეები">
+          <span className="k-table-edition">PRIVATE SESSION / {roomCode}</span>
+          <div className="k-oval">
+            <span>
+              kıng<small>THE TABLE IS SET.</small>
+            </span>
           </div>
-        )}
-
-        {/* Player seats */}
-        <div className="western-panel p-5 mb-5">
-          <p className="text-[11px] uppercase tracking-[0.3em] mb-4 font-western"
-             style={{ color: 'rgba(142,43,35,0.7)' }}>მოთამაშეები ({players.length}/3)</p>
-
-          <div className="flex flex-col gap-3">
-            {[0, 1, 2].map(seat => {
-              const player = players.find(p => p.seat === seat)
-              const isMe   = seat === mySeat
-              const color  = SEAT_COLOR[seat]
-
-              return (
-                <div key={seat}
-                     className="flex items-center gap-4 px-4 py-3 rounded-xl transition-all"
-                     style={{
-                       background: player
-                         ? `linear-gradient(135deg, ${color}1a, ${color}08)`
-                         : 'rgba(59,35,20,0.04)',
-                       border: player
-                         ? `1px solid ${color}55`
-                         : '1px dashed rgba(122,83,44,0.25)',
-                     }}>
-                  <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center"
-                       style={{
-                         background: '#000',
-                         border: player ? `2px solid ${color}` : '2px dashed rgba(122,83,44,0.4)',
-                         boxShadow: player ? `0 0 14px ${color}55` : 'none',
-                       }}>
-                    {player
-                      ? <img src={player.avatar || '/avatar-default.png'} alt="" className="w-full h-full object-cover" />
-                      : <User size={16} style={{ color: 'rgba(142,43,35,0.4)' }} />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    {player ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold font-western truncate" style={{ color: '#3b2314' }}>{player.name}</span>
-                        {isMe && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold font-typewriter flex-shrink-0"
-                                style={{ background: `${color}25`, color, border: `1px solid ${color}55` }}>
-                            შენ
-                          </span>
-                        )}
-                        {seat === 0 && isCreator && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold font-typewriter flex-shrink-0"
-                                style={{ background: 'rgba(142,43,35,0.1)', color: '#8e2b23', border: '1px solid rgba(122,83,44,0.45)' }}>
-                            თამადა
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-sm flex items-center font-typewriter" style={{ color: 'rgba(59,35,20,0.45)' }}>
-                        ველოდებით<Dots />
-                      </span>
-                    )}
-                  </div>
-
-                  {player && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-typewriter inline-flex items-center gap-1 flex-shrink-0"
-                          style={{ background: 'rgba(76,122,47,0.14)', color: '#4c7a2f', border: '1px solid rgba(76,122,47,0.4)' }}>
-                      <Check size={10} strokeWidth={3} /> მზადაა
-                    </span>
+          {[0, 1, 2].map((seat) => {
+            const p = players.find((p) => p.seat === seat);
+            return (
+              <div
+                className={`k-wait-seat seat-${seat} ${p ? "filled" : ""}`}
+                key={seat}
+              >
+                <div>
+                  {p ? (
+                    <AvatarImg avatar={p.avatar} size={74} />
+                  ) : (
+                    <Plus size={26} />
                   )}
                 </div>
-              )
-            })}
+                <strong>{p?.name || "ღია ადგილი"}</strong>
+                <small>
+                  {p
+                    ? p.connected === false
+                      ? "კავშირი წყდება…"
+                      : seat === mySeat
+                        ? "შენი ადგილი"
+                        : "მზადაა"
+                    : "მოიწვიე მეგობარი"}
+                </small>
+              </div>
+            );
+          })}
+          <div className="k-seat-progress">
+            {[0, 1, 2].map((i) => (
+              <i key={i} className={players.length > i ? "filled" : ""} />
+            ))}
+            <span>{players.length} / 3 მოთამაშე</span>
           </div>
-        </div>
-
-        {isCreator ? (
-          <button
-            onClick={startGame}
-            disabled={!canStart}
-            className="casino-btn-primary w-full py-3 text-sm tracking-widest mb-3 inline-flex items-center justify-center gap-2 uppercase active:scale-95"
-          >
-            {players.length < 3
-              ? <span>ველოდებით მოთამაშეებს ({players.length}/3)…</span>
-              : <><Play size={14} fill="currentColor" /><span>თამაშის დაწყება</span></>}
-          </button>
-        ) : (
-          <div className="text-center text-sm py-3 mb-3 font-typewriter" style={{ color: 'rgba(59,35,20,0.6)' }}>
-            ველოდებით თამადას, რომ დაიწყოს თამაში<Dots />
-          </div>
-        )}
-      </div>
+        </section>
+      </main>
+      <footer className="k-wait-footer">
+        A GOOD GAME STARTS WITH GOOD COMPANY.<span>კინგი / ახალი თაობა</span>
+      </footer>
     </div>
-  )
+  );
 }

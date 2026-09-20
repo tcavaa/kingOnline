@@ -71,38 +71,38 @@ export default function SpinReelOverlay() {
         ხელი {round}
       </p>
       <h2 className="text-base lg:text-xl font-western uppercase tracking-wider text-cream mb-3"
-          style={{ textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
+          style={{ textShadow: 'none' }}>
         🎰 ბედის ბორბალი
       </h2>
 
       {/* The reel window */}
       <div className={`mx-auto mb-3 w-40 h-40 rounded-2xl flex flex-col items-center justify-center gap-2 ${landed ? 'spin-reel-landed' : ''}`}
            style={{
-             background: `linear-gradient(180deg, ${gt?.color || '#7a532c'}22, ${gt?.color || '#7a532c'}0d)`,
-             border: `2px solid ${gt?.color || '#7a532c'}${landed ? 'dd' : '66'}`,
+             background: `linear-gradient(180deg, ${gt?.color || '#a5bcae'}22, ${gt?.color || '#a5bcae'}0d)`,
+             border: `2px solid ${gt?.color || '#a5bcae'}${landed ? 'dd' : '66'}`,
              boxShadow: landed ? `0 0 34px ${gt?.color}55, inset 0 1px 0 rgba(255,255,255,0.2)` : 'inset 0 1px 0 rgba(255,255,255,0.12)',
              transition: 'box-shadow 220ms ease, border-color 220ms ease',
            }}>
         {Icon && <Icon size={54} style={{ color: gt.color }} />}
-        <span className="font-western uppercase tracking-wide text-lg" style={{ color: '#3b2314' }}>
+        <span className="font-western uppercase tracking-wide text-lg" style={{ color: '#eeeae1' }}>
           {typeName(displayed)}
         </span>
       </div>
 
       {landed ? (
         <>
-          <p className="text-[11px] font-typewriter mb-2" style={{ color: 'rgba(59,35,20,0.7)' }}>
+          <p className="text-[11px] font-typewriter mb-2" style={{ color: 'rgba(225,233,225,0.7)' }}>
             {getGameType(chosenGameType)?.description}
           </p>
           {/* The raise ladder — betting starts loose and can only tighten */}
           <div className="flex gap-1 overflow-x-auto pb-1 mb-2 justify-center items-center flex-wrap">
             {tiers.map((t, i) => (
               <span key={t.id} className="inline-flex items-center gap-1">
-                {i > 0 && <span className="text-[10px]" style={{ color: 'rgba(138,90,11,0.6)' }}>→</span>}
+                {i > 0 && <span className="text-[10px]" style={{ color: 'rgba(213,185,130,0.6)' }}>→</span>}
                 <span className="text-[10px] font-typewriter px-2 py-0.5 rounded-full whitespace-nowrap"
                       style={{
-                        background: i === 0 ? 'rgba(76,122,47,0.12)' : 'rgba(184,134,11,0.12)',
-                        border: i === 0 ? '1px solid rgba(76,122,47,0.4)' : '1px solid rgba(184,134,11,0.4)',
+                        background: i === 0 ? 'rgba(122,199,165,0.12)' : 'rgba(213,185,130,0.12)',
+                        border: i === 0 ? '1px solid rgba(122,199,165,0.4)' : '1px solid rgba(213,185,130,0.4)',
                         color: i === 0 ? '#3f5a28' : '#7a4d09',
                       }}>
                   {t.label}
@@ -112,13 +112,13 @@ export default function SpinReelOverlay() {
           </div>
         </>
       ) : (
-        <p className="text-[11px] font-typewriter mb-2 animate-pulse" style={{ color: 'rgba(59,35,20,0.6)' }}>
+        <p className="text-[11px] font-typewriter mb-2 animate-pulse" style={{ color: 'rgba(225,233,225,0.6)' }}>
           ტრიალებს…
         </p>
       )}
 
       <div className="inline-flex items-center gap-2 text-[11px] font-typewriter rounded-full px-3 py-1"
-           style={{ background: 'rgba(76,122,47,0.1)', border: '1px solid rgba(76,122,47,0.35)', color: '#3f5a28' }}>
+           style={{ background: 'rgba(122,199,165,0.1)', border: '1px solid rgba(122,199,165,0.35)', color: '#3f5a28' }}>
         <Coins size={12} /> ანტე: {ante} · ბანკი: {pot.toLocaleString()}
       </div>
     </ModalShell>

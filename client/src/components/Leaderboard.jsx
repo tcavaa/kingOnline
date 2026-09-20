@@ -1,93 +1,277 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Trophy, ArrowLeft } from 'lucide-react'
-import { listGames, aggregatePlayers } from '../lib/leaderboard'
-import PodiumView           from './LeaderboardPanels/PodiumView'
-import PlayersTable         from './LeaderboardPanels/PlayersTable'
-import PastGamesList        from './LeaderboardPanels/PastGamesList'
-import HeadToHeadPanel      from './LeaderboardPanels/HeadToHeadPanel'
-import GameTypePerformance  from './LeaderboardPanels/GameTypePerformance'
-import RivalryGraph         from './LeaderboardPanels/RivalryGraph'
-import LifetimeCardStats    from './LeaderboardPanels/LifetimeCardStats'
-import AchievementsPanel    from './LeaderboardPanels/AchievementsPanel'
-import GameDetail           from './LeaderboardPanels/GameDetail'
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import {
+  ArrowUpRight,
+  Search,
+  ArrowLeft,
+  ArrowRight,
+  Trophy,
+} from "lucide-react";
+import { listGames, aggregatePlayers } from "../lib/leaderboard";
+import { api } from "../lib/api";
+import { withCurrentAvatars } from "../lib/playerAvatars";
+import ClubShell from "./ui/ClubShell";
+import AvatarImg from "./AvatarImg";
+import PlayersTable from "./LeaderboardPanels/PlayersTable";
+const Insights = lazy(() => import("./LeaderboardPanels/Insights"));
+const PastGamesList = lazy(() => import("./LeaderboardPanels/PastGamesList"));
+const GameDetail = lazy(() => import("./LeaderboardPanels/GameDetail"));
+const PAGE_SIZE = 12;
 
-/** Hall of Fame — orchestrator only; every panel lives in its own file. */
 export default function Leaderboard({ onBack }) {
-  const [games, setGames] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState(null)
-  const aggregated = useMemo(() => aggregatePlayers(games), [games])
-
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [section, setSection] = useState("rankings");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("wins");
+  const [page, setPage] = useState(0);
+  const aggregated = useMemo(() => aggregatePlayers(games), [games]);
+  const ranked = useMemo(
+    () =>
+      [...aggregated]
+        .sort((a, b) =>
+          sort === "score"
+            ? b.totalScore - a.totalScore
+            : b.wins - a.wins || b.totalScore - a.totalScore,
+        )
+        .map((p, i) => ({ ...p, rank: i + 1 }))
+        .filter((p) =>
+          p.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+        ),
+    [aggregated, sort, query],
+  );
   useEffect(() => {
-    let cancelled = false
-    // Hall of Fame needs the full game history for accurate per-player
-    // aggregates, head-to-head graphs, and lifetime card stats — not just
-    // the most recent batch. `limit=all` bypasses the 200-row default cap.
-    listGames('all')
-      .then(list => { if (!cancelled) setGames(Array.isArray(list) ? list : []) })
-      .catch(err => console.warn('[leaderboard] failed to load games:', err.message))
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    Promise.all([listGames("all"), api.listProfiles().catch(() => [])])
+      .then(([list, profiles]) => {
+        if (!cancelled)
+          setGames(
+            withCurrentAvatars(
+              Array.isArray(list) ? list : [],
+              Array.isArray(profiles) ? profiles : [],
+            ),
+          );
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+  const leader = aggregated[0];
+  const count = section === "history" ? games.length : ranked.length;
+  const pages = Math.ceil(count / PAGE_SIZE);
+  const changeSection = (id) => {
+    setSection(id);
+    setPage(0);
+    setSelected(null);
+  };
   return (
-    <div className="saloon-bg min-h-screen flex flex-col items-center px-4 py-8">
-      {/* Hero podium banner */}
-      <div className="w-full max-w-3xl mb-5 relative rounded-2xl overflow-hidden"
-           style={{ aspectRatio: '1280 / 480', border: '1px solid rgba(122,83,44,0.25)' }}>
-        <img src="/trophy-podium.webp" alt=""
-             className="absolute inset-0 w-full h-full object-cover object-[center_42%]" />
-        <div className="absolute inset-0"
-             style={{ background: 'linear-gradient(180deg, rgba(246,234,208,0) 35%, rgba(246,234,208,0.9) 100%)' }} />
-        <div className="absolute inset-0 flex items-end justify-between px-5 pb-4">
-          <button onClick={onBack}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-md"
-                  style={{ background: 'rgba(248,239,221,0.8)', border: '1px solid rgba(122,83,44,0.4)', color: '#3b2314' }}>
-            <ArrowLeft size={14} /> უკან
-          </button>
-          <h1 className="text-3xl sm:text-4xl font-western inline-flex items-center gap-3"
-              style={{ color: '#8e2b23', textShadow: '0 4px 24px rgba(58,36,24,0.25), 0 2px 0 rgba(255,255,255,0.55)' }}>
-            <Trophy size={32} className="parade-pulse"
-                    style={{ color: '#6f4e1e', fill: 'rgba(111,78,30,0.25)', filter: 'drop-shadow(0 1px 2px rgba(58,36,24,0.35))' }} />
-            დიდების დარბაზი
+    <ClubShell
+      page="rankings"
+      title="ლიდერბორდი"
+      onHome={onBack}
+      onLeaderboard={() => changeSection("rankings")}
+    >
+      <header className="k-ranking-heading">
+        <div>
+          <span className="k-eyebrow">THE PEOPLE WHO SET THE PACE</span>
+          <h1>
+            შედეგი
+            <br />
+            <em>ყველაფერს ამბობს.</em>
           </h1>
-          <span aria-hidden className="w-[88px]" />
+        </div>
+        <span className="k-ranking-symbol">↗</span>
+      </header>
+      <div className="k-ranking-stats">
+        <div>
+          <span>მოთამაშე</span>
+          <strong>
+            {loading || error
+              ? "—"
+              : aggregated.length.toString().padStart(2, "0")}
+          </strong>
+        </div>
+        <div>
+          <span>დასრულებული თამაში</span>
+          <strong>
+            {loading || error ? "—" : games.length.toString().padStart(2, "0")}
+          </strong>
+        </div>
+        <div>
+          <span>THE STANDARD</span>
+          <strong>
+            PLAY.
+            <br />
+            EVOLVE.
+          </strong>
         </div>
       </div>
-
-      {selected ? (
-        <GameDetail game={selected} onBack={() => setSelected(null)} />
-      ) : (
-        <div className="w-full max-w-3xl">
-          {/* All-time aggregate top 3 */}
-          {aggregated.length > 0 && (
-            <PodiumView
-              game={{ playedAt: new Date().toISOString() }}
-              sortedPlayers={aggregated.slice(0, 3).map(a => ({
-                name: a.name, avatar: a.avatar, score: a.totalScore,
-              }))}
-            />
-          )}
-
-          <PlayersTable aggregated={aggregated} />
-
-          {games.length > 0 && (
-            <AchievementsPanel games={games} players={aggregated} />
-          )}
-
-          {/* Per-player insight panels (only render once we have ≥1 game) */}
-          {aggregated.length > 1 && games.length > 0 && (
-            <>
-              <HeadToHeadPanel    games={games} players={aggregated} />
-              <GameTypePerformance games={games} players={aggregated} />
-              <RivalryGraph        games={games} />
-              <LifetimeCardStats   players={aggregated} />
-            </>
-          )}
-
-          <PastGamesList loading={loading} games={games} onSelect={setSelected} />
+      <nav className="k-page-tabs" aria-label="რეიტინგის სექციები">
+        {[
+          ["rankings", "რეიტინგი"],
+          ["insights", "ანალიტიკა"],
+          ["history", "თამაშების ისტორია"],
+        ].map(([id, label], i) => (
+          <button
+            key={id}
+            aria-pressed={section === id}
+            onClick={() => changeSection(id)}
+          >
+            <small>0{i + 1}</small>
+            {label}
+            <ArrowUpRight size={16} />
+          </button>
+        ))}
+      </nav>
+      {loading ? (
+        <div className="k-empty" role="status">
+          შედეგები იტვირთება…
         </div>
+      ) : error ? (
+        <div className="k-ranking-empty">
+          <span>OFFLINE / FOR NOW</span>
+          <h2>შედეგებს მალე დავუბრუნდებით.</h2>
+          <p>მონაცემების ჩატვირთვა ვერ მოხერხდა.</p>
+          <button className="k-button" onClick={() => setAttempt((n) => n + 1)}>
+            სცადე ხელახლა <ArrowRight size={18} />
+          </button>
+        </div>
+      ) : games.length === 0 ? (
+        <div className="k-ranking-empty">
+          <Trophy size={48} strokeWidth={1} />
+          <h2>შენი ისტორია ჯერ წინ არის.</h2>
+          <p>პირველი დასრულებული თამაში აქ გამოჩნდება.</p>
+          <button className="k-button" onClick={onBack}>
+            იპოვე შენი თამაში <ArrowUpRight size={18} />
+          </button>
+        </div>
+      ) : (
+        <Suspense
+          fallback={
+            <p className="k-empty" role="status">
+              იტვირთება…
+            </p>
+          }
+        >
+          {selected ? (
+            <div className="k-detail">
+              <GameDetail game={selected} onBack={() => setSelected(null)} />
+            </div>
+          ) : section === "rankings" ? (
+            <div className="k-ranking-layout">
+              <aside className="k-leader-feature">
+                <span className="k-eyebrow">THE ONE TO BEAT</span>
+                <span className="k-leader-number">01</span>
+                <AvatarImg avatar={leader.avatar} size={88} />
+                <h2>{leader.name}</h2>
+                <div>
+                  <strong>{leader.wins}</strong>
+                  <span>გამარჯვება</span>
+                  <strong>
+                    {leader.gamesPlayed
+                      ? Math.round((leader.wins / leader.gamesPlayed) * 100)
+                      : 0}
+                    %
+                  </strong>
+                  <span>მოგების მაჩვენებელი</span>
+                </div>
+                <span className="k-leader-foot">
+                  CONSISTENCY IS EVERYTHING.
+                </span>
+              </aside>
+              <section className="k-rank-list">
+                <div className="k-rank-tools">
+                  <label>
+                    <Search size={16} />
+                    <input
+                      aria-label="მოთამაშის ძებნა"
+                      placeholder="იპოვე მოთამაშე"
+                      value={query}
+                      onChange={(e) => {
+                        setQuery(e.target.value);
+                        setPage(0);
+                      }}
+                    />
+                  </label>
+                  <select
+                    aria-label="დალაგება"
+                    value={sort}
+                    onChange={(e) => {
+                      setSort(e.target.value);
+                      setPage(0);
+                    }}
+                  >
+                    <option value="wins">მოგებებით</option>
+                    <option value="score">ქულებით</option>
+                  </select>
+                </div>
+                <PlayersTable
+                  aggregated={ranked.slice(
+                    page * PAGE_SIZE,
+                    (page + 1) * PAGE_SIZE,
+                  )}
+                />
+                {!ranked.length && (
+                  <p className="k-empty">მოთამაშე ვერ მოიძებნა.</p>
+                )}
+              </section>
+            </div>
+          ) : section === "insights" ? (
+            aggregated.length > 1 ? (
+              <Insights games={games} players={aggregated} />
+            ) : (
+              <p className="k-empty">
+                ანალიტიკისთვის საჭიროა ორი მოთამაშის შედეგები.
+              </p>
+            )
+          ) : (
+            <div className="k-history">
+              <PastGamesList
+                games={games.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)}
+                loading={false}
+                onSelect={setSelected}
+              />
+            </div>
+          )}
+        </Suspense>
       )}
-    </div>
-  )
+      {!selected &&
+        !loading &&
+        !error &&
+        section !== "insights" &&
+        pages > 1 && (
+          <div className="k-pagination">
+            <span>
+              {page + 1} / {pages}
+            </span>
+            <button
+              className="k-icon-button"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+              aria-label="წინა გვერდი"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <button
+              className="k-icon-button"
+              disabled={page + 1 >= pages}
+              onClick={() => setPage((p) => p + 1)}
+              aria-label="შემდეგი გვერდი"
+            >
+              <ArrowRight size={17} />
+            </button>
+          </div>
+        )}
+    </ClubShell>
+  );
 }

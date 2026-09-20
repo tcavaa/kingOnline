@@ -1273,7 +1273,7 @@ export function GameProvider({ children }) {
         socketRef.current?.emit('request-state')
       }
       if (code === 'CHAMPIONSHIP_LIMIT') {
-        addToast('დღის ლიმიტი ამოიწურა — 8 ლიგის თამაში დღეში. ითამაშე უბრალო ოთახში 🎲', 'error')
+        addToast('დღის ლიმიტი ამოიწურა — 8 ლიგის თამაში დღეში. აირჩიე კლასიკური თამაში.', 'error')
         return
       }
       addToast(message, 'error')

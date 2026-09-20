@@ -1,43 +1,33 @@
-import { memo } from 'react'
-import { ClipboardList } from 'lucide-react'
-import { useGame } from '../../context/GameContext'
-import { Pill } from './Pill'
-import { scoreColorClass } from '../../utils/scoreColor'
-
-/** Bottom-left: Score Board pill + 3-player mini score panel. */
+import { memo } from "react";
+import { ArrowUpRight } from "lucide-react";
+import { useGame } from "../../context/GameContext";
 function ScoreBoardPanel({ onOpen }) {
-  const { players, cumulativeScores } = useGame()
-  const sorted = [...players].sort((a, b) => a.seat - b.seat)
-
+  const { players, cumulativeScores, mySeat } = useGame();
   return (
-    <div className="absolute bottom-3 lg:bottom-4 left-3 lg:left-4 z-20 flex flex-col gap-1.5 lg:gap-2 pointer-events-auto max-w-[calc(100vw-1.5rem)]">
-      <Pill onClick={onOpen} className="self-start px-2.5 lg:px-3" title="ქულების დავთარი">
-        <ClipboardList size={14} />
-        <span className="text-xs lg:text-sm">ქულების დავთარი</span>
-      </Pill>
-      <div className="rounded-xl px-2 py-1.5 lg:px-3 lg:py-2 bg-leather border-brass" style={{ backdropFilter: 'blur(12px)' }}>
-        <div className="flex items-center gap-2 lg:gap-3">
-          {sorted.map(p => {
-            const score = cumulativeScores[p.seat] ?? 0
-            const colour = scoreColorClass(score, 'score-nil-soft')
-            return (
-              <div key={p.seat} className="flex flex-col items-center min-w-0">
-                {/* Cap the name width so a single overlong handle can't blow
-                    the panel out past the right edge of the screen.
-                    `truncate` adds the ellipsis when it overflows. */}
-                <span className="text-[9px] lg:text-[10px] uppercase tracking-wider text-amber-dim truncate max-w-[4rem] lg:max-w-[5.5rem]">{p.name}</span>
-                <span className={`text-sm lg:text-base font-black font-mono ${colour}`}>
-                  {score > 0 ? '+' : ''}{score}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
+    <button
+      className="k-live-scores"
+      onClick={onOpen}
+      aria-label="ქულების დეტალები"
+    >
+      <span className="k-live-scores-title">
+        LIVE STANDINGS <ArrowUpRight size={13} />
+      </span>
+      {[...players]
+        .sort(
+          (a, b) =>
+            (cumulativeScores[b.seat] || 0) - (cumulativeScores[a.seat] || 0),
+        )
+        .map((p, i) => (
+          <span
+            className={`k-live-score ${p.seat === mySeat ? "own" : ""}`}
+            key={p.seat}
+          >
+            <small>{i + 1}</small>
+            <span>{p.name}</span>
+            <b>{cumulativeScores[p.seat] || 0}</b>
+          </span>
+        ))}
+    </button>
+  );
 }
-
-// Leaf HUD chrome: props are stable callbacks, so memo() shields it from
-// GameLayout's unrelated re-renders (chat traffic, drawer toggles).
-export default memo(ScoreBoardPanel)
+export default memo(ScoreBoardPanel);

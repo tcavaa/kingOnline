@@ -1,48 +1,54 @@
-import { useMemo } from 'react'
-import AvatarImg from './AvatarImg'
-import AchievementBadges from '../AchievementBadges'
-import { computeAllLifetimeAchievements } from '../../utils/achievements'
-
-/**
- * Lifetime achievements per player, computed on the fly from every stored
- * game's roundDetails + results. Players with no achievements are omitted.
- */
+import { useMemo, useState } from "react";
+import AchievementBadges from "../AchievementBadges";
+import {
+  computeAllLifetimeAchievements,
+  ACHIEVEMENT_DEFS,
+} from "../../utils/achievements";
 export default function AchievementsPanel({ games = [], players = [] }) {
-  const lifetime = useMemo(() => computeAllLifetimeAchievements(games), [games])
-
-  // Order by the aggregated table (wins, then total score) for a stable layout;
-  // fall back to alphabetical for any name not in the aggregate.
-  const order = useMemo(() => {
-    const idx = new Map()
-    players.forEach((p, i) => idx.set(p.name, i))
-    return Object.keys(lifetime).sort((a, b) => {
-      const ia = idx.has(a) ? idx.get(a) : Infinity
-      const ib = idx.has(b) ? idx.get(b) : Infinity
-      if (ia !== ib) return ia - ib
-      return a.localeCompare(b)
-    })
-  }, [lifetime, players])
-
-  if (!order.length) return null
-
-  const avatarOf = name => players.find(p => p.name === name)?.avatar || null
-
+  const lifetime = useMemo(
+    () => computeAllLifetimeAchievements(games),
+    [games],
+  );
+  const [selected, setSelected] = useState("");
+  const names = Array.from(
+    new Set([...players.map((p) => p.name), ...Object.keys(lifetime)]),
+  );
+  const name = names.includes(selected) ? selected : names[0];
+  const achievements = lifetime[name] || {};
+  const count = Object.values(achievements).filter((v) => v > 0).length;
   return (
-    <div className="rounded-2xl overflow-hidden mb-5 bg-leather-dark border-brass">
-      <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(122,83,44,0.32)' }}>
-        <h2 className="text-sm font-western uppercase text-cream">მიღწევები</h2>
+    <section className="k-analysis-panel k-achievement-panel">
+      <header>
+        <div>
+          <span className="k-eyebrow">05 / THE COLLECTION</span>
+          <h2>მიღწევების კოლექცია</h2>
+        </div>
+        <select
+          aria-label="მოთამაშის მიღწევები"
+          value={name || ""}
+          onChange={(e) => setSelected(e.target.value)}
+        >
+          {names.map((n) => (
+            <option key={n}>{n}</option>
+          ))}
+        </select>
+      </header>
+      <div className="k-collection-heading">
+        <strong>
+          {String(count).padStart(2, "0")}
+          <small> / {Object.keys(ACHIEVEMENT_DEFS).length}</small>
+        </strong>
+        <p>
+          შენი თამაშის ხელწერა.
+          <br />
+          თითოეული მიღწევა — ახალი ეტაპი.
+        </p>
       </div>
-      <div className="p-4 flex flex-col gap-4">
-        {order.map(name => (
-          <div key={name}>
-            <div className="flex items-center gap-2 mb-2">
-              <AvatarImg avatar={avatarOf(name)} size={24} />
-              <span className="font-bold text-ink text-sm">{name}</span>
-            </div>
-            <AchievementBadges achievements={lifetime[name]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+      {count ? (
+        <AchievementBadges achievements={achievements} />
+      ) : (
+        <p className="k-data-empty">პირველი მიღწევა წინ გელოდება.</p>
+      )}
+    </section>
+  );
 }
