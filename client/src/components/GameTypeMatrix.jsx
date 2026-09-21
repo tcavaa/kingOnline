@@ -1,4 +1,4 @@
-import { Check, Minus } from "lucide-react";
+import { Check } from "lucide-react";
 import { useGame } from "../context/GameContext";
 import { GAME_TYPES } from "../constants/gameTypes";
 export default function GameTypeMatrix() {
@@ -7,7 +7,7 @@ export default function GameTypeMatrix() {
   return (
     <section className="k-matrix-content">
       <p className="k-data-caption">
-        ცხრა არჩევანი თითო მოთამაშეზე. ყოველი ტიპი — ერთხელ.
+        ✓ ნათამაშებია · ცარიელი — დარჩენილია · ოქროსფერი — მიმდინარე.
       </p>
       <div className="k-table-scroll">
         <table className="k-data-table k-type-matrix">
@@ -26,6 +26,7 @@ export default function GameTypeMatrix() {
             {GAME_TYPES.map((t) => (
               <tr
                 key={t.code}
+                style={{ "--contract-color": t.color }}
                 className={chosenGameType === t.code ? "is-current" : ""}
               >
                 <th>
@@ -35,6 +36,11 @@ export default function GameTypeMatrix() {
                 {sorted.map((p) => (
                   <td
                     key={p.seat}
+                    className={
+                      (usedTypes?.[p.seat] || []).includes(t.code)
+                        ? "is-played"
+                        : "is-available"
+                    }
                     aria-label={
                       (usedTypes?.[p.seat] || []).includes(t.code)
                         ? "ნათამაშებია"
@@ -42,10 +48,8 @@ export default function GameTypeMatrix() {
                     }
                   >
                     {(usedTypes?.[p.seat] || []).includes(t.code) ? (
-                      <Check size={17} />
-                    ) : (
-                      <Minus size={13} />
-                    )}
+                      <Check size={17} strokeWidth={3.5} />
+                    ) : null}
                   </td>
                 ))}
               </tr>

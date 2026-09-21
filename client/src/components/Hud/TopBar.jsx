@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, memo } from "react";
 import {
   Menu,
+  Layers,
   Copy,
   Check,
   MessageCircle,
@@ -19,8 +20,14 @@ const PHASES = {
   auction: "აუქციონი",
   pledge: "ფსონები",
 };
-const SUITS = { H: "♥", D: "♦", S: "♠", C: "♣" };
-function TopBar({ onToggleMenu, onToggleScores, onToggleChat, waiting }) {
+const SUITS = { H: "♥ გული", D: "♦ აგური", S: "♠ ყვავი", C: "♣ ჯვარი" };
+function TopBar({
+  onToggleMenu,
+  onToggleScores,
+  onToggleChat,
+  onToggleRounds,
+  waiting,
+}) {
   const {
     round,
     chosenGameType,
@@ -74,16 +81,37 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat, waiting }) {
           </div>
         )}
         <div className="k-game-round">
-          <span>ROUND</span>
+          <span>რაუნდი</span>
           <strong>{String(round).padStart(2, "0")}</strong>
           <small>{gameKind === "spinking" ? "SPIN" : "/ 27"}</small>
           <i />
           <b>
             {type?.name || PHASES[gamePhase] || "კინგი"}
-            {trumpSuit && <em> {SUITS[trumpSuit]}</em>}
+            {trumpSuit && (
+              <em className={`k-trump-label suit-${trumpSuit}`}>
+                კოზირი: {SUITS[trumpSuit]}
+              </em>
+            )}
+            {!trumpSuit &&
+              chosenGameType?.startsWith("P") &&
+              ["playing", "discard", "round_end"].includes(gamePhase) && (
+                <em className="k-trump-label">უკოზირო</em>
+              )}
           </b>
         </div>
       </div>
+      {gameKind !== "spinking" && (
+        <div className="k-round-progress" aria-label={`რაუნდი ${round} / 27`}>
+          {Array.from({ length: 27 }, (_, i) => (
+            <span
+              key={i}
+              className={
+                i + 1 < round ? "is-done" : i + 1 === round ? "is-active" : ""
+              }
+            />
+          ))}
+        </div>
+      )}
       <div className="k-game-tools">
         <span
           className="k-game-connection"
@@ -92,6 +120,18 @@ function TopBar({ onToggleMenu, onToggleScores, onToggleChat, waiting }) {
           <i className={connected ? "on" : ""} />
         </span>
         <GameTimer />
+        {gameKind !== "spinking" && (
+          <button
+            className="k-rounds-trigger"
+            onClick={onToggleRounds}
+            aria-label="დარჩენილი და ნათამაშები ხელები"
+          >
+            <Layers size={16} />
+            <span>
+              ხელები <b>{Math.max(0, 27 - round)}</b>
+            </span>
+          </button>
+        )}
         <button
           className="k-game-icon"
           aria-label="ქულები"

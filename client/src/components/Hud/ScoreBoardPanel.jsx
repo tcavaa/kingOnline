@@ -24,7 +24,18 @@ function ScoreBoardPanel({ onOpen }) {
           >
             <small>{i + 1}</small>
             <span>{p.name}</span>
-            <b>{cumulativeScores[p.seat] || 0}</b>
+            <b
+              data-score-sign={
+                (cumulativeScores[p.seat] || 0) > 0
+                  ? "positive"
+                  : (cumulativeScores[p.seat] || 0) < 0
+                    ? "negative"
+                    : "zero"
+              }
+            >
+              {(cumulativeScores[p.seat] || 0) > 0 ? "+" : ""}
+              {cumulativeScores[p.seat] || 0}
+            </b>
           </span>
         ))}
     </button>

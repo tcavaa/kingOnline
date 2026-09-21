@@ -256,7 +256,7 @@ export class GameScene extends Phaser.Scene {
   // ── Saloon-felt background (PNG) with a procedural fallback ──────────────
   _drawBackground() {
     const g = this.add.graphics();
-    g.fillStyle(0x141917, 1);
+    g.fillStyle(0xdceae1, 1);
     g.fillRect(0, 0, W, H);
     const left = 55,
       right = W - 55,
@@ -273,11 +273,11 @@ export class GameScene extends Phaser.Scene {
       { x: left, y: bottom - cut },
       { x: left, y: top + cut },
     ];
-    g.fillStyle(0x222c22, 1);
+    g.fillStyle(0x168665, 1);
     g.fillPoints(points, true);
-    g.lineStyle(1, 0x8a9a75, 0.35);
+    g.lineStyle(5, 0xd7bb75, 1);
     g.strokePoints(points, true);
-    g.lineStyle(1, 0x8a9a75, 0.12);
+    g.lineStyle(2, 0x89b69d, 0.7);
     g.strokeRoundedRect(35, top - 20, W - 70, bottom - top + 40, 12);
     g.lineStyle(1, 0x889875, 0.1);
     g.lineBetween(W * 0.5, top + 22, W * 0.5, top + 45);
@@ -290,7 +290,7 @@ export class GameScene extends Phaser.Scene {
     this.add
       .text(TABLE_CX, TABLE_CY - 22, "kıng", {
         fontSize: "40px",
-        color: "#667658",
+        color: "#b5e6ce",
         fontFamily: "Arial, sans-serif",
         fontStyle: "bold",
       })
@@ -690,9 +690,9 @@ export class GameScene extends Phaser.Scene {
       const container = this.add.container(pos.x, pos.y);
 
       // Crisp player plate. A solid edge marks the turn without a perpetual glow tween.
-      const ringCol = isActive ? 0xd7fa52 : 0x78876b;
+      const ringCol = isActive ? 0xf3ba45 : 0x71baa3;
       const plate = this.add.graphics();
-      plate.fillStyle(0x222a20, 1);
+      plate.fillStyle(0xfffcf3, 1);
       plate.fillRoundedRect(
         -radius - 3,
         -radius - 3,
@@ -709,7 +709,7 @@ export class GameScene extends Phaser.Scene {
         5,
       );
       if (isActive) {
-        plate.fillStyle(0xd7fa52);
+        plate.fillStyle(0xf3ba45);
         plate.fillRect(-14, -radius - 5, 28, 3);
       }
       container.add(plate);
@@ -779,7 +779,7 @@ export class GameScene extends Phaser.Scene {
       const nameTxt = this.add
         .text(0, nameOffY, nameLabel, {
           fontSize: "14px",
-          color: "#ffffff",
+          color: isOwn ? "#163d31" : "#ffffff",
           fontFamily: "Noto Sans Georgian, Inter, system-ui, Arial, sans-serif",
           fontStyle: "bold",
         })
@@ -800,15 +800,15 @@ export class GameScene extends Phaser.Scene {
         : score > 0
           ? `+${score}`
           : `${score}`;
-      const scoreCol = isSpin
+      const scoreCol = !isOwn ? (score < 0 ? "#ffe0d3" : "#fff3ba") : isSpin
         ? isZombie
           ? "#9ca3af"
           : "#d7fa52"
         : score > 0
-          ? "#d7fa52"
+          ? "#066b48"
           : score < 0
-            ? "#f87171"
-            : "#cccccc";
+            ? "#ae3447"
+            : "#4f6c5d";
       if (isSpin && isOwn) {
         // The own row sits at the canvas' bottom edge — the below-name slot
         // is OFF-SCREEN. Park the pile + amount to the LEFT of the avatar.

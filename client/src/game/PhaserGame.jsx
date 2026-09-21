@@ -25,7 +25,7 @@ function PhaserGame({ gameState, onCardPlay }) {
       height: SCENE_H,
       // Parchment, matching the table art — shows only for the frame or two
       // before the felt image paints, so it must not flash dark.
-      backgroundColor: "#141917",
+      backgroundColor: "#dceae1",
       scene: [PreloadScene, GameScene],
       scale: {
         mode: Phaser.Scale.FIT,
@@ -125,7 +125,7 @@ function PhaserGame({ gameState, onCardPlay }) {
     // Keep the canvas letterbox the same tone as the play surface.
     <div
       className="k-game-stage absolute inset-0 overflow-hidden"
-      style={{ background: "#141917" }}
+      style={{ background: "#dceae1" }}
     >
       <div ref={containerRef} className="absolute inset-0" />
     </div>

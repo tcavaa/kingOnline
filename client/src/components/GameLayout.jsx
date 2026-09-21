@@ -1,3 +1,4 @@
+import "../styles/game-light.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Swords, Eye } from "lucide-react";
 import { useGame, useChat } from "../context/GameContext";
@@ -30,6 +31,10 @@ import { quoteForRound } from "../constants/quotes";
  * file under `Hud/`; this component is intentionally thin glue.
  */
 export default function GameLayout() {
+  useEffect(() => {
+    document.body.classList.add("king-light-game");
+    return () => document.body.classList.remove("king-light-game");
+  }, []);
   const {
     hand,
     cardCounts,
@@ -286,6 +291,7 @@ export default function GameLayout() {
               ? { name: turnName, label: "სვლას" }
               : null
         }
+        onToggleRounds={() => openDrawer("matrix")}
         onToggleMenu={toggleMenu}
         onToggleScores={openScores}
         onToggleChat={toggleChat}

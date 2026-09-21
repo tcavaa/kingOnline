@@ -3,6 +3,15 @@ import { AudioLines, Play } from "lucide-react";
 import { useGame, useChat } from "../../context/GameContext";
 import { getSounds, subscribeSounds } from "../../lib/soundRegistry";
 import Sheet from "../ui/Sheet";
+// Golden-angle spacing gives every catalogue entry its own accent hue.
+function soundStyle(index) {
+  const hue = Math.round((index * 137.508 + 155) % 360);
+  return {
+    "--sound-color": `hsl(${hue} 78% 35%)`,
+    "--sound-bg": `hsl(${hue} 85% 91%)`,
+    "--sound-border": `hsl(${hue} 68% 68%)`,
+  };
+}
 export default function SoundBoard() {
   const { mySeat } = useGame();
   const { playSound, canSpeak } = useChat();
@@ -24,13 +33,14 @@ export default function SoundBoard() {
       <section className="k-desktop-sounds" aria-label="თამაშის ხმები">
         <header>
           <AudioLines size={16} />
-          <span>TABLE / SOUNDS</span>
+          <span>მაგიდის ხმები</span>
           <small>{sounds.length}</small>
         </header>
         <div className="k-direct-sounds">
-          {sounds.map((s) => (
+          {sounds.map((s, i) => (
             <button
               key={s.id}
+              style={soundStyle(i)}
               title={s.label}
               aria-label={`ხმის დაკვრა: ${s.label}`}
               className={flash === s.id ? "is-playing" : ""}
@@ -61,6 +71,7 @@ export default function SoundBoard() {
             {sounds.map((s, i) => (
               <button
                 key={s.id}
+                style={soundStyle(i)}
                 onClick={() => fire(s.id)}
                 className={flash === s.id ? "is-playing" : ""}
               >

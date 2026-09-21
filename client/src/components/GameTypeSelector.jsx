@@ -7,7 +7,8 @@ import ModalShell from "./ModalShell";
 import PlayingCard from "./ui/PlayingCard";
 
 export default function GameTypeSelector() {
-  const { selectGameType, usedTypes, leaderSeat, players, hand } = useGame();
+  const { selectGameType, usedTypes, leaderSeat, players, hand, round } =
+    useGame();
   const [selected, setSelected] = useState(null);
 
   const usedByLeader = usedTypes?.[leaderSeat] ?? [];
@@ -26,7 +27,9 @@ export default function GameTypeSelector() {
     >
       <div className="k-contract-heading">
         <div>
-          <span className="k-eyebrow">YOUR HAND. YOUR CALL.</span>
+          <span className="k-eyebrow">
+            რაუნდი {round} / 27 · დარჩა {available.length} არჩევანი
+          </span>
           <h2>აირჩიე სტრატეგია.</h2>
         </div>
         <span>
@@ -47,7 +50,7 @@ export default function GameTypeSelector() {
             <div className="k-used-types">
               <small>უკვე ნათამაშები</small>
               {used.map((t) => (
-                <span key={t.code}>{t.name}</span>
+                <span key={t.code}>✓ {t.name}</span>
               ))}
             </div>
           )}
@@ -56,6 +59,8 @@ export default function GameTypeSelector() {
           {available.map((type) => (
             <button
               key={type.code}
+              style={{ "--contract-color": type.color }}
+              className={type.pointPerUnit > 0 ? "is-positive" : "is-negative"}
               aria-pressed={selected === type.code}
               onClick={() => setSelected(type.code)}
             >
