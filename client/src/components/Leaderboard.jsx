@@ -15,6 +15,7 @@ import PlayersTable from "./LeaderboardPanels/PlayersTable";
 const Insights = lazy(() => import("./LeaderboardPanels/Insights"));
 const PastGamesList = lazy(() => import("./LeaderboardPanels/PastGamesList"));
 const GameDetail = lazy(() => import("./LeaderboardPanels/GameDetail"));
+const PlayerProfile = lazy(() => import("./LeaderboardPanels/PlayerProfile"));
 const PAGE_SIZE = 12;
 
 export default function Leaderboard({ onBack }) {
@@ -23,6 +24,7 @@ export default function Leaderboard({ onBack }) {
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [selected, setSelected] = useState(null);
+  const [profileName, setProfileName] = useState(null);
   const [section, setSection] = useState("rankings");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("wins");
@@ -70,6 +72,7 @@ export default function Leaderboard({ onBack }) {
   const count = section === "history" ? games.length : ranked.length;
   const pages = Math.ceil(count / PAGE_SIZE);
   const changeSection = (id) => {
+    setProfileName(null);
     setSection(id);
     setPage(0);
     setSelected(null);
@@ -167,13 +170,29 @@ export default function Leaderboard({ onBack }) {
             <div className="k-detail">
               <GameDetail game={selected} onBack={() => setSelected(null)} />
             </div>
+          ) : profileName ? (
+            <PlayerProfile
+              player={aggregated.find((p) => p.name === profileName)}
+              rank={aggregated.findIndex((p) => p.name === profileName) + 1}
+              games={games}
+              onBack={() => setProfileName(null)}
+              onSelectGame={setSelected}
+            />
           ) : section === "rankings" ? (
             <div className="k-ranking-layout">
               <aside className="k-leader-feature">
                 <span className="k-eyebrow">THE ONE TO BEAT</span>
                 <span className="k-leader-number">01</span>
-                <AvatarImg avatar={leader.avatar} size={88} />
-                <h2>{leader.name}</h2>
+                <button
+                  className="k-player-link k-feature-profile"
+                  onClick={() => setProfileName(leader.name)}
+                  aria-label={`${leader.name} — პროფილი`}
+                >
+                  <AvatarImg avatar={leader.avatar} size={88} />
+                  <h2>
+                    {leader.name} <ArrowUpRight size={20} />
+                  </h2>
+                </button>
                 <div>
                   <strong>{leader.wins}</strong>
                   <span>გამარჯვება</span>
@@ -216,6 +235,7 @@ export default function Leaderboard({ onBack }) {
                   </select>
                 </div>
                 <PlayersTable
+                  onPlayerSelect={setProfileName}
                   aggregated={ranked.slice(
                     page * PAGE_SIZE,
                     (page + 1) * PAGE_SIZE,
@@ -246,6 +266,7 @@ export default function Leaderboard({ onBack }) {
         </Suspense>
       )}
       {!selected &&
+        !profileName &&
         !loading &&
         !error &&
         section !== "insights" &&

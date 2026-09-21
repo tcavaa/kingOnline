@@ -4,7 +4,11 @@ import {
   computeAllLifetimeAchievements,
   ACHIEVEMENT_DEFS,
 } from "../../utils/achievements";
-export default function AchievementsPanel({ games = [], players = [] }) {
+export default function AchievementsPanel({
+  games = [],
+  players = [],
+  playerName,
+}) {
   const lifetime = useMemo(
     () => computeAllLifetimeAchievements(games),
     [games],
@@ -13,7 +17,7 @@ export default function AchievementsPanel({ games = [], players = [] }) {
   const names = Array.from(
     new Set([...players.map((p) => p.name), ...Object.keys(lifetime)]),
   );
-  const name = names.includes(selected) ? selected : names[0];
+  const name = playerName ?? (names.includes(selected) ? selected : names[0]);
   const achievements = lifetime[name] || {};
   const count = Object.values(achievements).filter((v) => v > 0).length;
   return (
@@ -23,15 +27,17 @@ export default function AchievementsPanel({ games = [], players = [] }) {
           <span className="k-eyebrow">05 / THE COLLECTION</span>
           <h2>მიღწევების კოლექცია</h2>
         </div>
-        <select
-          aria-label="მოთამაშის მიღწევები"
-          value={name || ""}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          {names.map((n) => (
-            <option key={n}>{n}</option>
-          ))}
-        </select>
+        {!playerName && (
+          <select
+            aria-label="მოთამაშის მიღწევები"
+            value={name || ""}
+            onChange={(e) => setSelected(e.target.value)}
+          >
+            {names.map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </select>
+        )}
       </header>
       <div className="k-collection-heading">
         <strong>
@@ -44,11 +50,7 @@ export default function AchievementsPanel({ games = [], players = [] }) {
           თითოეული მიღწევა — ახალი ეტაპი.
         </p>
       </div>
-      {count ? (
-        <AchievementBadges achievements={achievements} />
-      ) : (
-        <p className="k-data-empty">პირველი მიღწევა წინ გელოდება.</p>
-      )}
+      <AchievementBadges achievements={achievements} showLocked />
     </section>
   );
 }

@@ -43,10 +43,11 @@ export default function AchievementBadges({
   achievements,
   variant = "full",
   size,
+  showLocked = false,
 }) {
-  const entries = Object.entries(achievements || {}).filter(
-    ([code, n]) => n > 0 && ACHIEVEMENT_DEFS[code],
-  );
+  const entries = Object.keys(ACHIEVEMENT_DEFS)
+    .map((code) => [code, achievements?.[code] || 0])
+    .filter(([, count]) => showLocked || count > 0);
   if (!entries.length) return null;
   return (
     <div
@@ -57,7 +58,7 @@ export default function AchievementBadges({
         return (
           <div
             key={code}
-            className="k-achievement"
+            className={`k-achievement ${count > 0 ? "is-earned" : "is-locked"}`}
             title={`${def.label}: ${def.desc}${count > 1 ? ` (×${count})` : ""}`}
           >
             <div
@@ -79,6 +80,11 @@ export default function AchievementBadges({
               <div>
                 <strong>{def.label}</strong>
                 <p>{def.desc}</p>
+                {showLocked && (
+                  <span className="k-achievement-status">
+                    {count > 0 ? "მოპოვებულია" : "ჯერ მოსაპოვებელია"}
+                  </span>
+                )}
               </div>
             )}
             {count > 1 && (

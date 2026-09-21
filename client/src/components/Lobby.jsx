@@ -40,7 +40,7 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
   } = useGame();
 
   // Spin King table stake — the chip stack everyone starts the match with.
-  const [mode, setMode] = useState("public");
+  const [mode, setMode] = useState("championship");
   const [dialog, setDialog] = useState(null);
   const [profileError, setProfileError] = useState(false);
   const [spinStack, setSpinStack] = useState(1000);
@@ -209,18 +209,18 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
 
   const modes = [
     {
-      id: "public",
-      n: "01",
-      title: "კლასიკური",
-      subtitle: "THE ORIGINAL",
-      icon: Layers,
-    },
-    {
       id: "championship",
-      n: "02",
+      n: "01",
       title: "ლიგა",
       subtitle: "MAKE YOUR MARK",
       icon: Crown,
+    },
+    {
+      id: "public",
+      n: "02",
+      title: "კლასიკური",
+      subtitle: "THE ORIGINAL",
+      icon: Layers,
     },
     {
       id: "spinking",
@@ -242,7 +242,7 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
   return (
     <ClubShell
       onHome={() => {
-        setMode("public");
+        setMode("championship");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }}
       onLeaderboard={onOpenLeaderboard}
@@ -419,7 +419,13 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
             </div>
           )}
           {mode === "tournament" && (
-            <Suspense fallback={<p className="k-empty" role="status">იტვირთება…</p>}>
+            <Suspense
+              fallback={
+                <p className="k-empty" role="status">
+                  იტვირთება…
+                </p>
+              }
+            >
               <TournamentPanel active={active} onNeedProfile={openProfile} />
             </Suspense>
           )}
@@ -567,8 +573,8 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
             <span className="k-eyebrow">CREATE A TABLE</span>
             <div className="k-segment">
               {[
-                ["public", "კლასიკური"],
                 ["championship", "ლიგა"],
+                ["public", "კლასიკური"],
               ].map(([id, label]) => (
                 <button
                   key={id}
