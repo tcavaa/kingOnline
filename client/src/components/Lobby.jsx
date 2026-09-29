@@ -22,6 +22,7 @@ import { api } from "../lib/api";
 import ProfileForm, { ProfilePicker } from "./ProfileForm";
 import PinPromptModal from "./PinPromptModal";
 import PublicRoomPanel from "./PublicRoomPanel";
+import LiveTables from "./LiveTables";
 const TournamentPanel = lazy(() => import("./Tournament/TournamentPanel"));
 import ClubShell from "./ui/ClubShell";
 import Sheet from "./ui/Sheet";
@@ -34,6 +35,8 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
     connected,
     publicSeat,
     onlinePlayers,
+    announcePresence,
+    refreshLobby,
     resumableSeat,
     resumeSeat,
     dismissResumeSeat,
@@ -113,6 +116,16 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
   }, [reload]);
 
   const active = activeId ? profiles.find((p) => p.id === activeId) : null;
+
+  // Fetch who's online and which tables are live, and tell the server who is
+  // here once a profile is chosen. Nobody on the homepage is in a room, so
+  // without this they're invisible to the online count. Re-runs on reconnect:
+  // the server forgets presence when a socket drops.
+  useEffect(() => {
+    if (!connected) return undefined;
+    refreshLobby();
+    if (active?.name) announcePresence(active.name, active.avatar);
+  }, [connected, active?.name, active?.avatar, announcePresence, refreshLobby]);
 
   // Championship quota for the active profile. Refetched on profile switch;
   // a failed fetch just hides the counter (server still enforces the limit).
@@ -431,6 +444,7 @@ export default function Lobby({ onOpenLeaderboard, onOpenDurak }) {
           )}
         </div>
       </section>
+      <LiveTables active={active} onNeedProfile={openProfile} />
       <div className="k-discover">
         <button className="k-discover-tile" onClick={onOpenLeaderboard}>
           <span className="k-eyebrow">02 / THE LEADERBOARD</span>

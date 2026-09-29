@@ -255,9 +255,9 @@ export function GameProvider({ children }) {
   // hide controls the server would refuse anyway.
   const canSpeak = !spectating || !!spectating.tournamentId
 
-  // Announce presence from here rather than only from the lobby rail. The
-  // rail lives on the homepage, so a player who reloaded straight into a game
-  // never mounted it and never announced — they were absent from presence
+  // Announce presence from here rather than only from the lobby. The lobby
+  // is the homepage, so a player who reloaded straight into a game never
+  // mounted it and never announced — they were absent from presence
   // entirely until their game ended. `myName` is set the moment we know who
   // we are, on any screen.
   useEffect(() => {
